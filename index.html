@@ -1016,9 +1016,70 @@
 
   /* ━━ RESPONSIVE ━━ */
   @media (max-width: 768px) {
+    /* Layout */
+    .main { padding: 16px 14px 40px; }
     .grid-2, .grid-3 { grid-template-columns: 1fr; }
-    .prod-card { grid-template-columns: 80px 1fr; }
-    .main { padding: 20px 16px 40px; }
+
+    /* Header */
+    .header { padding: 0 14px; }
+    .header-logo img { height: 28px; }
+    .header-logo-sub { display: none; }
+    .header-right { gap: 5px; }
+    .badge { font-size: 8px; padding: 2px 7px; letter-spacing: 1px; }
+
+    /* Sidebar más angosto */
+    .sidebar { width: 280px; }
+
+    /* Búsqueda: inputs apilados */
+    .search-bar { flex-direction: column; gap: 8px; }
+    .search-bar input, .search-bar select { min-width: unset; width: 100%; }
+    .search-bar .btn { width: 100%; }
+
+    /* Tabla: ocultar columnas menos importantes */
+    .table-wrap { font-size: 12px; }
+    th, td { padding: 10px 10px; }
+
+    /* Panel producto: columna única */
+    .pv-wrap { grid-template-columns: 1fr; }
+    .pv-hero { max-height: 200px; }
+    .pv-panel-nombre { font-size: 16px; }
+    .pv-price { font-size: 28px; }
+
+    /* Carrito: apilar en móvil */
+    .cart-item { grid-template-columns: 64px 1fr; grid-template-rows: auto auto; }
+    .cart-item-thumb { width: 64px; grid-row: 1 / 3; }
+    .cart-item-qty { border-left: none; border-top: 1px solid rgba(238,240,240,0.07); padding: 10px 14px; grid-column: 2; }
+    .cart-item-total { border-left: none; border-top: 1px solid rgba(238,240,240,0.07); padding: 10px 14px; grid-column: 2; flex-direction: row; justify-content: space-between; align-items: center; min-width: unset; }
+    .cart-item-info { padding: 14px 14px 8px; }
+
+    /* Nueva orden: formulario */
+    .grid-2 > div:first-child { order: 1; }
+    .grid-2 > div:last-child  { order: 2; }
+
+    /* Botones del carrito */
+    .pv-cta { padding: 14px; font-size: 13px; }
+
+    /* KPIs sync */
+    .grid-3 { grid-template-columns: 1fr 1fr; }
+
+    /* Debug: apilar */
+    .grid-2 .form-group { margin-bottom: 12px; }
+
+    /* Página título más pequeño */
+    .page-title { font-size: 18px; letter-spacing: 2px; }
+
+    /* Scroll horizontal en tablas */
+    .table-wrap { -webkit-overflow-scrolling: touch; }
+  }
+
+  @media (max-width: 480px) {
+    .main { padding: 12px 10px 32px; }
+    .header-logo img { height: 24px; }
+    .badge { display: none; }
+    #badge-cva { display: inline !important; } /* Solo CVA en pantallas muy pequeñas */
+    .page-title { font-size: 16px; }
+    .pv-panel-nombre { font-size: 14px; }
+    .grid-3 { grid-template-columns: 1fr; }
   }
 
   /* ━━ SPLASH SCREEN ESTILO ASTON MARTIN ━━ */
@@ -1031,7 +1092,7 @@
     align-items: center;
     justify-content: center;
     /* fondo desaparece lento en fase 2 */
-    transition: opacity 1.1s ease;
+    transition: opacity .7s ease;
   }
 
   /* Contenedor: empieza invisible, ligeramente grande */
@@ -1043,8 +1104,8 @@
     opacity: 0;
     transform: scale(1.06);
     /* Entrada: 1.1s suave — logo y wordmark juntos */
-    transition: opacity 1.1s cubic-bezier(.22,1,.36,1),
-                transform 1.1s cubic-bezier(.22,1,.36,1);
+    transition: opacity .7s cubic-bezier(.22,1,.36,1),
+                transform .7s cubic-bezier(.22,1,.36,1);
   }
 
   #splash-logo img {
@@ -1074,18 +1135,18 @@
   #splash.phase-2 {
     opacity: 0;
     pointer-events: none;
-    transition: opacity 1s ease .3s;
+    transition: opacity .5s ease .1s;
   }
   #splash.phase-2 #splash-logo {
     opacity: 0;
     /* Sube hasta el tope — suficiente para llegar al header desde el centro */
     transform: translateY(-46vh) scale(0.35);
-    transition: opacity .9s cubic-bezier(.65,0,.35,1),
-                transform .9s cubic-bezier(.65,0,.35,1);
+    transition: opacity .55s cubic-bezier(.65,0,.35,1),
+                transform .55s cubic-bezier(.65,0,.35,1);
   }
 
   /* Shell oculto hasta que splash termina */
-  .shell { opacity: 0; transition: opacity .5s ease .3s; }
+  .shell { opacity: 0; transition: opacity .4s ease .1s; }
   .shell.visible { opacity: 1; }
 
 </style>
@@ -2460,15 +2521,14 @@ window.onload = () => {
         splash.classList.add('phase-1');
       });
     });
-  }, 550);
+  }, 300);
 
-  // Fase 2: después de 3.4s totales (550 pausa + ~1.1s entrada + ~1.75s visible)
-  // Logo y wordmark suben y desaparecen juntos, shell aparece
+  // Fase 2: después de 2.2s totales — más fluido
   setTimeout(() => {
     splash.classList.add('phase-2');
-    setTimeout(() => { shell.classList.add('visible'); }, 250);
-    setTimeout(() => { splash.remove(); }, 1400);
-  }, 3400);
+    setTimeout(() => { shell.classList.add('visible'); }, 150);
+    setTimeout(() => { splash.remove(); }, 800);
+  }, 2200);
 
   // ─────────────────────────────────────────────────────────
   history.replaceState({ page: 'buscar' }, '', '');
