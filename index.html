@@ -867,80 +867,106 @@
   .form-group select option { background: #2a2d35; }
 
   /* ━━ CART ━━ */
+  /* ━━ CARRITO ESTILO AMAZON ━━ */
   .cart-item {
-    display: flex; align-items: center; gap: 14px;
-    padding: 12px 14px;
-    background: rgba(38,41,48,0.7);
-    border: 1px solid rgba(238,240,240,0.08);
-    border-left: 2px solid rgba(0,102,94,0.5);
-    margin-bottom: 6px;
+    display: grid;
+    grid-template-columns: 80px 1fr auto auto;
+    background: rgba(30,33,40,0.9);
+    border: 1px solid rgba(238,240,240,0.1);
+    border-bottom: none;
     transition: background .18s;
   }
-  .cart-item:hover { background: rgba(42,45,52,0.85); }
+  .cart-item:last-of-type { border-bottom: 1px solid rgba(238,240,240,0.1); }
+  .cart-item:hover { background: rgba(36,39,47,0.98); }
 
-  /* Thumbnail cuadrado */
   .cart-item-thumb {
-    width: 52px; height: 52px;
-    flex-shrink: 0;
-    background: rgba(238,240,240,0.05);
-    border: 1px solid rgba(238,240,240,0.08);
-    overflow: hidden;
+    align-self: stretch;
+    background: rgba(255,255,255,0.04);
+    border-right: 1px solid rgba(238,240,240,0.07);
     display: flex; align-items: center; justify-content: center;
+    padding: 14px 10px;
   }
   .cart-item-thumb img {
-    width: 100%; height: 100%;
+    width: 60px; max-height: 60px;
     object-fit: contain;
-    padding: 4px;
   }
   .cart-item-thumb-ph {
     display: flex; align-items: center; justify-content: center;
-    width: 100%; height: 100%;
+    width: 60px; height: 60px;
   }
 
-  .cart-item-info { flex: 1; min-width: 0; }
+  .cart-item-info {
+    padding: 18px 20px;
+    min-width: 0;
+    display: flex; flex-direction: column;
+    justify-content: center; gap: 5px;
+  }
   .cart-item-name {
-    font-size: 12px; font-weight: 500;
-    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-    color: var(--text); letter-spacing: 0.3px;
-    margin-bottom: 3px;
+    font-size: 13px; font-weight: 500;
+    color: var(--text); line-height: 1.45;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
   }
-  .cart-item-meta { display: flex; gap: 8px; align-items: center; margin-bottom: 3px; }
-  .cart-item-clave {
-    font-size: 10px; color: var(--green-lt);
-    font-family: monospace; letter-spacing: 0.5px;
+  .cart-item-meta { display: flex; gap: 10px; align-items: center; }
+  .cart-item-clave { font-size: 11px; color: var(--green-lt); font-family: monospace; }
+  .cart-item-marca { font-size: 9px; color: var(--muted); text-transform: uppercase; letter-spacing: 1.5px; }
+  .cart-item-price-unit { font-size: 12px; color: var(--muted); }
+
+  /* Controles qty */
+  .cart-item-qty {
+    display: flex; align-items: center;
+    padding: 0 24px;
+    border-left: 1px solid rgba(238,240,240,0.07);
   }
-  .cart-item-marca {
-    font-size: 9px; color: var(--muted);
-    text-transform: uppercase; letter-spacing: 1.5px;
+  .qty-ctrl { display: flex; align-items: center; }
+  .qty-btn {
+    width: 34px; height: 36px;
+    border: 1px solid rgba(238,240,240,0.15);
+    background: rgba(238,240,240,0.04);
+    color: var(--text); cursor: pointer;
+    font-size: 18px; line-height: 1;
+    display: flex; align-items: center; justify-content: center;
+    transition: background .15s;
   }
-  .cart-item-price-unit {
-    font-size: 11px; color: var(--muted); letter-spacing: 0.3px;
+  .qty-btn:first-child { border-right: none; border-radius: 2px 0 0 2px; }
+  .qty-btn:last-child  { border-left: none;  border-radius: 0 2px 2px 0; }
+  .qty-btn:hover { background: rgba(238,240,240,0.12); }
+  .qty-num {
+    width: 48px; height: 36px;
+    border: 1px solid rgba(238,240,240,0.15);
+    background: rgba(238,240,240,0.07);
+    color: var(--text);
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 16px; font-weight: 400;
+    text-align: center; outline: none;
+    -moz-appearance: textfield;
   }
+  .qty-num::-webkit-outer-spin-button,
+  .qty-num::-webkit-inner-spin-button { -webkit-appearance: none; }
+
+  /* Precio + eliminar */
   .cart-item-total {
-    text-align: right; flex-shrink: 0; min-width: 90px;
-    display: flex; flex-direction: column; align-items: flex-end; gap: 6px;
+    display: flex; flex-direction: column;
+    align-items: flex-end; justify-content: center;
+    gap: 12px; padding: 18px 22px;
+    border-left: 1px solid rgba(238,240,240,0.07);
+    min-width: 140px;
   }
   .cart-item-total-price {
     font-family: 'Barlow Condensed', sans-serif;
-    font-size: 17px; font-weight: 400; color: var(--text);
+    font-size: 22px; font-weight: 400;
+    color: var(--text); white-space: nowrap;
   }
   .cart-item-remove {
+    display: flex; align-items: center; gap: 6px;
     background: none; border: none; cursor: pointer;
-    color: rgba(238,240,240,0.25); padding: 2px;
-    transition: color .18s;
-    display: flex; align-items: center;
+    color: rgba(238,240,240,0.3);
+    font-size: 11px; letter-spacing: 1px; text-transform: uppercase;
+    padding: 4px 0; transition: color .18s;
   }
-  .cart-item-remove:hover { color: #CC4444; }
-  .qty-ctrl { display: flex; align-items: center; gap: 6px; }
-  .qty-btn {
-    width: 26px; height: 26px;
-    border: 1px solid rgba(255,255,255,0.15);
-    background: transparent; color: var(--text);
-    cursor: pointer; font-size: 14px;
-    display: flex; align-items: center; justify-content: center;
-    transition: border-color .2s, color .2s;
-  }
-  .qty-btn:hover { border-color: var(--green); color: var(--green-hi); }
+  .cart-item-remove:hover { color: #e05555; }
 
   /* ━━ SUCURSALES ━━ */
   .suc-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 6px; }
@@ -1865,39 +1891,44 @@ function renderCarrito() {
   const totalMXN = carrito.reduce((s, i) => s + i.precio * i.qty, 0);
   el.innerHTML = carrito.map((item, idx) => `
     <div class="cart-item">
-      <!-- Thumbnail del producto -->
+      <!-- Imagen -->
       <div class="cart-item-thumb">
         ${item.imagen
           ? `<img src="${item.imagen}" alt="${item.clave}" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">`
           : ''}
         <div class="cart-item-thumb-ph" style="${item.imagen ? 'display:none' : ''}">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" opacity="0.3">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" opacity="0.2">
             <rect x="3" y="3" width="18" height="18"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/>
           </svg>
         </div>
       </div>
-      <!-- Info -->
+      <!-- Nombre + clave + precio unitario -->
       <div class="cart-item-info">
         <div class="cart-item-name">${item.desc}</div>
         <div class="cart-item-meta">
           <span class="cart-item-clave">${item.clave}</span>
           ${item.marca ? `<span class="cart-item-marca">${item.marca}</span>` : ''}
         </div>
-        <div class="cart-item-price-unit">${fmt(item.precio, item.moneda)} c/u</div>
+        <div class="cart-item-price-unit">${fmt(item.precio, item.moneda)} por unidad</div>
       </div>
-      <!-- Controles qty -->
-      <div class="qty-ctrl">
-        <button class="qty-btn" onclick="cambiarQty(${idx},-1)">−</button>
-        <span style="min-width:24px;text-align:center;font-size:14px;font-weight:500">${item.qty}</span>
-        <button class="qty-btn" onclick="cambiarQty(${idx},1)">+</button>
+      <!-- Controles cantidad -->
+      <div class="cart-item-qty">
+        <div class="qty-ctrl">
+          <button class="qty-btn" onclick="cambiarQty(${idx},-1)">−</button>
+          <input class="qty-num" type="number" value="${item.qty}" min="1" max="999"
+            onchange="setQty(${idx}, this.value)"
+            onblur="setQty(${idx}, this.value)">
+          <button class="qty-btn" onclick="cambiarQty(${idx},1)">+</button>
+        </div>
       </div>
-      <!-- Total item + quitar -->
+      <!-- Precio total + Eliminar -->
       <div class="cart-item-total">
         <div class="cart-item-total-price">${fmt(item.precio * item.qty, item.moneda)}</div>
         <button class="cart-item-remove" onclick="quitarItem(${idx})">
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
-            <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+            <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/>
           </svg>
+          Eliminar
         </button>
       </div>
     </div>`).join('');
@@ -1906,6 +1937,7 @@ function renderCarrito() {
 }
 
 function cambiarQty(idx, delta) { carrito[idx].qty = Math.max(1, carrito[idx].qty + delta); renderCarrito(); }
+function setQty(idx, val) { const q = parseInt(val); if (q > 0) { carrito[idx].qty = q; renderCarrito(); } }
 function quitarItem(idx) { carrito.splice(idx, 1); renderCarrito(); }
 
 async function enviarOrden(test = false) {
