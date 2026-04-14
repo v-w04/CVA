@@ -569,63 +569,64 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    /* El fondo desaparece en fase 2 */
-    transition: opacity .9s ease;
+    transition: opacity 1s ease;
   }
 
   #splash-logo {
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 22px;
+    gap: 18px;
     opacity: 0;
-    transform: scale(1.15);
-    /* Transición suave para fase 2 */
-    transition: opacity .85s cubic-bezier(.65,0,.35,1),
-                transform .85s cubic-bezier(.65,0,.35,1);
+    /* empieza ligeramente más grande */
+    transform: translateY(0px) scale(1.08);
+    transition: opacity .9s cubic-bezier(.22,1,.36,1),
+                transform .9s cubic-bezier(.22,1,.36,1);
   }
 
   #splash-logo img {
-    height: 64px;
+    height: 68px;
     filter: brightness(0) invert(1);
-    opacity: 0.75;
+    opacity: 0.8;
   }
 
+  /* Wordmark: "ELECTRONICS MÉXICO" — grande, legible, sin letter-spacing exagerado */
   #splash-logo .splash-wordmark {
     font-family: 'Barlow Condensed', sans-serif;
-    font-size: 11px;
-    font-weight: 300;
-    letter-spacing: 10px;
+    font-size: 18px;
+    font-weight: 400;
+    letter-spacing: 5px;
     text-transform: uppercase;
-    color: rgba(255,255,255,0.45);
+    color: rgba(255,255,255,0.65);
     opacity: 0;
-    /* aparece gradualmente después del logo */
-    transition: opacity .7s ease;
+    transition: opacity .6s ease .4s;
   }
 
-  /* Fase 1: logo y texto aparecen */
+  /* Fase 1: aparecen en su lugar */
   #splash.phase-1 #splash-logo {
     opacity: 1;
-    transform: scale(1);
+    transform: translateY(0px) scale(1);
   }
   #splash.phase-1 .splash-wordmark {
     opacity: 1;
   }
 
-  /* Fase 2: todo sube y desaparece */
+  /* Fase 2: SUBEN — translateY negativo mueve hacia arriba */
   #splash.phase-2 {
     opacity: 0;
     pointer-events: none;
+    transition: opacity 1s ease .15s;
   }
   #splash.phase-2 #splash-logo {
     opacity: 0;
-    transform: scale(0.45) translateY(-160px);
-    transition: opacity .8s cubic-bezier(.65,0,.35,1),
-                transform .8s cubic-bezier(.65,0,.35,1);
+    /* Sube hacia arriba (-120px) y se encoge — igual que AM */
+    transform: translateY(-120px) scale(0.5);
+    transition: opacity .75s cubic-bezier(.65,0,.35,1),
+                transform .75s cubic-bezier(.65,0,.35,1);
   }
 
   /* Shell oculto hasta que splash termina */
-  .shell { opacity: 0; transition: opacity .5s ease .2s; }
+  .shell { opacity: 0; transition: opacity .5s ease .25s; }
   .shell.visible { opacity: 1; }
 
 </style>
@@ -745,7 +746,7 @@
             <option value="">Disponibilidad: Todos</option>
             <option value="2">Con stock CEDIS</option>
             <option value="1">Con stock Sucursal</option>
-            <option value="3">Con stock Ambos</option>
+            <option value="3" selected>Con stock Ambos</option>
           </select>
           <button class="btn btn-primary" onclick="buscarCVA()">Buscar</button>
           <button class="btn btn-ghost"   onclick="limpiarBusqueda()">Limpiar</button>
