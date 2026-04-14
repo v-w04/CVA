@@ -1598,7 +1598,10 @@ function stockCellAM(qty, label) {
 }
 
 // ── BUSCAR ────────────────────────────────────────────────
-async function buscarCVA() {
+let _buscarPage = 1;
+
+async function buscarCVA(pagina) {
+  if (pagina !== undefined) _buscarPage = pagina;
   const el = document.getElementById('buscar-result');
   loading(el);
   const params = {
@@ -1607,34 +1610,54 @@ async function buscarCVA() {
     grupo: document.getElementById('s-grupo').value.trim(),
     desc : document.getElementById('s-desc').value.trim(),
     exist: document.getElementById('s-exist').value,
+    page : _buscarPage,
   };
   const action = params.clave ? 'cva_producto' : 'cva_buscar';
   const data = await api(action, params);
-  if (!data.ok) { alert_(el, '✖ ' + data.error, 'error'); return; }
+  if (!data.ok) {
+    const isTimeout = data.error && (data.error.includes('Tiempo') || data.error.includes('timeout') || data.error.includes('agotado') || data.error.includes('deadline'));
+    alert_(el, isTimeout
+      ? '⏱ La búsqueda tomó demasiado tiempo. <strong>Tip:</strong> busca por clave exacta (ej: NB-1234) o combina marca + grupo para reducir resultados.'
+      : '✖ ' + data.error,
+      isTimeout ? 'warn' : 'error');
+    return;
+  }
   if (params.clave && data.producto) { el.innerHTML = renderProducto(data.producto); return; }
   const arts = data.articulos || [];
   if (arts.length === 0) { alert_(el, 'Sin resultados para la búsqueda', 'warn'); return; }
+  const pag = data.paginacion || {};
+  const totalPags = pag.total_paginas || 1;
+  const pagActual = pag.pagina || _buscarPage;
   el.innerHTML = `
-    <div style="color:var(--muted);font-size:10px;letter-spacing:2px;text-transform:uppercase;margin-bottom:14px">
-      ${arts.length} resultados
-      ${data.paginacion ? ` — Página ${data.paginacion.pagina} de ${data.paginacion.total_paginas}` : ''}
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:8px">
+      <div style="color:var(--muted);font-size:10px;letter-spacing:2px;text-transform:uppercase">
+        ${arts.length} resultados${totalPags > 1 ? ` — Página ${pagActual} de ${totalPags}` : ''}
+      </div>
+      ${totalPags > 1 ? `<div style="display:flex;gap:6px;align-items:center">
+        <button class="btn btn-ghost" style="padding:5px 12px;font-size:10px"
+          onclick="buscarCVA(${pagActual-1})" ${pagActual<=1?'disabled':''}>← Ant</button>
+        <span style="font-size:11px;color:var(--muted)">${pagActual} / ${totalPags}</span>
+        <button class="btn btn-ghost" style="padding:5px 12px;font-size:10px"
+          onclick="buscarCVA(${pagActual+1})" ${pagActual>=totalPags?'disabled':''}>Sig →</button>
+      </div>` : ''}
     </div>
     <div class="table-wrap">
       <table>
-        <tr><th>Clave</th><th>Descripción</th><th>Marca</th><th>Precio</th><th>Stock Suc.</th><th>Stock CEDIS</th><th></th></tr>
-        ${arts.map(a => `
+        <thead><tr><th>Clave</th><th>Descripción</th><th>Marca</th><th>Precio</th><th>Suc.</th><th>CEDIS</th><th></th></tr></thead>
+        <tbody>${arts.map(a => `
           <tr>
             <td class="mono">${a.clave}</td>
-            <td style="max-width:320px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${a.descripcion}</td>
+            <td style="max-width:300px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${a.descripcion}</td>
             <td style="color:var(--muted);font-size:12px">${a.marca || '—'}</td>
             <td class="td-price">${fmt(a.precio, a.moneda)}</td>
-            <td>${stockTag(a.disponible, 'Suc')}</td>
-            <td>${stockTag(a.disponibleCD, 'CEDIS')}</td>
+            <td>${stockCellAM(a.disponible,'')}</td>
+            <td>${stockCellAM(a.disponibleCD,'')}</td>
             <td style="display:flex;gap:6px">
-              <button class="btn btn-ghost" style="padding:5px 12px;font-size:10px" onclick="verProducto('${a.clave}')">Ver</button>
-              <button class="btn btn-primary" style="padding:5px 12px;font-size:10px" onclick="agregarClave('${a.clave}',1)">+ Orden</button>
+              <button class="btn btn-ghost" style="padding:4px 10px;font-size:10px" onclick="verProducto('${a.clave}')">Ver</button>
+              <button class="btn btn-primary" style="padding:4px 10px;font-size:10px" onclick="agregarClave('${a.clave}',1)">+ Orden</button>
             </td>
           </tr>`).join('')}
+        </tbody>
       </table>
     </div>`;
 }
@@ -2115,9 +2138,19 @@ async function ejecutarDebug() {
 }
 
 function renderDebugResult(action, data) {
-  if (!data.ok) return `<div class="alert alert-error">❌ ${data.error || JSON.stringify(data)}</div>`;
+  if (!data.ok) return `<div class="alert alert-error" style="margin:0">❌ ${data.error || JSON.stringify(data)}</div>`;
 
-  // ── Marcas: grid de logos ───────────────────────────────────
+  // Helper: tabla genérica de campos clave-valor
+  function infoTable(rows) {
+    return `<div class="table-wrap"><table><tbody>
+      ${rows.filter(Boolean).map(([k,v]) => `<tr>
+        <td style="color:var(--muted);font-size:10px;letter-spacing:1.5px;text-transform:uppercase;width:160px;white-space:nowrap">${k}</td>
+        <td style="font-size:13px">${v ?? '—'}</td>
+      </tr>`).join('')}
+    </tbody></table></div>`;
+  }
+
+  // ── MARCAS: grid de logos ─────────────────────────────────────
   if (action === 'cva_marcas' && data.marcas) {
     const items = data.marcas;
     return `
@@ -2131,88 +2164,245 @@ function renderDebugResult(action, data) {
       </div>`;
   }
 
-  // ── Grupos: lista limpia ────────────────────────────────────
+  // ── GRUPOS: lista ─────────────────────────────────────────────
   if (action === 'cva_grupos' && data.grupos) {
     const items = data.grupos;
     return `
       <div style="margin-bottom:10px;font-size:9px;letter-spacing:2px;color:var(--muted);text-transform:uppercase">${items.length} grupos</div>
       <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:4px">
         ${items.map(g => `
-          <div style="padding:8px 12px;background:rgba(238,240,240,0.03);border:1px solid rgba(238,240,240,0.07);font-size:12px;color:var(--text-2)">${g.nombre || g.grupo || g}</div>`).join('')}
+          <div style="padding:10px 14px;background:rgba(238,240,240,0.03);border:1px solid rgba(238,240,240,0.07);font-size:13px;color:var(--text-2)">${g.nombre || g.grupo || g}</div>`).join('')}
       </div>`;
   }
 
-  // ── Sucursales: cards ───────────────────────────────────────
+  // ── SUCURSALES: cards ─────────────────────────────────────────
   if (action === 'cva_sucursales' && data.sucursales) {
     return `
-      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:8px">
+      <div style="margin-bottom:10px;font-size:9px;letter-spacing:2px;color:var(--muted);text-transform:uppercase">${data.sucursales.length} sucursales</div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:8px">
         ${data.sucursales.map(s => `
           <div style="padding:14px 16px;background:rgba(38,41,48,0.8);border:1px solid rgba(238,240,240,0.08)">
-            <div style="font-size:13px;font-weight:500;color:var(--text);margin-bottom:4px">${s.nombre}</div>
-            <div style="font-size:10px;color:var(--muted);letter-spacing:1px">${s.estado || ''} ${s.ciudad || ''}</div>
+            <div style="font-size:13px;font-weight:500;color:var(--text);margin-bottom:3px">${s.nombre}</div>
+            <div style="font-size:10px;color:var(--muted);letter-spacing:1px">${[s.estado,s.ciudad].filter(Boolean).join(' · ') || ''}</div>
           </div>`).join('')}
       </div>`;
   }
 
-  // ── Producto individual ─────────────────────────────────────
-  if ((action === 'cva_producto' || action === 'cva_precio_stock') && data.producto) {
+  // ── PRODUCTO INDIVIDUAL (cva_producto) ────────────────────────
+  if (action === 'cva_producto' && data.producto) {
     return renderProducto(data.producto);
   }
 
-  // ── Lista de artículos ──────────────────────────────────────
-  if (data.articulos && data.articulos.length > 0) {
-    const arts = data.articulos;
-    return `
-      <div style="margin-bottom:10px;font-size:9px;letter-spacing:2px;color:var(--muted);text-transform:uppercase">${arts.length} artículos</div>
-      <div class="table-wrap"><table>
-        <thead><tr><th>Clave</th><th>Descripción</th><th>Marca</th><th>Precio</th><th>Suc</th><th>CEDIS</th></tr></thead>
-        <tbody>
-          ${arts.map(a => `<tr>
+  // ── PRECIO Y STOCK (cva_precio_stock) — lista o individual ───
+  if (action === 'cva_precio_stock') {
+    if (data.articulos && data.articulos.length > 0) {
+      const arts = data.articulos;
+      return `
+        <div style="margin-bottom:10px;font-size:9px;letter-spacing:2px;color:var(--muted);text-transform:uppercase">${arts.length} artículos</div>
+        <div class="table-wrap"><table>
+          <thead><tr><th>Clave</th><th>Descripción</th><th>Precio</th><th>Suc</th><th>CEDIS</th></tr></thead>
+          <tbody>${arts.map(a => `<tr>
             <td class="mono">${a.clave}</td>
-            <td style="max-width:260px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:12px">${a.descripcion||''}</td>
-            <td style="color:var(--muted);font-size:11px">${a.marca||'—'}</td>
+            <td style="font-size:12px;max-width:280px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${a.descripcion||a.codigo||''}</td>
             <td class="td-price">${fmt(a.precio,a.moneda)}</td>
             <td>${stockCellAM(a.disponible,'')}</td>
             <td>${stockCellAM(a.disponibleCD,'')}</td>
-          </tr>`).join('')}
-        </tbody>
-      </table></div>`;
+          </tr>`).join('')}</tbody>
+        </table></div>`;
+    }
+    if (data.clave) {
+      return infoTable([
+        ['Clave', `<span class="mono">${data.clave}</span>`],
+        ['Descripción', data.descripcion || data.codigo],
+        ['Precio', fmt(data.precio, data.moneda)],
+        ['Stock Sucursal', data.disponible ?? '—'],
+        ['Stock CEDIS', data.disponibleCD ?? '—'],
+        ['Tipo de Cambio', data.tipo_cambio ? `$${data.tipo_cambio}` : null],
+      ]);
+    }
   }
 
-  // ── Pedidos CVA ─────────────────────────────────────────────
-  if (data.pedidos && data.pedidos.length > 0) {
+  // ── IMÁGENES HD (cva_imagenes) ────────────────────────────────
+  if (action === 'cva_imagenes') {
+    const imgs = data.imagenes || data.fotos || [];
+    if (!imgs.length) return `<div class="alert alert-warn">Sin imágenes para esta clave</div>`;
     return `
+      <div style="margin-bottom:10px;font-size:9px;letter-spacing:2px;color:var(--muted);text-transform:uppercase">${imgs.length} imágenes</div>
+      <div style="display:flex;flex-wrap:wrap;gap:10px">
+        ${imgs.map(img => {
+          const url = typeof img === 'string' ? img : (img.url || img.imagen || '');
+          return url ? `<div style="background:rgba(38,41,48,0.8);border:1px solid rgba(238,240,240,0.08);padding:8px">
+            <img src="${url}" style="height:120px;width:auto;max-width:180px;object-fit:contain;display:block">
+          </div>` : '';
+        }).join('')}
+      </div>`;
+  }
+
+  // ── INFO TÉCNICA (cva_info_tecnica) ───────────────────────────
+  if (action === 'cva_info_tecnica') {
+    const specs = data.especificaciones || data.specs || data.informacion || [];
+    if (Array.isArray(specs) && specs.length) {
+      return `
+        <div class="table-wrap"><table>
+          <thead><tr><th>Característica</th><th>Valor</th></tr></thead>
+          <tbody>${specs.map(s => `<tr>
+            <td style="color:var(--muted);font-size:12px">${s.nombre||s.caracteristica||s.key||Object.keys(s)[0]}</td>
+            <td style="font-size:13px">${s.valor||s.value||Object.values(s)[0]}</td>
+          </tr>`).join('')}</tbody>
+        </table></div>`;
+    }
+    // Si vino como objeto plano de pares
+    const keys = Object.keys(data).filter(k => k !== 'ok');
+    if (keys.length) return infoTable(keys.map(k => [k, data[k]]));
+    return `<div class="alert alert-warn">Sin especificaciones técnicas para esta clave</div>`;
+  }
+
+  // ── CONSULTAR PEDIDO CVA (cva_consultar_pedido) ───────────────
+  if (action === 'cva_consultar_pedido') {
+    const p = data.pedido || data;
+    const productos = p.productos || data.productos || [];
+    return `
+      <div style="margin-bottom:16px">
+        ${infoTable([
+          ['No Pedido',  p.Numero || p.numero],
+          ['Fecha',      p.FechaAsignado || p.fecha],
+          ['Estatus',    `<span style="color:var(--green-lt);font-size:11px;letter-spacing:1.5px;text-transform:uppercase">${p.Asignado||p.estatus||'—'}</span>`],
+          ['Total',      p.Total ? fmt(p.Total,'Pesos') : null],
+          ['Tipo Flete', p.tipo_flete || p.TipoFlete],
+        ])}
+      </div>
+      ${productos.length ? `
+        <div style="margin-bottom:8px;font-size:9px;letter-spacing:2px;color:var(--muted);text-transform:uppercase">${productos.length} productos</div>
+        <div class="table-wrap"><table>
+          <thead><tr><th>Clave</th><th>Descripción</th><th>Cantidad</th><th>Precio</th></tr></thead>
+          <tbody>${productos.map(pr => `<tr>
+            <td class="mono">${pr.clave||pr.Clave||'—'}</td>
+            <td style="font-size:12px">${pr.descripcion||pr.Descripcion||'—'}</td>
+            <td style="text-align:center">${pr.cantidad||pr.Cantidad||'—'}</td>
+            <td class="td-price">${pr.precio||pr.Precio ? fmt(pr.precio||pr.Precio,'Pesos') : '—'}</td>
+          </tr>`).join('')}</tbody>
+        </table></div>` : ''}`;
+  }
+
+  // ── CONSULTAR GUÍA CVA (cva_consultar_guia) ───────────────────
+  // Respuesta: { order_number, date, waybills, printed, delivered }
+  if (action === 'cva_consultar_guia') {
+    return infoTable([
+      ['No Orden CVA', `<span class="mono">${data.order_number||'—'}</span>`],
+      ['Fecha',        data.date],
+      ['No Guía',      `<span class="mono">${data.waybills||'—'}</span>`],
+      ['Impresa',      data.printed  ? '✓ Sí' : '✗ No'],
+      ['Entregada',    data.delivered ? '✓ Sí' : '✗ No'],
+    ]);
+  }
+
+  // ── PEDIDOS LISTA (cva_pedidos) ───────────────────────────────
+  if (data.pedidos) {
+    const lista = data.pedidos;
+    if (!lista.length) return `<div class="alert alert-info">Sin pedidos registrados</div>`;
+    return `
+      <div style="margin-bottom:10px;font-size:9px;letter-spacing:2px;color:var(--muted);text-transform:uppercase">${lista.length} pedidos</div>
       <div class="table-wrap"><table>
-        <thead><tr><th>No Pedido</th><th>Fecha</th><th>Total</th><th>Estatus</th></tr></thead>
-        <tbody>
-          ${data.pedidos.map(p => `<tr>
-            <td class="mono">${p.Numero||p.numero||'—'}</td>
-            <td style="color:var(--muted);font-size:11px">${p.FechaAsignado||p.fecha||'—'}</td>
-            <td class="td-price">${p.Total ? fmt(p.Total,'Pesos') : '—'}</td>
-            <td><span style="font-size:9px;text-transform:uppercase;letter-spacing:1.5px;color:var(--green-lt)">${p.Asignado||'—'}</span></td>
-          </tr>`).join('')}
-        </tbody>
+        <thead><tr><th>No Pedido</th><th>Fecha</th><th>Total</th><th>Flete</th><th>Estatus</th></tr></thead>
+        <tbody>${lista.map(p => `<tr>
+          <td class="mono">${p.Numero||p.numero||'—'}</td>
+          <td style="color:var(--muted);font-size:11px">${p.FechaAsignado||p.fecha||'—'}</td>
+          <td class="td-price">${p.Total ? fmt(p.Total,'Pesos') : '—'}</td>
+          <td style="font-size:11px;color:var(--muted)">${p.TipoFlete||p.tipo_flete||'—'}</td>
+          <td><span style="font-size:9px;text-transform:uppercase;letter-spacing:1.5px;color:var(--green-lt)">${p.Asignado||'—'}</span></td>
+        </tr>`).join('')}</tbody>
       </table></div>`;
   }
 
-  // ── Ping / respuesta simple ─────────────────────────────────
+  // ── BUSCAR PRODUCTOS (cva_buscar) ─────────────────────────────
+  if (data.articulos && data.articulos.length > 0) {
+    const arts = data.articulos;
+    return `
+      <div style="margin-bottom:10px;font-size:9px;letter-spacing:2px;color:var(--muted);text-transform:uppercase">${arts.length} artículos${data.paginacion ? ` — pág ${data.paginacion.pagina} de ${data.paginacion.total_paginas}` : ''}</div>
+      <div class="table-wrap"><table>
+        <thead><tr><th>Clave</th><th>Descripción</th><th>Marca</th><th>Precio</th><th>Suc</th><th>CEDIS</th></tr></thead>
+        <tbody>${arts.map(a => `<tr>
+          <td class="mono">${a.clave}</td>
+          <td style="max-width:260px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:12px">${a.descripcion||''}</td>
+          <td style="color:var(--muted);font-size:11px">${a.marca||'—'}</td>
+          <td class="td-price">${fmt(a.precio,a.moneda)}</td>
+          <td>${stockCellAM(a.disponible,'')}</td>
+          <td>${stockCellAM(a.disponibleCD,'')}</td>
+        </tr>`).join('')}</tbody>
+      </table></div>`;
+  }
+
+  // ── ODOO: BUSCAR PRODUCTO ──────────────────────────────────────
+  if (action === 'odoo_buscar_producto') {
+    if (!data.encontrado) return `<div class="alert alert-warn">Producto no encontrado en Odoo</div>`;
+    const p = data.producto;
+    return infoTable([
+      ['ID Odoo',         p.id],
+      ['Nombre',          p.name],
+      ['Referencia',      `<span class="mono">${p.default_code||'—'}</span>`],
+      ['Precio lista',    fmt(p.list_price,'Pesos')],
+      ['Costo estándar',  p.standard_price ? fmt(p.standard_price,'Pesos') : null],
+      ['Stock disponible',p.qty_available],
+      ['Stock virtual',   p.virtual_available],
+      ['UoM',             Array.isArray(p.uom_id) ? p.uom_id[1] : p.uom_id],
+    ]);
+  }
+
+  // ── ODOO: STOCK ────────────────────────────────────────────────
+  if (action === 'odoo_stock') {
+    if (!data.encontrado) return `<div class="alert alert-warn">Producto no encontrado en Odoo</div>`;
+    return infoTable([
+      ['Producto ID',    data.producto_id || data.id],
+      ['Nombre',         data.name || data.display_name],
+      ['Stock disponible', data.qty_available ?? data.qty],
+      ['Stock virtual',  data.virtual_available],
+    ]);
+  }
+
+  // ── ODOO: STOCK BODEGA CVA ─────────────────────────────────────
+  if (action === 'odoo_stock_cva') {
+    if (!data.encontrado) return `<div class="alert alert-warn">Producto no encontrado en bodega CVA (location 194)</div>`;
+    return infoTable([
+      ['Producto ID', data.producto_id],
+      ['Stock en CVA', `<strong style="color:var(--green-lt);font-size:18px;font-family:\'Barlow Condensed\',sans-serif">${data.qty}</strong>`],
+    ]);
+  }
+
+  // ── PING ───────────────────────────────────────────────────────
   if (action === 'ping') {
     return `<div class="alert alert-success">✓ Conexión activa · ${data.version || 'GAS Online'}</div>`;
   }
 
-  // ── Fallback: JSON coloreado pero compacto ──────────────────
-  const json = JSON.stringify(data, null, 2);
+  // ── VENTAS ODOO ────────────────────────────────────────────────
+  if (data.ventas) {
+    const vs = data.ventas;
+    if (!vs.length) return `<div class="alert alert-info">Sin ventas encontradas</div>`;
+    return `
+      <div style="margin-bottom:10px;font-size:9px;letter-spacing:2px;color:var(--muted);text-transform:uppercase">${vs.length} ventas</div>
+      <div class="table-wrap"><table>
+        <thead><tr><th>SO</th><th>Cliente</th><th>Total</th><th>Estado</th><th>Fecha</th></tr></thead>
+        <tbody>${vs.map(v => `<tr>
+          <td class="mono">${v.name}</td>
+          <td style="font-size:12px">${Array.isArray(v.partner_id)?v.partner_id[1]:v.partner_id}</td>
+          <td class="td-price">${fmt(v.amount_total,'Pesos')}</td>
+          <td style="font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--muted)">${v.state}</td>
+          <td style="font-size:11px;color:var(--muted)">${v.date_order?v.date_order.substring(0,10):'—'}</td>
+        </tr>`).join('')}</tbody>
+      </table></div>`;
+  }
+
+  // ── FALLBACK: datos desconocidos — mostrar tabla de campos ──────
+  const keys = Object.keys(data).filter(k => k !== 'ok');
+  if (!keys.length) return `<div class="alert alert-success">✓ Operación completada</div>`;
   return `
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
-      <span style="font-size:9px;letter-spacing:2px;color:var(--muted);text-transform:uppercase">Respuesta JSON</span>
-      <button onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display==='none'?'block':'none'"
-        style="font-size:9px;background:none;border:1px solid rgba(238,240,240,0.15);color:var(--muted);padding:3px 10px;cursor:pointer;letter-spacing:1px">
-        VER JSON
-      </button>
-    </div>
-    <pre style="display:none;background:rgba(10,10,12,0.8);border:1px solid rgba(238,240,240,0.07);padding:14px;font-size:11px;overflow:auto;max-height:360px;color:#67b8af;white-space:pre-wrap;font-family:'Consolas',monospace">${json}</pre>
-    <div style="font-size:12px;color:var(--text-2)">Respuesta recibida · ${Object.keys(data).length} campos</div>`;
+    <div style="margin-bottom:10px;font-size:9px;letter-spacing:2px;color:var(--muted);text-transform:uppercase">Respuesta — ${keys.length} campos</div>
+    ${infoTable(keys.map(k => {
+      const v = data[k];
+      const disp = typeof v === 'object' ? `<code style="font-size:10px;color:var(--green-lt)">${JSON.stringify(v).substring(0,120)}${JSON.stringify(v).length>120?'…':''}</code>` : String(v);
+      return [k, disp];
+    }))}`;
 }
+
 
 // ── INIT ──────────────────────────────────────────────────
 window.onload = () => {
