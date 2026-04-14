@@ -47,9 +47,13 @@
   .shell {
     display: flex;
     flex-direction: column;
+    width: 100%;
     height: 100%;
+    overflow: hidden;
     opacity: 0;
     transition: opacity .4s ease .1s;
+    position: relative;
+    z-index: 1;
   }
   .shell.visible { opacity: 1; }
 
@@ -412,8 +416,6 @@
     overflow-y: auto;
     overflow-x: hidden;
     background: #1e2025;
-    position: relative;
-    z-index: 1;
   }
   .main {
     padding: 36px 48px 60px;
@@ -1744,9 +1746,11 @@ function showPage(id) {
   const nav = document.getElementById('nav-' + id);
   if (nav) nav.classList.add('active');
   currentPage = id;
-  closeSidebar();
-  // history
-  history.pushState({ page: id }, '', '');
+  try { closeSidebar(); } catch(e) {}
+  try { history.pushState({ page: id }, '', ''); } catch(e) {}
+  // scroll al tope
+  const sw = document.querySelector('.scroll-wrap');
+  if (sw) sw.scrollTop = 0;
 }
 
 window.addEventListener('popstate', e => {
@@ -1768,23 +1772,35 @@ const GAS_URL = 'https://script.google.com/macros/s/AKfycby9biqEbiv4syc3St3TuPKX
 
 async function api(action, params = {}) {
   const qs = new URLSearchParams({ action, ...params }).toString();
-  const res = await fetch(`${GAS_URL}?${qs}`, {
-    method: 'GET',
-    redirect: 'follow',
-  });
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  let res;
+  try {
+    res = await fetch(`${GAS_URL}?${qs}`, { method: 'GET', redirect: 'follow' });
+  } catch(e) {
+    // CORS/red/preview — dar mensaje útil
+    const isCors = e.message && (e.message.includes('fetch') || e.message.includes('CORS') || e.message.includes('network') || e.message.includes('Failed'));
+    throw new Error(isCors
+      ? 'Sin conexión al servidor GAS. Abre la app desde GitHub Pages o verifica que el Web App esté publicado.'
+      : e.message);
+  }
+  if (!res.ok) throw new Error('HTTP ' + res.status);
   return res.json();
 }
 
 async function apiPost(action, body = {}) {
   const payload = JSON.stringify({ action, ...body });
-  const res = await fetch(GAS_URL, {
-    method: 'POST',
-    redirect: 'follow',
-    headers: { 'Content-Type': 'text/plain' },
-    body: payload,
-  });
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  let res;
+  try {
+    res = await fetch(GAS_URL, {
+      method: 'POST', redirect: 'follow',
+      headers: { 'Content-Type': 'text/plain' },
+      body: payload,
+    });
+  } catch(e) {
+    throw new Error(e.message && e.message.includes('fetch')
+      ? 'Sin conexión al servidor GAS. Verifica que estés en GitHub Pages.'
+      : e.message);
+  }
+  if (!res.ok) throw new Error('HTTP ' + res.status);
   return res.json();
 }
 
@@ -2873,9 +2889,23 @@ window.onload = () => {
   }, 2200);
 
   // ─────────────────────────────────────────────────────────
-  history.replaceState({ page: 'buscar' }, '', '');
-  toggleFleteFields();
-  renderCarrito();
+  // Inicializar página activa explicitamente
+  try {
+    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+    const pg = document.getElementById('page-buscar');
+    if (pg) pg.classList.add('active');
+    const nav = document.getElementById('nav-buscar');
+    if (nav) nav.classList.add('active');
+    // Asegurar filtro por defecto
+    const exist = document.getElementById('s-exist');
+    if (exist && !exist.value) exist.value = '3';
+  } catch(e) {}
+
+  try { history.replaceState({ page: 'buscar' }, '', ''); } catch(e) {}
+  try { toggleFleteFields(); } catch(e) {}
+  try { renderCarrito(); } catch(e) {}
+  try { renderLog(); } catch(e) {}
+
   api('ping').then(d => {
     if (d.ok) { const b = document.getElementById('badge-cva'); if(b) b.textContent = 'CVA ✓'; }
   }).catch(() => {});
