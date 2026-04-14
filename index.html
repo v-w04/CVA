@@ -50,6 +50,26 @@
     height: 100%;
   }
 
+  /* ━━ BREATHING GREEN LINE BAJO HEADER ━━ */
+  .header-line {
+    flex-shrink: 0;
+    height: 2px;
+    background: linear-gradient(90deg,
+      transparent 0%,
+      var(--green) 20%,
+      var(--green-lt) 50%,
+      var(--green) 80%,
+      transparent 100%);
+    background-size: 200% 100%;
+    animation: breathe 4s ease-in-out infinite;
+    opacity: 0.75;
+  }
+  @keyframes breathe {
+    0%   { background-position: 100% 0; opacity: 0.5; }
+    50%  { background-position:   0% 0; opacity: 0.9; }
+    100% { background-position: 100% 0; opacity: 0.5; }
+  }
+
   /* ━━ HEADER ━━ */
   .header {
     flex-shrink: 0;
@@ -162,147 +182,179 @@
     backdrop-filter: blur(3px);
   }
 
-  /* ━━ SIDEBAR — estilo panel AM configurador ━━ */
+  /* ━━ SIDEBAR — estilo AM "Your DBX S" summary panel ━━ */
   .sidebar {
     position: fixed;
     top: 0; left: 0;
-    width: 320px;
+    width: 340px;
     height: 100%;
-    /* Gris medio AM — igual al panel derecho del configurador */
-    background: #2a2c31;
-    border-right: 1px solid rgba(238,240,240,0.08);
+    /* Gris claro-oscuro AM del panel de resumen — no negro */
+    background: #3c3f47;
     z-index: 300;
     transform: translateX(-100%);
     transition: transform .45s cubic-bezier(.65,0,.35,1);
     display: flex;
     flex-direction: column;
     overflow: hidden;
+    box-shadow: 4px 0 32px rgba(0,0,0,0.5);
   }
   .sidebar.open { transform: translateX(0); }
 
-  /* Cabecera — fondo ligeramente más oscuro que el cuerpo */
+  /* Cabecera — título grande como "Your DBX S" */
   .sb-head {
-    height: var(--header-h);
-    display: flex;
-    align-items: center;
-    padding: 0 20px 0 24px;
-    background: #242628;
-    border-bottom: 1px solid rgba(238,240,240,0.08);
+    padding: 20px 24px 16px;
+    background: #32353c;
+    border-bottom: 1px solid rgba(238,240,240,0.1);
     flex-shrink: 0;
   }
   .sb-head-title {
     font-family: 'Barlow Condensed', sans-serif;
-    font-size: 13px;
-    letter-spacing: 3px;
-    text-transform: uppercase;
-    color: rgba(238,240,240,0.5);
+    font-size: 22px;
     font-weight: 400;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: #eef0f0;
+    line-height: 1;
+    margin-bottom: 2px;
+  }
+  .sb-head-sub {
+    font-size: 10px;
+    letter-spacing: 2px;
+    color: rgba(238,240,240,0.4);
+    text-transform: uppercase;
   }
   .sb-close {
-    margin-left: auto;
+    position: absolute;
+    top: 16px; right: 16px;
     background: none;
     border: none;
-    color: rgba(238,240,240,0.4);
+    color: rgba(238,240,240,0.45);
     cursor: pointer;
     padding: 8px;
-    line-height: 1;
     transition: color .2s;
     display: flex; align-items: center; justify-content: center;
   }
-  .sb-close:hover { color: var(--text); }
+  .sb-close:hover { color: #eef0f0; }
 
   /* Nav */
   .sb-nav {
     flex: 1;
     overflow-y: auto;
-    padding: 12px 16px 16px;
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
+    padding: 8px 0 0;
   }
+  .sb-nav::-webkit-scrollbar { width: 2px; }
+  .sb-nav::-webkit-scrollbar-thumb { background: rgba(238,240,240,0.15); }
 
-  /* Etiqueta de sección */
+  /* Etiqueta de sección — como "Exterior" / "Interior" */
   .sb-section-label {
-    font-size: 9px;
-    letter-spacing: 3px;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.5px;
     text-transform: uppercase;
-    color: rgba(238,240,240,0.3);
-    padding: 16px 8px 6px;
-    font-weight: 500;
+    color: rgba(238,240,240,0.55);
+    padding: 18px 20px 8px;
+    border-top: 1px solid rgba(238,240,240,0.07);
   }
+  .sb-section-label:first-child { border-top: none; padding-top: 8px; }
 
-  /* Item — fondo propio, como los "menu-pill" del configurador AM */
+  /* Item — estilo "Paint / Buckinghamshire Green ›" de AM */
   .sb-item {
     display: flex;
     align-items: center;
-    padding: 14px 16px;
+    padding: 14px 20px;
     cursor: pointer;
+    gap: 16px;
+    border-bottom: 1px solid rgba(238,240,240,0.07);
+    transition: background .15s;
+    position: relative;
+  }
+  .sb-item:hover { background: rgba(238,240,240,0.06); }
+  .sb-item.active { background: rgba(0,102,94,0.18); }
+  .sb-item.active::before {
+    content: '';
+    position: absolute;
+    left: 0; top: 0; bottom: 0;
+    width: 3px;
+    background: var(--green-lt);
+  }
+
+  /* Ícono — círculo gris como las miniaturas de AM */
+  .sb-item-icon {
+    width: 36px; height: 36px;
+    border-radius: 50%;
+    background: rgba(238,240,240,0.1);
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+    color: rgba(238,240,240,0.5);
+    transition: background .15s, color .15s;
+  }
+  .sb-item:hover .sb-item-icon { background: rgba(238,240,240,0.16); color: #eef0f0; }
+  .sb-item.active .sb-item-icon { background: rgba(0,102,94,0.3); color: var(--green-lt); }
+
+  /* Texto — label + sublabel como "Paint / Buckinghamshire Green" */
+  .sb-item-label {
+    flex: 1;
+    min-width: 0;
+  }
+  .sb-item-name {
     font-size: 15px;
     font-weight: 400;
-    color: rgba(238,240,240,0.75);
+    color: #eef0f0;
     letter-spacing: 0.2px;
-    border-radius: 0;
-    background: rgba(238,240,240,0.04);
-    border: 1px solid rgba(238,240,240,0.06);
-    transition: color .18s, background .18s, border-color .18s;
-    gap: 14px;
+    line-height: 1.3;
   }
-  .sb-item:hover {
-    color: var(--text);
-    background: rgba(238,240,240,0.09);
-    border-color: rgba(238,240,240,0.12);
+  .sb-item-sub {
+    font-size: 11px;
+    color: rgba(238,240,240,0.4);
+    letter-spacing: 0.5px;
+    margin-top: 1px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
-  .sb-item.active {
-    color: #fff;
-    background: rgba(0,102,94,0.25);
-    border-color: rgba(0,102,94,0.4);
-  }
-  /* Flecha derecha en cada item — como en el panel AM */
-  .sb-item::after {
-    content: '';
-    display: block;
-    width: 6px; height: 6px;
-    border-right: 1.5px solid rgba(238,240,240,0.25);
-    border-top: 1.5px solid rgba(238,240,240,0.25);
-    transform: rotate(45deg);
-    margin-left: auto;
-    flex-shrink: 0;
-    transition: border-color .18s, transform .18s;
-  }
-  .sb-item:hover::after { border-color: rgba(238,240,240,0.55); transform: rotate(45deg) translate(2px,-2px); }
-  .sb-item.active::after { border-color: var(--green-lt); }
 
-  .sb-item-icon {
-    width: 20px;
-    text-align: center;
-    color: rgba(238,240,240,0.5);
+  /* Flecha › */
+  .sb-item-arrow {
+    color: rgba(238,240,240,0.25);
     flex-shrink: 0;
-    transition: color .18s;
+    transition: color .15s, transform .15s;
   }
-  .sb-item:hover .sb-item-icon,
-  .sb-item.active .sb-item-icon { color: var(--green-lt); }
-
-  .sb-item-label { flex: 1; }
+  .sb-item:hover .sb-item-arrow { color: rgba(238,240,240,0.6); transform: translateX(2px); }
+  .sb-item.active .sb-item-arrow { color: var(--green-lt); }
 
   .sb-item-badge {
-    font-size: 9px;
-    padding: 2px 8px;
-    background: rgba(0,102,94,0.3);
+    font-size: 10px;
+    padding: 2px 9px;
+    background: rgba(0,102,94,0.35);
     color: var(--green-lt);
     letter-spacing: 1px;
-    border: 1px solid rgba(0,102,94,0.4);
-  }
-
-  /* Footer */
-  .sb-foot {
-    padding: 16px 24px 20px;
-    background: #242628;
-    border-top: 1px solid rgba(238,240,240,0.07);
+    border-radius: 9999px;
+    border: 1px solid rgba(0,102,94,0.5);
     flex-shrink: 0;
   }
+
+  /* Trigger button en footer del sidebar */
+  .sb-foot {
+    padding: 14px 20px 18px;
+    background: #2c2f36;
+    border-top: 1px solid rgba(238,240,240,0.1);
+    flex-shrink: 0;
+  }
+  .sb-foot-btn {
+    display: flex; align-items: center; gap: 8px;
+    width: 100%; padding: 10px 14px;
+    background: rgba(0,102,94,0.2);
+    border: 1px solid rgba(0,102,94,0.35);
+    color: var(--green-lt);
+    font-size: 11px; letter-spacing: 1.5px; text-transform: uppercase;
+    cursor: pointer; transition: background .2s;
+    font-family: 'Barlow', sans-serif;
+    margin-bottom: 10px;
+  }
+  .sb-foot-btn:hover { background: rgba(0,102,94,0.35); }
   .sb-foot-info {
-    font-size: 10px;
-    color: rgba(238,240,240,0.25);
+    font-size: 9px;
+    color: rgba(238,240,240,0.2);
     letter-spacing: 1px;
     text-transform: uppercase;
     line-height: 1.9;
@@ -1201,51 +1253,99 @@
       <span id="cart-badge" class="badge badge-green" style="display:none">Cart 0</span>
     </div>
   </header>
+  <div class="header-line"></div>
 
   <!-- ══ SIDEBAR OVERLAY ══ -->
   <div class="sb-overlay" id="sb-overlay" onclick="closeSidebar()"></div>
 
   <!-- ══ SIDEBAR ══ -->
-  <nav class="sidebar" id="sidebar">
+  <nav class="sidebar" id="sidebar" style="position:relative">
     <div class="sb-head">
-      <span class="sb-head-title">Navegación</span>
-      <button class="sb-close" onclick="closeSidebar()">✕</button>
+      <div class="sb-head-title">CVA Dropship</div>
+      <div class="sb-head-sub">Electronics México</div>
+      <button class="sb-close" onclick="closeSidebar()">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
     </div>
     <div class="sb-nav">
+
       <div class="sb-section-label">CVA</div>
+
       <div class="sb-item active" id="nav-buscar" onclick="showPage('buscar')">
-        <span class="sb-item-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><line x1="16.5" y1="16.5" x2="22" y2="22"/></svg></span>
-        <span class="sb-item-label">Buscar Productos</span>
+        <div class="sb-item-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><line x1="16.5" y1="16.5" x2="22" y2="22"/></svg></div>
+        <div class="sb-item-label">
+          <div class="sb-item-name">Buscar Productos</div>
+          <div class="sb-item-sub">Catálogo en tiempo real</div>
+        </div>
+        <div class="sb-item-arrow"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg></div>
       </div>
+
       <div class="sb-item" id="nav-orden" onclick="showPage('orden')">
-        <span class="sb-item-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 01-8 0"/></svg></span>
-        <span class="sb-item-label">Nueva Orden</span>
+        <div class="sb-item-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 01-8 0"/></svg></div>
+        <div class="sb-item-label">
+          <div class="sb-item-name">Nueva Orden</div>
+          <div class="sb-item-sub">Carrito de compra CVA</div>
+        </div>
         <span class="sb-item-badge" id="cart-sb-badge" style="display:none">0</span>
+        <div class="sb-item-arrow"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg></div>
       </div>
+
       <div class="sb-item" id="nav-pedidos" onclick="showPage('pedidos')">
-        <span class="sb-item-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><rect x="3" y="3" width="18" height="18" rx="1"/><line x1="7" y1="8" x2="17" y2="8"/><line x1="7" y1="12" x2="14" y2="12"/><line x1="7" y1="16" x2="11" y2="16"/></svg></span>
-        <span class="sb-item-label">Pedidos CVA</span>
+        <div class="sb-item-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><rect x="3" y="3" width="18" height="18" rx="1"/><line x1="7" y1="8" x2="17" y2="8"/><line x1="7" y1="12" x2="14" y2="12"/><line x1="7" y1="16" x2="11" y2="16"/></svg></div>
+        <div class="sb-item-label">
+          <div class="sb-item-name">Pedidos CVA</div>
+          <div class="sb-item-sub">Historial y guías</div>
+        </div>
+        <div class="sb-item-arrow"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg></div>
       </div>
+
       <div class="sb-section-label">Sistema</div>
+
       <div class="sb-item" id="nav-sync" onclick="showPage('sync')">
-        <span class="sb-item-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/></svg></span>
-        <span class="sb-item-label">Sincronización</span>
+        <div class="sb-item-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/></svg></div>
+        <div class="sb-item-label">
+          <div class="sb-item-name">Sincronización</div>
+          <div class="sb-item-sub">Sync catálogo CVA</div>
+        </div>
+        <div class="sb-item-arrow"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg></div>
       </div>
+
       <div class="sb-item" id="nav-odoo" onclick="showPage('odoo')">
-        <span class="sb-item-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg></span>
-        <span class="sb-item-label">Odoo</span>
+        <div class="sb-item-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg></div>
+        <div class="sb-item-label">
+          <div class="sb-item-name">Odoo</div>
+          <div class="sb-item-sub">Ventas y stock</div>
+        </div>
+        <div class="sb-item-arrow"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg></div>
       </div>
+
+      <div class="sb-item" id="nav-log" onclick="showPage('log')">
+        <div class="sb-item-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg></div>
+        <div class="sb-item-label">
+          <div class="sb-item-name">Log de actividad</div>
+          <div class="sb-item-sub" id="log-sb-sub">Sin eventos</div>
+        </div>
+        <div class="sb-item-arrow"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg></div>
+      </div>
+
       <div class="sb-section-label">Dev</div>
+
       <div class="sb-item" id="nav-debug" onclick="showPage('debug')">
-        <span class="sb-item-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg></span>
-        <span class="sb-item-label">Debug Console</span>
+        <div class="sb-item-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg></div>
+        <div class="sb-item-label">
+          <div class="sb-item-name">Debug Console</div>
+          <div class="sb-item-sub">Endpoints directos</div>
+        </div>
+        <div class="sb-item-arrow"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg></div>
       </div>
+
     </div>
     <div class="sb-foot">
-      <div class="sb-foot-info">
-        CVA Dropshipping Panel<br>
-        Electronics México · v2.0
-      </div>
+      <button class="sb-foot-btn" onclick="instalarTriggersUI()">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/></svg>
+        Instalar Triggers
+      </button>
+      <div class="sb-foot-info">CVA Dropshipping · Electronics México</div>
     </div>
   </nav>
 
@@ -1515,6 +1615,21 @@
         </div>
       </div>
 
+      <!-- ══ PAGE: LOG ══ -->
+      <div class="page" id="page-log">
+        <div class="page-header">
+          <div class="page-rule"></div>
+          <div class="page-title">Log de Actividad</div>
+          <div class="page-sub">Registro de eventos del sistema</div>
+        </div>
+        <div style="display:flex;justify-content:flex-end;margin-bottom:12px">
+          <button class="btn btn-ghost" style="font-size:10px;padding:5px 14px" onclick="limpiarLog()">Limpiar log</button>
+        </div>
+        <div id="log-entries">
+          <div class="alert alert-info">Sin actividad registrada aún.</div>
+        </div>
+      </div>
+
     </div><!-- /main -->
   </div><!-- /scroll-wrap -->
 </div><!-- /shell -->
@@ -1737,6 +1852,8 @@ async function buscarCVA(pagina) {
   };
   const action = params.clave ? 'cva_producto' : 'cva_buscar';
   const data = await api(action, params);
+  if (data.ok) addLog('ok', 'Búsqueda: ' + (params.clave||params.marca||params.grupo||params.desc||'—'), (data.articulos?.length||1) + ' resultados');
+  else addLog('error', 'Error búsqueda', data.error);
   if (!data.ok) {
     const isTimeout = data.error && (data.error.includes('Tiempo') || data.error.includes('timeout') || data.error.includes('agotado') || data.error.includes('deadline'));
     alert_(el, isTimeout
@@ -1944,6 +2061,22 @@ function renderProducto(p) {
   `;
 }
 
+function filtrarPorMarca(marca) {
+  limpiarBusqueda();
+  document.getElementById('s-marca').value = marca;
+  document.getElementById('s-exist').value = '3';
+  showPage('buscar');
+  addLog('info', 'Filtro por marca: ' + marca);
+  buscarCVA();
+}
+function filtrarPorGrupo(grupo) {
+  limpiarBusqueda();
+  document.getElementById('s-grupo').value = grupo;
+  document.getElementById('s-exist').value = '3';
+  showPage('buscar');
+  addLog('info', 'Filtro por grupo: ' + grupo);
+  buscarCVA();
+}
 function limpiarBusqueda() {
   ['s-clave','s-marca','s-grupo','s-desc'].forEach(id => document.getElementById(id).value = '');
   document.getElementById('s-exist').value = '3';
@@ -2001,6 +2134,7 @@ async function agregarAlCarrito() {
     });
   }
   document.getElementById('cart-clave').value = '';
+  addLog('ok', 'Agregado al carrito: ' + clave, 'Qty: ' + qty);
   guardarCarrito();
   renderCarrito();
 }
@@ -2325,9 +2459,10 @@ function renderDebugResult(action, data) {
       <div style="margin-bottom:10px;font-size:9px;letter-spacing:2px;color:var(--muted);text-transform:uppercase">${items.length} marcas</div>
       <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px">
         ${items.map(m => `
-          <div style="background:rgba(38,41,48,0.8);border:1px solid rgba(238,240,240,0.1);padding:18px 14px;display:flex;flex-direction:column;align-items:center;gap:12px;min-height:90px;justify-content:center">
+          <div onclick="filtrarPorMarca('${m.marca}')" style="background:rgba(38,41,48,0.8);border:1px solid rgba(238,240,240,0.1);padding:18px 14px;display:flex;flex-direction:column;align-items:center;gap:12px;min-height:90px;justify-content:center;cursor:pointer;transition:border-color .18s,background .18s" onmouseover="this.style.borderColor='var(--green-lt)'" onmouseout="this.style.borderColor='rgba(238,240,240,0.1)'">
             ${m.logo ? `<img src="${m.logo}" style="height:44px;width:auto;max-width:120px;object-fit:contain;filter:brightness(0) invert(1);opacity:0.8" onerror="this.style.display='none'">` : ''}
             <span style="font-size:12px;letter-spacing:1.5px;color:rgba(238,240,240,0.7);text-align:center;text-transform:uppercase;font-weight:500">${m.marca}</span>
+            <span style="font-size:9px;letter-spacing:1px;color:var(--green-lt);text-transform:uppercase;opacity:0.7">Buscar →</span>
           </div>`).join('')}
       </div>`;
   }
@@ -2339,7 +2474,7 @@ function renderDebugResult(action, data) {
       <div style="margin-bottom:10px;font-size:9px;letter-spacing:2px;color:var(--muted);text-transform:uppercase">${items.length} grupos</div>
       <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:4px">
         ${items.map(g => `
-          <div style="padding:10px 14px;background:rgba(238,240,240,0.03);border:1px solid rgba(238,240,240,0.07);font-size:13px;color:var(--text-2)">${g.nombre || g.grupo || g}</div>`).join('')}
+          <div onclick="filtrarPorGrupo('${g.nombre||g.grupo||g}')" style="padding:10px 14px;background:rgba(238,240,240,0.03);border:1px solid rgba(238,240,240,0.07);font-size:13px;color:var(--text-2);cursor:pointer;display:flex;justify-content:space-between;align-items:center;transition:background .15s" onmouseover="this.style.background='rgba(0,102,94,0.1)'" onmouseout="this.style.background='rgba(238,240,240,0.03)'"><span>${g.nombre || g.grupo || g}</span><span style="font-size:9px;color:var(--green-lt);letter-spacing:1px">BUSCAR →</span></div>`).join('')}
       </div>`;
   }
 
@@ -2573,6 +2708,60 @@ function renderDebugResult(action, data) {
 
 
 
+// ── LOG DE ACTIVIDAD ──────────────────────────────────────────
+let _logEntries = [];
+
+function addLog(tipo, msg, detalle) {
+  const ts = new Date().toLocaleTimeString('es-MX');
+  _logEntries.unshift({ ts, tipo, msg, detalle: detalle || '' });
+  if (_logEntries.length > 100) _logEntries.pop();
+  // Actualizar sublabel en sidebar
+  const sub = document.getElementById('log-sb-sub');
+  if (sub) sub.textContent = ts + ' — ' + msg;
+  renderLog();
+}
+
+function renderLog() {
+  const el = document.getElementById('log-entries');
+  if (!el) return;
+  if (!_logEntries.length) {
+    el.innerHTML = '<div class="alert alert-info">Sin actividad registrada aún.</div>';
+    return;
+  }
+  const colors = { ok: 'var(--green-lt)', error: '#e05555', warn: 'var(--orange)', info: 'rgba(238,240,240,0.4)' };
+  el.innerHTML = _logEntries.map(e => `
+    <div style="display:flex;gap:14px;padding:12px 16px;border-bottom:1px solid rgba(238,240,240,0.06);align-items:flex-start">
+      <div style="font-size:10px;color:rgba(238,240,240,0.3);white-space:nowrap;padding-top:2px;font-family:monospace">${e.ts}</div>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:13px;color:${colors[e.tipo]||colors.info}">${e.msg}</div>
+        ${e.detalle ? `<div style="font-size:11px;color:rgba(238,240,240,0.3);margin-top:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${e.detalle}</div>` : ''}
+      </div>
+      <div style="width:6px;height:6px;border-radius:50%;background:${colors[e.tipo]||colors.info};flex-shrink:0;margin-top:5px"></div>
+    </div>`).join('');
+}
+
+function limpiarLog() { _logEntries = []; renderLog(); }
+
+// ── INSTALAR TRIGGERS DESDE UI ────────────────────────────────
+async function instalarTriggersUI() {
+  closeSidebar();
+  addLog('info', 'Instalando triggers en GAS...', 'sync cada 60min + polling pedidos cada 15min');
+  try {
+    const data = await api('instalar_triggers');
+    if (data.ok) {
+      addLog('ok', 'Triggers instalados correctamente', 'Sync 60min · Polling 15min');
+      showPage('log');
+    } else {
+      addLog('error', 'Error instalando triggers', data.error);
+      alert('Los triggers se instalan ejecutando instalarTriggers() desde el editor de GAS.');
+    }
+  } catch(e) {
+    addLog('warn', 'Instala manualmente: abre GAS → ejecuta instalarTriggers()', e.message);
+    alert('Los triggers se instalan ejecutando instalarTriggers() desde el editor de GAS.');
+  }
+}
+
+
 // ── EXPORTS ───────────────────────────────────────────────
 
 function exportBuscarCSV() {
@@ -2613,17 +2802,19 @@ function exportCarritoPDF() {
 }
 
 function downloadCSV(rows, filename) {
+  const NL = '\n';
   const csv = rows.map(r => r.map(c => {
-    const s = String(c).replace(/"/g,'""');
-    return /[,"
-]/.test(s) ? `"${s}"` : s;
-  }).join(',')).join('
-');
-  const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' });
-  const a = Object.assign(document.createElement('a'), {
-    href: URL.createObjectURL(blob), download: filename
-  });
-  a.click(); URL.revokeObjectURL(a.href);
+    const s = String(c === null || c === undefined ? '' : c).replace(/"/g, '""');
+    return (s.indexOf(',') >= 0 || s.indexOf('"') >= 0 || s.indexOf('\n') >= 0) ? '"' + s + '"' : s;
+  }).join(',')).join(NL);
+  const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
 }
 
 function printPDF(title, headers, rows, footer) {
