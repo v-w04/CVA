@@ -44,10 +44,10 @@
   .header {
     flex-shrink: 0;
     height: var(--header-h);
-    background: rgba(30,32,37,0.55);
-    backdrop-filter: blur(24px);
-    -webkit-backdrop-filter: blur(24px);
-    border-bottom: 1px solid var(--border);
+    background: rgba(14,15,18,0.72);
+    backdrop-filter: blur(32px) saturate(1.4);
+    -webkit-backdrop-filter: blur(32px) saturate(1.4);
+    border-bottom: 1px solid rgba(238,240,240,0.1);
     display: flex;
     align-items: center;
     padding: 0 28px;
@@ -269,12 +269,57 @@
     line-height: 1.8;
   }
 
+  /* ━━ FONDO ANIMADO ESTILO AM ━━ */
+  /* Capa de gradiente que se mueve lentamente — igual al intro-bg de AM */
+  .bg-anim {
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+    overflow: hidden;
+  }
+  .bg-anim::before,
+  .bg-anim::after {
+    content: '';
+    position: absolute;
+    border-radius: 50%;
+    filter: blur(120px);
+    opacity: 0.055;
+  }
+  /* Mancha verde — esquina superior derecha, se mueve en diagonal */
+  .bg-anim::before {
+    width: 70vw; height: 70vw;
+    background: radial-gradient(circle, #00665e 0%, transparent 70%);
+    top: -20%; right: -20%;
+    animation: bgDrift1 18s ease-in-out infinite alternate;
+  }
+  /* Mancha más suave — esquina inferior izquierda */
+  .bg-anim::after {
+    width: 50vw; height: 50vw;
+    background: radial-gradient(circle, #67b8af 0%, transparent 70%);
+    bottom: -10%; left: -10%;
+    animation: bgDrift2 24s ease-in-out infinite alternate;
+    opacity: 0.03;
+  }
+  @keyframes bgDrift1 {
+    0%   { transform: translate(0,    0)    scale(1);    }
+    50%  { transform: translate(-8%,  6%)   scale(1.1);  }
+    100% { transform: translate(-15%, 12%)  scale(0.95); }
+  }
+  @keyframes bgDrift2 {
+    0%   { transform: translate(0,   0)   scale(1);   }
+    50%  { transform: translate(10%, -8%) scale(1.15); }
+    100% { transform: translate(5%,  15%) scale(0.9); }
+  }
+
   /* ━━ SCROLL CONTENT ━━ */
   .scroll-wrap {
     flex: 1;
     overflow-y: auto;
     overflow-x: hidden;
     background: var(--bg);
+    position: relative;
+    z-index: 1;
   }
   .main {
     padding: 36px 48px 60px;
@@ -379,26 +424,85 @@
   .btn-ghost:hover { border-color: var(--text); background: rgba(255,255,255,0.04); }
   .btn:disabled { opacity: .25; cursor: not-allowed; }
 
-  /* ━━ TABLE ━━ */
-  .table-wrap { overflow-x: auto; border: 1px solid rgba(255,255,255,0.05); }
+  /* ━━ TABLE — estilo AM configurador ━━ */
+  .table-wrap {
+    overflow-x: auto;
+    border: 1px solid rgba(238,240,240,0.07);
+    border-radius: 0;
+  }
   table { width: 100%; border-collapse: collapse; }
+  thead tr {
+    border-bottom: 1px solid rgba(238,240,240,0.12);
+  }
   th {
-    background: #0C0C0C;
-    color: var(--muted);
-    font-size: 9px; text-transform: uppercase;
-    letter-spacing: 2px;
-    padding: 14px 16px;
+    background: rgba(20,22,27,0.9);
+    color: rgba(238,240,240,0.35);
+    font-size: 8.5px; text-transform: uppercase;
+    letter-spacing: 2.5px;
+    padding: 14px 20px;
     text-align: left; white-space: nowrap;
-    border-bottom: 1px solid rgba(255,255,255,0.06);
     font-weight: 500;
   }
-  td {
-    padding: 13px 16px;
-    border-top: 1px solid rgba(255,255,255,0.03);
-    font-size: 13px; vertical-align: middle;
+  tbody tr {
+    border-bottom: 1px solid rgba(238,240,240,0.05);
+    transition: background .18s;
   }
-  tr:hover td { background: rgba(0,81,58,0.04); }
-  .mono { font-family: 'Consolas', monospace; font-size: 12px; color: var(--silver); }
+  tbody tr:last-child { border-bottom: none; }
+  td {
+    padding: 16px 20px;
+    font-size: 13px; vertical-align: middle;
+    color: rgba(238,240,240,0.85);
+  }
+  /* Hover: fondo verde muy sutil + borde izquierdo */
+  tbody tr:hover td { background: rgba(0,102,94,0.07); }
+  tbody tr:hover td:first-child {
+    border-left: 2px solid var(--green);
+    padding-left: 18px;
+  }
+  td:first-child { border-left: 2px solid transparent; transition: border-color .18s; }
+
+  .mono {
+    font-family: 'Consolas', monospace;
+    font-size: 12px;
+    color: rgba(103,184,175,0.8); /* verde-lt AM */
+    letter-spacing: 0.5px;
+  }
+
+  /* Precio en tabla — más prominente */
+  .td-price {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 16px;
+    font-weight: 400;
+    color: var(--text);
+    letter-spacing: 0.3px;
+  }
+
+  /* Stock dot+número — como indicador AM */
+  .stock-cell {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    white-space: nowrap;
+  }
+  .stock-dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+  .stock-dot.ok   { background: #67b8af; box-shadow: 0 0 6px rgba(103,184,175,0.5); }
+  .stock-dot.low  { background: var(--orange); box-shadow: 0 0 6px rgba(200,151,58,0.4); }
+  .stock-dot.none { background: rgba(238,240,240,0.15); }
+  .stock-num {
+    font-size: 13px;
+    font-family: 'Barlow Condensed', sans-serif;
+    letter-spacing: 0.5px;
+  }
+  .stock-none-txt {
+    font-size: 9px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: rgba(238,240,240,0.2);
+  }
 
   /* ━━ PRODUCTO CARD ━━ */
   .prod-card { display: grid; grid-template-columns: 130px 1fr; gap: 24px; margin-bottom: 20px; }
@@ -641,6 +745,9 @@
     <div class="splash-wordmark" id="splash-wordmark">Electronics México</div>
   </div>
 </div>
+
+<!-- Fondo animado AM -->
+<div class="bg-anim" aria-hidden="true"></div>
 
 <div class="shell">
 
@@ -1149,6 +1256,14 @@ function stockTag(qty, label) {
   if (qty < 5) return `<span class="tag tag-orange">${label}: ${qty}</span>`;
   return `<span class="tag tag-green">${label}: ${qty}</span>`;
 }
+// Celda de stock estilo AM — dot + número
+function stockCellAM(qty, label) {
+  if (!qty || qty === 0) {
+    return `<div class="stock-cell"><div class="stock-dot none"></div><span class="stock-none-txt">—</span></div>`;
+  }
+  const cls = qty < 5 ? 'low' : 'ok';
+  return `<div class="stock-cell"><div class="stock-dot ${cls}"></div><span class="stock-num">${qty}</span></div>`;
+}
 
 // ── BUSCAR ────────────────────────────────────────────────
 async function buscarCVA() {
@@ -1180,7 +1295,7 @@ async function buscarCVA() {
             <td class="mono">${a.clave}</td>
             <td style="max-width:320px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${a.descripcion}</td>
             <td style="color:var(--muted);font-size:12px">${a.marca || '—'}</td>
-            <td><strong>${fmt(a.precio, a.moneda)}</strong></td>
+            <td class="td-price">${fmt(a.precio, a.moneda)}</td>
             <td>${stockTag(a.disponible, 'Suc')}</td>
             <td>${stockTag(a.disponibleCD, 'CEDIS')}</td>
             <td style="display:flex;gap:6px">
