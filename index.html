@@ -1,0 +1,1594 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CVA Dropshipping · Electronics México</title>
+<link href="https://fonts.googleapis.com/css2?family=Barlow:wght@300;400;500;600&family=Barlow+Condensed:wght@300;400;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:        #0C0C0C;
+    --surface:   #141414;
+    --card:      #1C1C1C;
+    --border:    rgba(255,255,255,0.07);
+    --green:     #00513A;
+    --green-lt:  #006B4E;
+    --green-hi:  #00B06A;
+    --orange:    #C8973A;
+    --red:       #8B2020;
+    --text:      #F5F5F5;
+    --muted:     #6E6E6E;
+    --silver:    #B0B0B0;
+    --header-h:  64px;
+  }
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html, body {
+    height: 100%;
+    overflow: hidden;
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Barlow', system-ui, sans-serif;
+    font-size: 14px;
+    letter-spacing: 0.01em;
+  }
+
+  /* ━━ LAYOUT SHELL ━━ */
+  .shell {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+  }
+
+  /* ━━ HEADER ━━ */
+  .header {
+    flex-shrink: 0;
+    height: var(--header-h);
+    background: rgba(30,32,37,0.55);
+    backdrop-filter: blur(24px);
+    -webkit-backdrop-filter: blur(24px);
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    padding: 0 28px;
+    position: relative;
+    z-index: 200;
+  }
+
+  /* Hamburguesa */
+  .ham-btn {
+    width: 44px; height: 44px;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    gap: 5px;
+    cursor: pointer;
+    background: none;
+    border: none;
+    padding: 0;
+    flex-shrink: 0;
+    position: relative;
+    z-index: 201;
+  }
+  .ham-btn:hover .ham-line { opacity: 1; }
+  .ham-btn span {
+    display: block;
+    width: 22px; height: 1.5px;
+    background: #eef0f0;
+    transition: transform .35s cubic-bezier(.65,0,.35,1),
+                opacity .25s ease,
+                width .25s ease;
+    transform-origin: center;
+  }
+  .ham-btn.open span:nth-child(1) { transform: translateY(6.5px) rotate(45deg); }
+  .ham-btn.open span:nth-child(2) { opacity: 0; width: 0; }
+  .ham-btn.open span:nth-child(3) { transform: translateY(-6.5px) rotate(-45deg); }
+
+  /* Logo centrado */
+  .header-logo {
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    pointer-events: none;
+  }
+  .header-logo img {
+    height: 36px;
+    filter: brightness(0) invert(1);
+    opacity: 0.92;
+  }
+  .header-logo-fallback {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 16px;
+    font-weight: 400;
+    letter-spacing: 5px;
+    text-transform: uppercase;
+    color: var(--text);
+  }
+  .header-logo-sub {
+    font-size: 9px;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: var(--muted);
+    font-weight: 400;
+  }
+
+  /* Badges derecha */
+  .header-right {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .badge {
+    padding: 3px 10px;
+    font-size: 9px; font-weight: 500;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    border: 1px solid;
+    font-family: 'Barlow', sans-serif;
+  }
+  .badge-green  { color: var(--green-hi);  border-color: rgba(0,176,106,0.35); }
+  .badge-silver { color: var(--silver);    border-color: rgba(176,176,176,0.25); }
+  .badge-red    { color: #CC4444;          border-color: rgba(204,68,68,0.35); }
+
+  /* ━━ SIDEBAR OVERLAY ━━ */
+  .sb-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0);
+    z-index: 150;
+    pointer-events: none;
+    transition: background .35s ease, backdrop-filter .35s ease;
+    backdrop-filter: blur(0px);
+  }
+  .sb-overlay.open {
+    background: rgba(0,0,0,0.6);
+    pointer-events: auto;
+    backdrop-filter: blur(3px);
+  }
+
+  /* ━━ SIDEBAR ━━ */
+  .sidebar {
+    position: fixed;
+    top: 0; left: 0;
+    width: 300px;
+    height: 100%;
+    background: rgba(20,22,27,0.97);
+    backdrop-filter: blur(30px);
+    -webkit-backdrop-filter: blur(30px);
+    border-right: 1px solid var(--border);
+    z-index: 300;
+    transform: translateX(-100%);
+    transition: transform .4s cubic-bezier(.65,0,.35,1);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+  .sidebar.open {
+    transform: translateX(0);
+  }
+
+  /* Header del sidebar */
+  .sb-head {
+    height: var(--header-h);
+    display: flex;
+    align-items: center;
+    padding: 0 24px;
+    border-bottom: 1px solid rgba(255,255,255,0.05);
+    border-top: 2px solid var(--green);
+    flex-shrink: 0;
+  }
+  .sb-head-title {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 11px;
+    letter-spacing: 4px;
+    text-transform: uppercase;
+    color: var(--muted);
+    font-weight: 400;
+  }
+  .sb-close {
+    margin-left: auto;
+    background: none;
+    border: none;
+    color: var(--muted);
+    font-size: 18px;
+    cursor: pointer;
+    padding: 4px 8px;
+    line-height: 1;
+    transition: color .2s;
+  }
+  .sb-close:hover { color: var(--text); }
+
+  /* Nav items */
+  .sb-nav {
+    flex: 1;
+    overflow-y: auto;
+    padding: 20px 0;
+  }
+  .sb-section-label {
+    font-size: 8px;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: var(--muted);
+    padding: 16px 24px 8px;
+    font-weight: 500;
+    opacity: 0.6;
+  }
+  .sb-item {
+    display: flex;
+    align-items: center;
+    padding: 13px 24px;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 400;
+    color: var(--silver);
+    letter-spacing: 1px;
+    border-left: 2px solid transparent;
+    transition: color .2s, border-color .2s, background .2s;
+    gap: 12px;
+  }
+  .sb-item:hover {
+    color: var(--text);
+    background: rgba(255,255,255,0.03);
+  }
+  .sb-item.active {
+    color: var(--text);
+    border-left-color: var(--green);
+    background: rgba(0,81,58,0.06);
+  }
+  .sb-item-icon {
+    font-size: 15px;
+    width: 20px;
+    text-align: center;
+    opacity: 0.7;
+  }
+  .sb-item-label { flex: 1; }
+  .sb-item-badge {
+    font-size: 9px;
+    padding: 2px 8px;
+    background: rgba(0,81,58,0.3);
+    color: var(--green-hi);
+    border-radius: 0;
+    letter-spacing: 1px;
+  }
+
+  /* Footer sidebar */
+  .sb-foot {
+    padding: 16px 24px 20px;
+    border-top: 1px solid rgba(255,255,255,0.05);
+    flex-shrink: 0;
+  }
+  .sb-foot-info {
+    font-size: 10px;
+    color: var(--muted);
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    line-height: 1.8;
+  }
+
+  /* ━━ SCROLL CONTENT ━━ */
+  .scroll-wrap {
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
+    background: var(--bg);
+  }
+  .main {
+    padding: 36px 48px 60px;
+    max-width: 1440px;
+    margin: 0 auto;
+  }
+
+  /* ━━ PAGE TITLE ━━ */
+  .page-header {
+    margin-bottom: 28px;
+  }
+  .page-rule {
+    width: 28px; height: 1px;
+    background: var(--green);
+    margin-bottom: 12px;
+  }
+  .page-title {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 22px;
+    font-weight: 300;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: var(--text);
+  }
+  .page-sub {
+    font-size: 10px;
+    color: var(--muted);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    margin-top: 4px;
+  }
+
+  /* ━━ PAGES ━━ */
+  .page { display: none; }
+  .page.active { display: block; }
+
+  /* ━━ GRIDS ━━ */
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+  .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px; }
+
+  /* ━━ CARDS ━━ */
+  .card {
+    background: var(--surface);
+    border: 1px solid rgba(255,255,255,0.05);
+    padding: 24px;
+  }
+  .card-title {
+    font-size: 9px; text-transform: uppercase;
+    letter-spacing: 3px; color: var(--muted);
+    margin-bottom: 14px; font-weight: 500;
+  }
+  .kpi {
+    font-size: 36px; font-weight: 300;
+    color: var(--text);
+    font-family: 'Barlow Condensed', sans-serif;
+  }
+  .kpi-sub {
+    font-size: 10px; color: var(--muted);
+    margin-top: 6px; letter-spacing: 2px;
+    text-transform: uppercase;
+  }
+
+  /* ━━ SEARCH BAR ━━ */
+  .search-bar { display: flex; gap: 10px; margin-bottom: 24px; flex-wrap: wrap; }
+  .search-bar input, .search-bar select {
+    flex: 1; min-width: 160px;
+    background: var(--card);
+    border: 1px solid rgba(255,255,255,0.07);
+    border-bottom: 1px solid rgba(255,255,255,0.18);
+    color: var(--text);
+    padding: 11px 16px;
+    font-size: 13px; outline: none;
+    font-family: 'Barlow', sans-serif;
+    transition: border-bottom-color .2s;
+  }
+  .search-bar input:focus, .search-bar select:focus {
+    border-bottom-color: var(--green-hi);
+    background: #202020;
+  }
+  .search-bar select option { background: #1C1C1C; }
+
+  /* ━━ BUTTONS ━━ */
+  .btn {
+    padding: 11px 24px;
+    border: none;
+    cursor: pointer;
+    font-size: 11px; font-weight: 500;
+    transition: background .2s, color .2s, border-color .2s;
+    white-space: nowrap;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    font-family: 'Barlow', sans-serif;
+  }
+  .btn-primary { background: var(--green); color: #F5F5F5; }
+  .btn-primary:hover { background: var(--green-lt); }
+  .btn-green   { background: var(--green); color: #F5F5F5; }
+  .btn-green:hover { background: var(--green-lt); }
+  .btn-orange  { background: transparent; color: var(--silver); border: 1px solid rgba(176,176,176,0.4); }
+  .btn-orange:hover { border-color: var(--text); color: var(--text); }
+  .btn-red     { background: #8B2020; color: #F5F5F5; }
+  .btn-ghost   { background: transparent; color: var(--text); border: 1px solid rgba(255,255,255,0.28); }
+  .btn-ghost:hover { border-color: var(--text); background: rgba(255,255,255,0.04); }
+  .btn:disabled { opacity: .25; cursor: not-allowed; }
+
+  /* ━━ TABLE ━━ */
+  .table-wrap { overflow-x: auto; border: 1px solid rgba(255,255,255,0.05); }
+  table { width: 100%; border-collapse: collapse; }
+  th {
+    background: #0C0C0C;
+    color: var(--muted);
+    font-size: 9px; text-transform: uppercase;
+    letter-spacing: 2px;
+    padding: 14px 16px;
+    text-align: left; white-space: nowrap;
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+    font-weight: 500;
+  }
+  td {
+    padding: 13px 16px;
+    border-top: 1px solid rgba(255,255,255,0.03);
+    font-size: 13px; vertical-align: middle;
+  }
+  tr:hover td { background: rgba(0,81,58,0.04); }
+  .mono { font-family: 'Consolas', monospace; font-size: 12px; color: var(--silver); }
+
+  /* ━━ PRODUCTO CARD ━━ */
+  .prod-card { display: grid; grid-template-columns: 130px 1fr; gap: 24px; margin-bottom: 20px; }
+  .prod-img {
+    width: 130px; height: 130px; object-fit: contain;
+    background: var(--card); border: 1px solid rgba(255,255,255,0.06);
+  }
+  .prod-img-placeholder {
+    width: 130px; height: 130px; background: var(--card);
+    border: 1px solid rgba(255,255,255,0.06);
+    display: flex; align-items: center; justify-content: center; font-size: 32px;
+  }
+  .prod-title {
+    font-size: 13px; font-weight: 500;
+    margin-bottom: 12px; line-height: 1.5;
+    text-transform: uppercase; letter-spacing: 1px;
+  }
+  .prod-meta { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 14px; }
+  .tag {
+    padding: 3px 10px;
+    font-size: 9px; font-weight: 500;
+    letter-spacing: 1.5px; text-transform: uppercase;
+    border: 1px solid;
+  }
+  .tag-blue   { color: var(--silver);  border-color: rgba(176,176,176,0.3); }
+  .tag-green  { color: var(--green-hi); border-color: rgba(0,176,106,0.3); }
+  .tag-red    { color: #CC4444;        border-color: rgba(204,68,68,0.3); }
+  .tag-orange { color: var(--orange);  border-color: rgba(200,151,58,0.4); }
+  .tag-gray   { color: var(--muted);   border-color: rgba(255,255,255,0.12); }
+  .price-big  {
+    font-size: 28px; font-weight: 300;
+    color: var(--text);
+    font-family: 'Barlow Condensed', sans-serif;
+  }
+  .price-orig { font-size: 12px; color: var(--muted); text-decoration: line-through; margin-left: 10px; }
+
+  /* ━━ ALERTS ━━ */
+  .alert {
+    padding: 14px 18px;
+    font-size: 13px; margin-bottom: 16px;
+    letter-spacing: 0.2px; line-height: 1.6;
+  }
+  .alert-info    { background: rgba(0,81,58,0.08);   border-left: 2px solid var(--green);    color: #7ABFAF; }
+  .alert-success { background: rgba(0,176,106,0.06); border-left: 2px solid var(--green-hi); color: var(--green-hi); }
+  .alert-warn    { background: rgba(200,151,58,0.06);border-left: 2px solid var(--orange);   color: var(--orange); }
+  .alert-error   { background: rgba(139,32,32,0.08); border-left: 2px solid #CC4444;         color: #CC4444; }
+
+  /* ━━ SPINNER ━━ */
+  .spin {
+    display: inline-block; width: 14px; height: 14px;
+    border: 1px solid rgba(255,255,255,0.1);
+    border-top-color: var(--green-hi);
+    border-radius: 50%;
+    animation: spin .8s linear infinite;
+    vertical-align: middle; margin-right: 8px;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ━━ FORM ━━ */
+  .form-group { margin-bottom: 16px; }
+  .form-group label {
+    display: block;
+    font-size: 9px; text-transform: uppercase;
+    letter-spacing: 2px; color: var(--muted);
+    margin-bottom: 7px; font-weight: 500;
+  }
+  .form-group input, .form-group select, .form-group textarea {
+    width: 100%; background: var(--card);
+    border: 1px solid rgba(255,255,255,0.06);
+    border-bottom: 1px solid rgba(255,255,255,0.18);
+    color: var(--text); padding: 11px 14px;
+    font-size: 13px; outline: none;
+    font-family: 'Barlow', sans-serif;
+    transition: border-bottom-color .2s, background .2s;
+  }
+  .form-group input:focus, .form-group select:focus {
+    border-bottom-color: var(--green-hi);
+    background: #202020;
+  }
+  .form-group select option { background: #1C1C1C; }
+
+  /* ━━ CART ━━ */
+  .cart-item {
+    display: flex; align-items: center; gap: 14px;
+    padding: 14px 16px;
+    background: var(--card);
+    border: 1px solid rgba(255,255,255,0.04);
+    border-left: 2px solid rgba(0,81,58,0.5);
+    margin-bottom: 6px;
+  }
+  .cart-item-info { flex: 1; min-width: 0; }
+  .cart-item-name {
+    font-size: 11px; font-weight: 500;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    text-transform: uppercase; letter-spacing: 1px;
+  }
+  .cart-item-clave { font-size: 11px; color: var(--muted); font-family: monospace; margin-top: 3px; }
+  .qty-ctrl { display: flex; align-items: center; gap: 6px; }
+  .qty-btn {
+    width: 26px; height: 26px;
+    border: 1px solid rgba(255,255,255,0.15);
+    background: transparent; color: var(--text);
+    cursor: pointer; font-size: 14px;
+    display: flex; align-items: center; justify-content: center;
+    transition: border-color .2s, color .2s;
+  }
+  .qty-btn:hover { border-color: var(--green); color: var(--green-hi); }
+
+  /* ━━ SUCURSALES ━━ */
+  .suc-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 6px; }
+  .suc-item {
+    background: var(--card);
+    border: 1px solid rgba(255,255,255,0.04);
+    border-left: 1px solid rgba(0,81,58,0.3);
+    padding: 10px 14px; font-size: 12px;
+  }
+  .suc-nombre { color: var(--muted); font-size: 9px; text-transform: uppercase; letter-spacing: 1.5px; }
+  .suc-qty { font-weight: 300; font-size: 22px; font-family: 'Barlow Condensed', sans-serif; margin-top: 2px; }
+
+  /* ━━ MISC ━━ */
+  .divider { height: 1px; background: rgba(255,255,255,0.05); margin: 20px 0; }
+  .section-title {
+    font-size: 9px; text-transform: uppercase;
+    letter-spacing: 3px; color: var(--muted);
+    margin-bottom: 16px; font-weight: 500;
+  }
+  .status-pendiente { color: var(--orange); letter-spacing: 1.5px; text-transform: uppercase; font-size: 10px; font-weight: 500; }
+  .status-facturado { color: var(--green-hi); letter-spacing: 1.5px; text-transform: uppercase; font-size: 10px; font-weight: 500; }
+  .status-cancelado { color: #CC4444; letter-spacing: 1.5px; text-transform: uppercase; font-size: 10px; font-weight: 500; }
+  .stock { display: flex; align-items: center; gap: 6px; }
+
+  /* ━━ MODAL ━━ */
+  .modal-overlay {
+    display: none; position: fixed; inset: 0;
+    background: rgba(0,0,0,0.88);
+    z-index: 400;
+    align-items: center; justify-content: center;
+    backdrop-filter: blur(4px);
+  }
+  .modal-box {
+    background: var(--surface);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-top: 2px solid var(--green);
+    padding: 32px;
+    width: 520px; max-width: 95vw;
+    max-height: 90vh; overflow-y: auto;
+  }
+
+  /* ━━ SCROLLBAR ━━ */
+  ::-webkit-scrollbar { width: 3px; height: 3px; }
+  ::-webkit-scrollbar-track { background: #0A0A0A; }
+  ::-webkit-scrollbar-thumb { background: #2A2A2A; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--green); }
+
+  /* ━━ RESPONSIVE ━━ */
+  @media (max-width: 768px) {
+    .grid-2, .grid-3 { grid-template-columns: 1fr; }
+    .prod-card { grid-template-columns: 80px 1fr; }
+    .main { padding: 20px 16px 40px; }
+  }
+
+  /* ━━ SPLASH SCREEN ESTILO ASTON MARTIN ━━ */
+  #splash {
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
+    background: #00665e;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    /* El fondo desaparece en fase 2 */
+    transition: opacity .9s ease;
+  }
+
+  #splash-logo {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 22px;
+    opacity: 0;
+    transform: scale(1.15);
+    /* Transición suave para fase 2 */
+    transition: opacity .85s cubic-bezier(.65,0,.35,1),
+                transform .85s cubic-bezier(.65,0,.35,1);
+  }
+
+  #splash-logo img {
+    height: 64px;
+    filter: brightness(0) invert(1);
+    opacity: 0.75;
+  }
+
+  #splash-logo .splash-wordmark {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 11px;
+    font-weight: 300;
+    letter-spacing: 10px;
+    text-transform: uppercase;
+    color: rgba(255,255,255,0.45);
+    opacity: 0;
+    /* aparece gradualmente después del logo */
+    transition: opacity .7s ease;
+  }
+
+  /* Fase 1: logo y texto aparecen */
+  #splash.phase-1 #splash-logo {
+    opacity: 1;
+    transform: scale(1);
+  }
+  #splash.phase-1 .splash-wordmark {
+    opacity: 1;
+  }
+
+  /* Fase 2: todo sube y desaparece */
+  #splash.phase-2 {
+    opacity: 0;
+    pointer-events: none;
+  }
+  #splash.phase-2 #splash-logo {
+    opacity: 0;
+    transform: scale(0.45) translateY(-160px);
+    transition: opacity .8s cubic-bezier(.65,0,.35,1),
+                transform .8s cubic-bezier(.65,0,.35,1);
+  }
+
+  /* Shell oculto hasta que splash termina */
+  .shell { opacity: 0; transition: opacity .5s ease .2s; }
+  .shell.visible { opacity: 1; }
+
+</style>
+</head>
+<body>
+
+<!-- ══ SPLASH SCREEN AM ══ -->
+<div id="splash">
+  <div id="splash-logo">
+    <img
+      src="https://apicvaservices.grupocva.com/documentation/images/logo-fcd06fb4.png"
+      alt="CVA"
+      onerror="this.style.display='none'"
+    >
+    <div class="splash-wordmark" id="splash-wordmark">Electronics México</div>
+  </div>
+</div>
+
+<div class="shell">
+
+  <!-- ══ HEADER ══ -->
+  <header class="header">
+    <button class="ham-btn" id="ham-btn" onclick="toggleSidebar()" aria-label="Menú" style="position:relative;width:44px;height:44px;cursor:pointer;background:none;border:none;flex-shrink:0;z-index:201">
+      <svg id="ham-svg-menu" width="22" height="15" viewBox="0 0 22 15" fill="none" style="display:block;position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);transition:opacity .3s">
+        <rect y="0"  width="22" height="1.5" rx="0.75" fill="#eef0f0"/>
+        <rect y="6.5" width="22" height="1.5" rx="0.75" fill="#eef0f0"/>
+        <rect y="13" width="22" height="1.5" rx="0.75" fill="#eef0f0"/>
+      </svg>
+      <svg id="ham-svg-close" width="18" height="18" viewBox="0 0 18 18" fill="none" style="display:none;position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);transition:opacity .3s">
+        <line x1="1" y1="1" x2="17" y2="17" stroke="#eef0f0" stroke-width="1.5" stroke-linecap="round"/>
+        <line x1="17" y1="1" x2="1" y2="17" stroke="#eef0f0" stroke-width="1.5" stroke-linecap="round"/>
+      </svg>
+    </button>
+
+    <div class="header-logo">
+      <img
+        src="https://apicvaservices.grupocva.com/documentation/images/logo-fcd06fb4.png"
+        alt="CVA"
+        onerror="this.style.display='none'; this.nextElementSibling.style.display='block';"
+        style="display:block">
+      <div class="header-logo-fallback" style="display:none">CVA Dropship</div>
+      <div class="header-logo-sub">Electronics México</div>
+    </div>
+
+    <div class="header-right">
+      <span class="badge badge-green" id="badge-cva">CVA ✓</span>
+      <span class="badge badge-silver" id="badge-odoo">Odoo ✓</span>
+      <span class="badge badge-silver" id="badge-sync">Sync —</span>
+      <span id="cart-badge" class="badge badge-green" style="display:none">Cart 0</span>
+    </div>
+  </header>
+
+  <!-- ══ SIDEBAR OVERLAY ══ -->
+  <div class="sb-overlay" id="sb-overlay" onclick="closeSidebar()"></div>
+
+  <!-- ══ SIDEBAR ══ -->
+  <nav class="sidebar" id="sidebar">
+    <div class="sb-head">
+      <span class="sb-head-title">Navegación</span>
+      <button class="sb-close" onclick="closeSidebar()">✕</button>
+    </div>
+    <div class="sb-nav">
+      <div class="sb-section-label">CVA</div>
+      <div class="sb-item active" id="nav-buscar" onclick="showPage('buscar')">
+        <span class="sb-item-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><line x1="16.5" y1="16.5" x2="22" y2="22"/></svg></span>
+        <span class="sb-item-label">Buscar Productos</span>
+      </div>
+      <div class="sb-item" id="nav-orden" onclick="showPage('orden')">
+        <span class="sb-item-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 01-8 0"/></svg></span>
+        <span class="sb-item-label">Nueva Orden</span>
+        <span class="sb-item-badge" id="cart-sb-badge" style="display:none">0</span>
+      </div>
+      <div class="sb-item" id="nav-pedidos" onclick="showPage('pedidos')">
+        <span class="sb-item-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><rect x="3" y="3" width="18" height="18" rx="1"/><line x1="7" y1="8" x2="17" y2="8"/><line x1="7" y1="12" x2="14" y2="12"/><line x1="7" y1="16" x2="11" y2="16"/></svg></span>
+        <span class="sb-item-label">Pedidos CVA</span>
+      </div>
+      <div class="sb-section-label">Sistema</div>
+      <div class="sb-item" id="nav-sync" onclick="showPage('sync')">
+        <span class="sb-item-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/></svg></span>
+        <span class="sb-item-label">Sincronización</span>
+      </div>
+      <div class="sb-item" id="nav-odoo" onclick="showPage('odoo')">
+        <span class="sb-item-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg></span>
+        <span class="sb-item-label">Odoo</span>
+      </div>
+      <div class="sb-section-label">Dev</div>
+      <div class="sb-item" id="nav-debug" onclick="showPage('debug')">
+        <span class="sb-item-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg></span>
+        <span class="sb-item-label">Debug Console</span>
+      </div>
+    </div>
+    <div class="sb-foot">
+      <div class="sb-foot-info">
+        CVA Dropshipping Panel<br>
+        Electronics México · v2.0
+      </div>
+    </div>
+  </nav>
+
+  <!-- ══ SCROLL CONTENT ══ -->
+  <div class="scroll-wrap">
+    <div class="main">
+
+      <!-- ══ PAGE: BUSCAR ══ -->
+      <div class="page active" id="page-buscar">
+        <div class="page-header">
+          <div class="page-rule"></div>
+          <div class="page-title">Buscar Productos</div>
+          <div class="page-sub">Catálogo CVA — búsqueda en tiempo real</div>
+        </div>
+        <div class="search-bar">
+          <input id="s-clave"  type="text" placeholder="Clave CVA — ej: PR-2586" onkeydown="if(event.key==='Enter') buscarCVA()">
+          <input id="s-marca"  type="text" placeholder="Marca — ej: HP, Lenovo"  onkeydown="if(event.key==='Enter') buscarCVA()">
+          <input id="s-grupo"  type="text" placeholder="Grupo — ej: Impresoras"  onkeydown="if(event.key==='Enter') buscarCVA()">
+          <input id="s-desc"   type="text" placeholder="Descripción"             onkeydown="if(event.key==='Enter') buscarCVA()">
+          <select id="s-exist">
+            <option value="">Disponibilidad: Todos</option>
+            <option value="2">Con stock CEDIS</option>
+            <option value="1">Con stock Sucursal</option>
+            <option value="3">Con stock Ambos</option>
+          </select>
+          <button class="btn btn-primary" onclick="buscarCVA()">Buscar</button>
+          <button class="btn btn-ghost"   onclick="limpiarBusqueda()">Limpiar</button>
+        </div>
+        <div id="buscar-result"></div>
+      </div>
+
+      <!-- ══ PAGE: ORDEN ══ -->
+      <div class="page" id="page-orden">
+        <div class="page-header">
+          <div class="page-rule"></div>
+          <div class="page-title">Nueva Orden</div>
+          <div class="page-sub">Crea una orden de compra en CVA</div>
+        </div>
+        <div class="grid-2">
+          <div>
+            <div class="section-title">Carrito de Orden</div>
+            <div class="card" style="margin-bottom:12px">
+              <div class="search-bar" style="margin-bottom:0">
+                <input id="cart-clave" type="text" placeholder="Clave CVA para agregar" onkeydown="if(event.key==='Enter') agregarAlCarrito()">
+                <input id="cart-qty"   type="number" value="1" min="1" style="width:70px;flex:none" onkeydown="if(event.key==='Enter') agregarAlCarrito()">
+                <button class="btn btn-primary" onclick="agregarAlCarrito()">Agregar</button>
+              </div>
+            </div>
+            <div id="carrito-items"></div>
+            <div class="card" id="carrito-totales" style="display:none">
+              <div style="display:flex;justify-content:space-between;margin-bottom:10px;align-items:baseline">
+                <span class="section-title" style="margin:0">Total Estimado CVA</span>
+                <span id="carrito-total" class="price-big"></span>
+              </div>
+              <button class="btn btn-primary" style="width:100%" onclick="showPage('orden')">
+                Confirmar Orden
+              </button>
+            </div>
+          </div>
+          <div>
+            <div class="section-title">Datos de Entrega</div>
+            <div class="card">
+              <div class="form-group">
+                <label>Tipo de Flete</label>
+                <select id="tipo-flete" onchange="toggleFleteFields()">
+                  <option value="FF">FF — Flete en factura CVA</option>
+                  <option value="FS">FS — Flete asegurado</option>
+                  <option value="SF">SF — Sin flete (recoger en CVA)</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label>Número OC / Referencia Odoo</label>
+                <input id="num-oc" type="text" placeholder="ODO-12345 o folio SO" onkeydown="if(event.key==='Enter') enviarOrden()">
+              </div>
+              <div class="form-group">
+                <label>Observaciones</label>
+                <textarea id="observaciones" rows="2" placeholder="Instrucciones especiales..."></textarea>
+              </div>
+              <div id="flete-fields">
+                <div class="divider"></div>
+                <div class="section-title">Dirección de Entrega</div>
+                <div class="grid-2">
+                  <div class="form-group"><label>Calle</label><input id="f-calle" type="text" placeholder="Av. Insurgentes"></div>
+                  <div class="form-group"><label>Número</label><input id="f-numero" type="text" placeholder="1234"></div>
+                </div>
+                <div class="grid-2">
+                  <div class="form-group"><label>Colonia</label><input id="f-colonia" type="text" placeholder="Del Valle"></div>
+                  <div class="form-group"><label>CP</label><input id="f-cp" type="text" placeholder="03100"></div>
+                </div>
+                <div class="grid-2">
+                  <div class="form-group"><label>ID Estado CVA</label><input id="f-estado" type="number" placeholder="9 = CDMX · 15 = JAL"></div>
+                  <div class="form-group"><label>ID Ciudad CVA</label><input id="f-ciudad" type="number" placeholder="558 = GDL"></div>
+                </div>
+                <div class="form-group">
+                  <label>Atención a</label>
+                  <input id="f-atencion" type="text" placeholder="Nombre de quien recibe">
+                </div>
+              </div>
+              <div class="divider"></div>
+              <div style="display:flex;gap:10px">
+                <button class="btn btn-ghost" onclick="enviarOrdenTest()" style="flex:1">Test</button>
+                <button class="btn btn-primary" onclick="enviarOrden()" style="flex:1">Enviar Orden Real</button>
+              </div>
+              <div id="orden-result" style="margin-top:14px"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ══ PAGE: PEDIDOS ══ -->
+      <div class="page" id="page-pedidos">
+        <div class="page-header">
+          <div class="page-rule"></div>
+          <div class="page-title">Pedidos CVA</div>
+          <div class="page-sub">Seguimiento y registro de pedidos</div>
+        </div>
+        <div style="display:flex;gap:10px;margin-bottom:20px;flex-wrap:wrap">
+          <button class="btn btn-primary" onclick="cargarPedidos()">Actualizar</button>
+          <button class="btn btn-ghost"   onclick="abrirModalPedido(null)">+ Registrar Pedido</button>
+          <input id="p-buscar" type="text" placeholder="Buscar pedido..." oninput="filtrarPedidos()" onkeydown="if(event.key==='Enter') filtrarPedidos()"
+            style="flex:1;min-width:180px;background:var(--card);border:1px solid rgba(255,255,255,0.06);border-bottom:1px solid rgba(255,255,255,0.18);color:var(--text);padding:11px 14px;outline:none;font-family:'Barlow',sans-serif;">
+        </div>
+        <div id="pedidos-result">
+          <div class="alert alert-info">Seleccione Actualizar para cargar los pedidos CVA</div>
+        </div>
+      </div>
+
+      <!-- ══ PAGE: SYNC ══ -->
+      <div class="page" id="page-sync">
+        <div class="page-header">
+          <div class="page-rule"></div>
+          <div class="page-title">Sincronización</div>
+          <div class="page-sub">Catálogo CVA → Sheets</div>
+        </div>
+        <div class="grid-3" style="margin-bottom:20px">
+          <div class="card">
+            <div class="card-title">Artículos Procesados</div>
+            <div class="kpi" id="sync-art">—</div>
+            <div class="kpi-sub">último sync</div>
+          </div>
+          <div class="card">
+            <div class="card-title">Próxima Página</div>
+            <div class="kpi" id="sync-page">—</div>
+            <div class="kpi-sub">checkpoint</div>
+          </div>
+          <div class="card">
+            <div class="card-title">Total Páginas</div>
+            <div class="kpi" id="sync-total">—</div>
+            <div class="kpi-sub">catálogo CVA</div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="section-title">Configuración Sync</div>
+          <div class="grid-2">
+            <div class="form-group">
+              <label>Batch Size</label>
+              <select id="sync-batch">
+                <option value="SM">SM — 50 art/página</option>
+                <option value="MD" selected>MD — 150 art/página</option>
+                <option value="LG">LG — 500 art/página</option>
+                <option value="XL">XL — 1500 art/página</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Páginas por Ejecución</label>
+              <input id="sync-paginas" type="number" value="3" min="1" max="20">
+            </div>
+          </div>
+          <div class="form-group" style="margin-top:14px">
+            <label>Filtro de Stock</label>
+            <select id="sync-exist">
+              <option value="3" selected>Solo con stock (Sucursal + CEDIS)</option>
+              <option value="2">Solo con stock CEDIS</option>
+              <option value="1">Solo con stock Sucursal</option>
+              <option value="">Todo el catálogo (sin filtro)</option>
+            </select>
+          </div>
+          <div style="display:flex;gap:10px;margin-top:14px">
+            <button class="btn btn-primary" onclick="ejecutarSync()" style="flex:1">Ejecutar Sync</button>
+            <button class="btn btn-ghost"   onclick="instalarTriggers()" style="flex:1">Instalar Triggers</button>
+          </div>
+          <div id="sync-result" style="margin-top:14px"></div>
+        </div>
+        <div class="card" style="margin-top:20px">
+          <div class="section-title">¿Para qué sirve el Sync?</div>
+          <p style="color:var(--muted);font-size:13px;line-height:1.8">
+            Descarga el catálogo CVA a tu hoja <strong style="color:var(--text)">SYNC_CVA</strong> en Google Sheets — precios, stock y claves — para consultas masivas offline y comparar contra tu inventario Odoo.<br><br>
+            <strong style="color:var(--text)">Recomendado:</strong> batch=MD · 3 páginas · filtro "Sucursal + CEDIS" · trigger cada 60 min.<br><br>
+            <strong style="color:var(--text)">Para operación diaria</strong> no necesitas usarlo — la búsqueda individual en tiempo real es suficiente.
+          </p>
+        </div>
+      </div>
+
+      <!-- ══ PAGE: ODOO ══ -->
+      <div class="page" id="page-odoo">
+        <div class="page-header">
+          <div class="page-rule"></div>
+          <div class="page-title">Odoo</div>
+          <div class="page-sub">Ventas pendientes y búsqueda de productos</div>
+        </div>
+        <div style="display:flex;gap:10px;margin-bottom:20px">
+          <button class="btn btn-primary" onclick="cargarVentasOdoo()">Ventas Pendientes Dropship</button>
+          <input id="o-clave" type="text" placeholder="Clave CVA → buscar en Odoo" onkeydown="if(event.key==='Enter') buscarEnOdoo()"
+            style="flex:1;background:var(--card);border:1px solid rgba(255,255,255,0.06);border-bottom:1px solid rgba(255,255,255,0.18);color:var(--text);padding:11px 14px;outline:none;font-family:'Barlow',sans-serif;">
+          <button class="btn btn-ghost" onclick="buscarEnOdoo()">Buscar</button>
+        </div>
+        <div id="odoo-result">
+          <div class="alert alert-info">Seleccione Ventas Pendientes para ver SOs sin dropship asignado</div>
+        </div>
+      </div>
+
+      <!-- ══ PAGE: DEBUG ══ -->
+      <div class="page" id="page-debug">
+        <div class="page-header">
+          <div class="page-rule"></div>
+          <div class="page-title">Debug Console</div>
+          <div class="page-sub">Llamadas directas a la API</div>
+        </div>
+        <div class="card">
+          <div class="grid-2">
+            <div>
+              <div class="form-group">
+                <label>Endpoint</label>
+                <select id="d-action">
+                  <option value="cva_producto">cva_producto — Info completa producto</option>
+                  <option value="cva_buscar">cva_buscar — Búsqueda/filtros</option>
+                  <option value="cva_precio_stock">cva_precio_stock — Precio y stock</option>
+                  <option value="cva_marcas">cva_marcas — Catálogo marcas</option>
+                  <option value="cva_grupos">cva_grupos — Catálogo grupos</option>
+                  <option value="cva_sucursales">cva_sucursales — Catálogo sucursales</option>
+                  <option value="cva_imagenes">cva_imagenes — Imágenes HD</option>
+                  <option value="cva_info_tecnica">cva_info_tecnica — Specs técnicas</option>
+                  <option value="cva_pedidos">cva_pedidos — Lista pedidos</option>
+                  <option value="cva_consultar_pedido">cva_consultar_pedido — 1 pedido</option>
+                  <option value="cva_consultar_guia">cva_consultar_guia — Status guía CVA</option>
+                  <option value="odoo_buscar_producto">odoo_buscar_producto — Buscar en Odoo</option>
+                  <option value="odoo_stock">odoo_stock — Stock Odoo</option>
+                  <option value="ping">ping — Health check</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label>Parámetros (JSON)</label>
+                <textarea id="d-params" rows="6" style="font-family:monospace;font-size:12px">{
+  "clave": "PR-2586"
+}</textarea>
+              </div>
+              <button class="btn btn-primary" onclick="ejecutarDebug()" style="width:100%">Ejecutar</button>
+            </div>
+            <div>
+              <div class="section-title">Respuesta</div>
+              <pre id="d-result" style="background:#0A0A0A;border:1px solid rgba(255,255,255,0.06);padding:14px;font-size:11px;overflow:auto;max-height:400px;color:#7ABFAF;white-space:pre-wrap;font-family:'Consolas',monospace">// Respuesta aparecerá aquí...</pre>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /main -->
+  </div><!-- /scroll-wrap -->
+</div><!-- /shell -->
+
+<!-- ══ MODAL REGISTRAR PEDIDO ══ -->
+<div class="modal-overlay" id="modal-overlay" style="display:none">
+  <div class="modal-box">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:24px">
+      <div>
+        <div style="width:24px;height:1px;background:var(--green);margin-bottom:10px"></div>
+        <span style="font-size:11px;font-weight:500;letter-spacing:3px;text-transform:uppercase">Registrar Pedido</span>
+      </div>
+      <button onclick="cerrarModal()" style="background:none;border:none;color:var(--muted);font-size:18px;cursor:pointer;opacity:0.6">✕</button>
+    </div>
+    <div class="form-group">
+      <label>Nuestra Orden <span style="color:var(--muted);letter-spacing:0">(MeLi / Walmart / interno)</span></label>
+      <input id="m-nuestra-orden" type="text" placeholder="#2000012384716031">
+    </div>
+    <div class="form-group">
+      <label>No Orden Proveedor <span style="color:var(--muted);letter-spacing:0">(CVA: NMXT-XXXXX)</span></label>
+      <input id="m-orden-cva" type="text" placeholder="NMXT-547891">
+    </div>
+    <div class="form-group">
+      <label>Tienda</label>
+      <select id="m-tienda">
+        <option value="ML SV">ML SV</option>
+        <option value="ML EM">ML EM</option>
+        <option value="Walmart">Walmart</option>
+        <option value="Coppel">Coppel</option>
+        <option value="Liverpool">Liverpool</option>
+        <option value="Elektra">Elektra</option>
+        <option value="Claro Shop">Claro Shop</option>
+        <option value="Totalplay">Totalplay</option>
+        <option value="Otro">Otro</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label>Carrier</label>
+      <select id="m-carrier">
+        <option value="DHL">DHL</option>
+        <option value="Paquetexpress">Paquetexpress</option>
+        <option value="Estafeta">Estafeta</option>
+        <option value="FedEx">FedEx</option>
+        <option value="J&T">J&T</option>
+        <option value="Otro">Otro</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label>No Guía</label>
+      <input id="m-guia" type="text" placeholder="3163668060">
+    </div>
+    <div class="form-group">
+      <label>Guía PDF <span style="color:var(--muted);font-size:11px;letter-spacing:0">(opcional)</span></label>
+      <div style="border:1px dashed rgba(255,255,255,0.15);padding:20px;text-align:center;cursor:pointer;transition:border-color .2s"
+           onclick="document.getElementById('m-pdf-input').click()"
+           ondragover="event.preventDefault();this.style.borderColor='var(--green)'"
+           ondragleave="this.style.borderColor='rgba(255,255,255,0.15)'"
+           ondrop="handleDrop(event)">
+        <div id="m-pdf-label" style="color:var(--muted);font-size:12px;letter-spacing:1px;text-transform:uppercase">Browse — Or drop PDF here</div>
+        <input id="m-pdf-input" type="file" accept=".pdf" style="display:none" onchange="handleFileSelect(event)">
+      </div>
+      <div id="m-pdf-info" style="margin-top:8px;font-size:11px;color:var(--green-hi);letter-spacing:0.5px"></div>
+    </div>
+    <div class="form-group">
+      <label>Observaciones</label>
+      <input id="m-obs" type="text" placeholder="CVA CEDIS GDL">
+    </div>
+    <div class="form-group" style="display:flex;align-items:center;gap:10px">
+      <input type="checkbox" id="m-guia-enviada" style="width:14px;height:14px;accent-color:var(--green)">
+      <label style="margin:0;font-size:10px;letter-spacing:2px;color:var(--muted)">Guía enviada a CVA</label>
+    </div>
+    <div style="display:flex;gap:10px;margin-top:24px">
+      <button class="btn btn-ghost"   onclick="cerrarModal()" style="flex:1">Cerrar</button>
+      <button class="btn btn-orange"  onclick="enviarGuiaCVA()" style="flex:1">Enviar Guía</button>
+      <button class="btn btn-primary" onclick="registrarPedido()" style="flex:1">Registrar</button>
+    </div>
+    <div id="modal-result" style="margin-top:14px"></div>
+  </div>
+</div>
+
+<script>
+// ── SIDEBAR ──────────────────────────────────────────────
+let sidebarOpen = false;
+
+function toggleSidebar() {
+  sidebarOpen ? closeSidebar() : openSidebar();
+}
+function openSidebar() {
+  sidebarOpen = true;
+  document.getElementById('sidebar').classList.add('open');
+  document.getElementById('sb-overlay').classList.add('open');
+  document.getElementById('ham-svg-menu').style.display  = 'none';
+  document.getElementById('ham-svg-close').style.display = 'block';
+}
+function closeSidebar() {
+  sidebarOpen = false;
+  document.getElementById('sidebar').classList.remove('open');
+  document.getElementById('sb-overlay').classList.remove('open');
+  document.getElementById('ham-svg-menu').style.display  = 'block';
+  document.getElementById('ham-svg-close').style.display = 'none';
+}
+
+// ── NAV ───────────────────────────────────────────────────
+let currentPage = 'buscar';
+
+function showPage(id) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.sb-item').forEach(t => t.classList.remove('active'));
+  const pg = document.getElementById('page-' + id);
+  if (pg) pg.classList.add('active');
+  const nav = document.getElementById('nav-' + id);
+  if (nav) nav.classList.add('active');
+  currentPage = id;
+  closeSidebar();
+  // history
+  history.pushState({ page: id }, '', '');
+}
+
+window.addEventListener('popstate', e => {
+  if (e.state && e.state.page) {
+    const pg = document.getElementById('page-' + e.state.page);
+    if (pg) {
+      document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+      document.querySelectorAll('.sb-item').forEach(t => t.classList.remove('active'));
+      pg.classList.add('active');
+      const nav = document.getElementById('nav-' + e.state.page);
+      if (nav) nav.classList.add('active');
+    }
+  }
+});
+
+// ── API ───────────────────────────────────────────────────
+// URL del Web App de Google Apps Script
+const GAS_URL = 'https://script.google.com/macros/s/AKfycby9biqEbiv4syc3St3TuPKXkG9rI5A4YsmtNta3OEJ4mD0i8sg0PPg9OhfrPDZJuO_L/exec';
+
+async function api(action, params = {}) {
+  const qs = new URLSearchParams({ action, ...params }).toString();
+  const res = await fetch(`${GAS_URL}?${qs}`, {
+    method: 'GET',
+    redirect: 'follow',
+  });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return res.json();
+}
+
+async function apiPost(action, body = {}) {
+  const payload = JSON.stringify({ action, ...body });
+  const res = await fetch(GAS_URL, {
+    method: 'POST',
+    redirect: 'follow',
+    headers: { 'Content-Type': 'text/plain' },
+    body: payload,
+  });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return res.json();
+}
+
+// ── UTILS ─────────────────────────────────────────────────
+function loading(el) {
+  el.innerHTML = '<div style="padding:32px;text-align:center;color:var(--muted);font-size:11px;letter-spacing:2px;text-transform:uppercase"><span class="spin"></span>Cargando</div>';
+}
+function alert_(el, msg, tipo = 'info') {
+  el.innerHTML = `<div class="alert alert-${tipo}">${msg}</div>`;
+}
+function fmt(n, moneda) {
+  const sym = moneda === 'Dolares' ? 'USD ' : '$';
+  return sym + parseFloat(n || 0).toLocaleString('es-MX', { minimumFractionDigits: 2 });
+}
+function stockTag(qty, label) {
+  if (!qty) return `<span class="tag tag-red">Sin stock</span>`;
+  if (qty < 5) return `<span class="tag tag-orange">${label}: ${qty}</span>`;
+  return `<span class="tag tag-green">${label}: ${qty}</span>`;
+}
+
+// ── BUSCAR ────────────────────────────────────────────────
+async function buscarCVA() {
+  const el = document.getElementById('buscar-result');
+  loading(el);
+  const params = {
+    clave: document.getElementById('s-clave').value.trim(),
+    marca: document.getElementById('s-marca').value.trim(),
+    grupo: document.getElementById('s-grupo').value.trim(),
+    desc : document.getElementById('s-desc').value.trim(),
+    exist: document.getElementById('s-exist').value,
+  };
+  const action = params.clave ? 'cva_producto' : 'cva_buscar';
+  const data = await api(action, params);
+  if (!data.ok) { alert_(el, '✖ ' + data.error, 'error'); return; }
+  if (params.clave && data.producto) { el.innerHTML = renderProducto(data.producto); return; }
+  const arts = data.articulos || [];
+  if (arts.length === 0) { alert_(el, 'Sin resultados para la búsqueda', 'warn'); return; }
+  el.innerHTML = `
+    <div style="color:var(--muted);font-size:10px;letter-spacing:2px;text-transform:uppercase;margin-bottom:14px">
+      ${arts.length} resultados
+      ${data.paginacion ? ` — Página ${data.paginacion.pagina} de ${data.paginacion.total_paginas}` : ''}
+    </div>
+    <div class="table-wrap">
+      <table>
+        <tr><th>Clave</th><th>Descripción</th><th>Marca</th><th>Precio</th><th>Stock Suc.</th><th>Stock CEDIS</th><th></th></tr>
+        ${arts.map(a => `
+          <tr>
+            <td class="mono">${a.clave}</td>
+            <td style="max-width:320px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${a.descripcion}</td>
+            <td style="color:var(--muted);font-size:12px">${a.marca || '—'}</td>
+            <td><strong>${fmt(a.precio, a.moneda)}</strong></td>
+            <td>${stockTag(a.disponible, 'Suc')}</td>
+            <td>${stockTag(a.disponibleCD, 'CEDIS')}</td>
+            <td style="display:flex;gap:6px">
+              <button class="btn btn-ghost" style="padding:5px 12px;font-size:10px" onclick="verProducto('${a.clave}')">Ver</button>
+              <button class="btn btn-primary" style="padding:5px 12px;font-size:10px" onclick="agregarClave('${a.clave}',1)">+ Orden</button>
+            </td>
+          </tr>`).join('')}
+      </table>
+    </div>`;
+}
+
+async function verProducto(clave) {
+  const el = document.getElementById('buscar-result');
+  loading(el);
+  const data = await api('cva_producto', { clave });
+  if (!data.ok) { alert_(el, '✖ ' + data.error, 'error'); return; }
+  el.innerHTML = renderProducto(data.producto);
+}
+
+function renderProducto(p) {
+  if (!p) return '<div class="alert alert-warn">Producto no encontrado</div>';
+  const promo = p.promociones;
+  const sucursales = p.disponibilidad_sucursales || [];
+  return `
+    <div class="card">
+      <div class="prod-card">
+        ${p.imagen ? `<img class="prod-img" src="${p.imagen}" onerror="this.style.display='none'">` : `<div class="prod-img-placeholder">▢</div>`}
+        <div>
+          <div class="prod-title">${p.descripcion}</div>
+          <div class="prod-meta">
+            <span class="tag tag-gray mono">${p.clave}</span>
+            <span class="tag tag-blue">${p.marca || '?'}</span>
+            <span class="tag tag-gray">${p.grupo || '?'}</span>
+            ${p.garantia ? `<span class="tag tag-gray">${p.garantia}</span>` : ''}
+            ${p.tipo_producto?.tipo === 'PAQUETE' ? `<span class="tag tag-orange">Paquete</span>` : ''}
+          </div>
+          <div style="margin-bottom:10px">
+            <span class="price-big">${fmt(p.precio, p.moneda)}</span>
+            ${promo ? `<span class="price-orig">Promo: ${fmt(promo.precio_descuento, promo.moneda_precio_descuento)}</span>` : ''}
+          </div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            ${stockTag(p.disponible, 'Sucursal')}
+            ${stockTag(p.disponibleCD, 'CEDIS')}
+            ${p.en_transito ? `<span class="tag tag-blue">Tránsito: ${p.en_transito}</span>` : ''}
+          </div>
+          ${p.tipo_cambio ? `<div style="font-size:10px;color:var(--muted);margin-top:8px;letter-spacing:1px">TC: $${p.tipo_cambio}</div>` : ''}
+        </div>
+      </div>
+      ${promo ? `<div class="alert alert-success">Promo: ${promo.descripcion_promocion} · ${fmt(promo.precio_descuento, promo.moneda_precio_descuento)} · Vence: ${promo.promocion_vencimiento}</div>` : ''}
+      ${sucursales.length > 0 ? `
+        <div class="divider"></div>
+        <div class="section-title">Disponibilidad por Sucursal</div>
+        <div class="suc-grid">${sucursales.map(s => `
+          <div class="suc-item">
+            <div class="suc-nombre">${s.nombre}</div>
+            <div class="suc-qty" style="color:${s.disponible>0?'var(--green-hi)':'var(--muted)'}">${s.disponible}</div>
+          </div>`).join('')}</div>` : ''}
+      ${p.dimensiones ? `
+        <div class="divider"></div>
+        <div class="section-title">Dimensiones</div>
+        <div style="font-size:12px;color:var(--muted)">${p.dimensiones.alto}m × ${p.dimensiones.ancho}m × ${p.dimensiones.profundidad}m · ${p.dimensiones.peso} ${p.dimensiones.unidad_peso}</div>` : ''}
+      <div class="divider"></div>
+      <button class="btn btn-primary" onclick="agregarClave('${p.clave}',1)">Agregar a Orden</button>
+    </div>`;
+}
+
+function limpiarBusqueda() {
+  ['s-clave','s-marca','s-grupo','s-desc'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('s-exist').value = '';
+  document.getElementById('buscar-result').innerHTML = '';
+}
+
+// ── CARRITO ───────────────────────────────────────────────
+let carrito = [];
+
+function agregarClave(clave, qty = 1) {
+  showPage('orden');
+  document.getElementById('cart-clave').value = clave;
+  document.getElementById('cart-qty').value = qty;
+  agregarAlCarrito();
+}
+
+async function agregarAlCarrito() {
+  const clave = document.getElementById('cart-clave').value.trim();
+  const qty   = parseInt(document.getElementById('cart-qty').value) || 1;
+  if (!clave) return;
+  const data = await api('cva_precio_stock', { clave });
+  const art  = data.articulos ? data.articulos[0] : data;
+  if (!art || !art.clave) { alert('Producto no encontrado: ' + clave); return; }
+  const exist = carrito.findIndex(i => i.clave === clave);
+  if (exist >= 0) { carrito[exist].qty += qty; }
+  else {
+    carrito.push({
+      clave: art.clave, desc: art.codigo || clave,
+      precio: parseFloat(art.precio) || 0, moneda: art.moneda, qty,
+      stock_cedis: (art.inventario || []).find(x => x.nombre==='TOTAL')?.disponible || 0,
+    });
+  }
+  document.getElementById('cart-clave').value = '';
+  renderCarrito();
+}
+
+function renderCarrito() {
+  const el  = document.getElementById('carrito-items');
+  const tot = document.getElementById('carrito-totales');
+  const qty = carrito.reduce((s,i) => s + i.qty, 0);
+  // badges
+  const hb = document.getElementById('cart-badge');
+  const sb = document.getElementById('cart-sb-badge');
+  if (qty > 0) {
+    hb.style.display = 'inline'; hb.textContent = 'Cart ' + qty;
+    sb.style.display = 'inline'; sb.textContent = qty;
+  } else {
+    hb.style.display = 'none';
+    sb.style.display = 'none';
+  }
+  if (carrito.length === 0) {
+    el.innerHTML = '<div class="alert alert-info">El carrito está vacío</div>';
+    tot.style.display = 'none';
+    return;
+  }
+  const totalMXN = carrito.reduce((s, i) => s + i.precio * i.qty, 0);
+  el.innerHTML = carrito.map((item, idx) => `
+    <div class="cart-item">
+      <div class="cart-item-info">
+        <div class="cart-item-name">${item.desc}</div>
+        <div class="cart-item-clave">${item.clave} · ${fmt(item.precio, item.moneda)} c/u · ${stockTag(item.stock_cedis,'CEDIS')}</div>
+      </div>
+      <div class="qty-ctrl">
+        <button class="qty-btn" onclick="cambiarQty(${idx},-1)">−</button>
+        <span style="min-width:24px;text-align:center;font-size:13px">${item.qty}</span>
+        <button class="qty-btn" onclick="cambiarQty(${idx},1)">+</button>
+        <button class="qty-btn" onclick="quitarItem(${idx})" style="color:#CC4444;border-color:rgba(204,68,68,0.3)">✕</button>
+      </div>
+      <div style="text-align:right;min-width:100px">
+        <strong style="font-family:'Barlow Condensed',sans-serif;font-size:16px;font-weight:300">${fmt(item.precio * item.qty, item.moneda)}</strong>
+      </div>
+    </div>`).join('');
+  tot.style.display = 'block';
+  document.getElementById('carrito-total').textContent = fmt(totalMXN, 'Pesos');
+}
+
+function cambiarQty(idx, delta) { carrito[idx].qty = Math.max(1, carrito[idx].qty + delta); renderCarrito(); }
+function quitarItem(idx) { carrito.splice(idx, 1); renderCarrito(); }
+
+async function enviarOrden(test = false) {
+  if (carrito.length === 0) { alert('El carrito está vacío'); return; }
+  const el = document.getElementById('orden-result');
+  loading(el);
+  const tipo_flete = document.getElementById('tipo-flete').value;
+  const direccion  = {
+    calle: document.getElementById('f-calle').value,
+    numero: document.getElementById('f-numero').value,
+    colonia: document.getElementById('f-colonia').value,
+    cp: document.getElementById('f-cp').value,
+    estado_id: document.getElementById('f-estado').value,
+    ciudad_id: document.getElementById('f-ciudad').value,
+    atencion: document.getElementById('f-atencion').value,
+    paqueteria_id: 4,
+  };
+  const body = {
+    action: 'cva_crear_orden',
+    productos: carrito.map(i => ({ clave: i.clave, cantidad: i.qty, precio: i.precio, descripcion: i.desc })),
+    num_oc: document.getElementById('num-oc').value,
+    observaciones: document.getElementById('observaciones').value,
+    tipo_flete, direccion, test: test ? 1 : 0,
+  };
+  const data = await apiPost('cva_crear_orden', body);
+  if (!data.ok) { alert_(el, '✖ ' + data.error, 'error'); return; }
+  el.innerHTML = `<div class="alert alert-success">
+    ${test ? 'Test — ' : ''}Pedido creado: <strong>${data.pedido}</strong><br>
+    Total: ${fmt(data.total, data.moneda)}
+    ${data.flete ? ` · Flete: ${fmt(data.flete.montoTotal, 'Pesos')} MXN` : ''}
+  </div>`;
+  if (!test) { carrito = []; renderCarrito(); }
+}
+function enviarOrdenTest() { enviarOrden(true); }
+
+function toggleFleteFields() {
+  document.getElementById('flete-fields').style.display =
+    document.getElementById('tipo-flete').value === 'SF' ? 'none' : 'block';
+}
+
+// ── PEDIDOS ───────────────────────────────────────────────
+let pedidosData = [];
+let pdfBase64 = null, pdfNombre = null, editandoIdx = null;
+
+async function cargarPedidos() {
+  const el = document.getElementById('pedidos-result');
+  loading(el);
+  const data = await api('cva_pedidos');
+  if (!data.ok) { alert_(el, '✖ ' + data.error, 'error'); return; }
+  const cvaList = data.pedidos || [];
+  const locales = await api('pedidos_locales');
+  const locMap  = {};
+  (locales.pedidos || []).forEach(p => { locMap[p.orden_cva] = p; });
+  pedidosData = cvaList.map(p => ({ ...p, ...(locMap[p.Numero] || {}), _cva: p }));
+  renderTablaPedidos();
+}
+
+function renderTablaPedidos() {
+  const el     = document.getElementById('pedidos-result');
+  const filtro = (document.getElementById('p-buscar')?.value || '').toLowerCase();
+  const lista  = filtro ? pedidosData.filter(p => JSON.stringify(p).toLowerCase().includes(filtro)) : pedidosData;
+  if (lista.length === 0) { alert_(el, 'Sin pedidos', 'warn'); return; }
+  el.innerHTML = `
+    <div class="table-wrap"><table>
+      <tr>
+        <th>Nuestra Orden</th><th>No Orden CVA</th><th>Tienda</th>
+        <th>Carrier</th><th>No Guía</th><th>Guía Enviada</th><th>Fecha</th><th>Estatus</th><th></th>
+      </tr>
+      ${lista.map((p, i) => `
+        <tr>
+          <td class="mono" style="font-size:11px">${p.nuestra_orden || '—'}</td>
+          <td class="mono">${p.Numero || p.orden_cva || '—'}</td>
+          <td style="color:var(--muted);font-size:12px">${p.tienda || '—'}</td>
+          <td style="color:var(--muted);font-size:12px">${p.carrier || '—'}</td>
+          <td class="mono" style="font-size:11px">${p.no_guia || '—'}</td>
+          <td style="text-align:center;font-size:16px">${p.guia_enviada ? '✓' : '○'}</td>
+          <td style="font-size:11px;color:var(--muted)">${p.FechaAsignado || p.fecha || '—'}</td>
+          <td><span class="status-${(p.Asignado||'pendiente').toLowerCase()}">${p.Asignado || '—'}</span></td>
+          <td><button class="btn btn-ghost" style="padding:4px 12px;font-size:10px" onclick="abrirModalPedido(${i})">Editar</button></td>
+        </tr>`).join('')}
+    </table></div>`;
+}
+
+function filtrarPedidos() { renderTablaPedidos(); }
+
+function abrirModalPedido(idx) {
+  editandoIdx = idx; pdfBase64 = null; pdfNombre = null;
+  const p = idx !== null ? pedidosData[idx] : {};
+  document.getElementById('m-nuestra-orden').value  = p.nuestra_orden || '';
+  document.getElementById('m-orden-cva').value      = p.Numero || p.orden_cva || '';
+  document.getElementById('m-tienda').value         = p.tienda   || 'ML SV';
+  document.getElementById('m-carrier').value        = p.carrier  || 'DHL';
+  document.getElementById('m-guia').value           = p.no_guia  || '';
+  document.getElementById('m-obs').value            = p.observaciones || 'CVA CEDIS GDL';
+  document.getElementById('m-guia-enviada').checked = !!p.guia_enviada;
+  document.getElementById('m-pdf-label').textContent = 'Browse — Or drop PDF here';
+  document.getElementById('m-pdf-info').textContent  = p.pdf_nombre ? '✓ ' + p.pdf_nombre : '';
+  document.getElementById('modal-result').innerHTML  = '';
+  document.getElementById('modal-overlay').style.display = 'flex';
+}
+function cerrarModal() { document.getElementById('modal-overlay').style.display = 'none'; }
+function handleFileSelect(e) { const file = e.target.files[0]; if (file) procesarPDF(file); }
+function handleDrop(e) {
+  e.preventDefault(); e.currentTarget.style.borderColor = 'rgba(255,255,255,0.15)';
+  const file = e.dataTransfer.files[0]; if (file) procesarPDF(file);
+}
+function procesarPDF(file) {
+  pdfNombre = file.name;
+  document.getElementById('m-pdf-label').textContent = file.name;
+  document.getElementById('m-pdf-info').textContent  = (file.size/1024).toFixed(1) + ' KB — Cargado';
+  const reader = new FileReader();
+  reader.onload = e => { pdfBase64 = e.target.result.split(',')[1]; };
+  reader.readAsDataURL(file);
+}
+
+async function registrarPedido() {
+  const el = document.getElementById('modal-result');
+  loading(el);
+  const payload = {
+    nuestra_orden: document.getElementById('m-nuestra-orden').value.trim(),
+    orden_cva    : document.getElementById('m-orden-cva').value.trim(),
+    tienda       : document.getElementById('m-tienda').value,
+    carrier      : document.getElementById('m-carrier').value,
+    no_guia      : document.getElementById('m-guia').value.trim(),
+    observaciones: document.getElementById('m-obs').value.trim(),
+    guia_enviada : document.getElementById('m-guia-enviada').checked,
+    pdf_base64   : pdfBase64 || null,
+    pdf_nombre   : pdfNombre || null,
+    fecha        : new Date().toLocaleDateString('es-MX'),
+  };
+  if (!payload.orden_cva) { alert_(el, '✖ El No. Orden Proveedor (CVA) es requerido', 'error'); return; }
+  const data = await apiPost('registrar_pedido', payload);
+  if (!data.ok) { alert_(el, '✖ ' + data.error, 'error'); return; }
+  alert_(el, '✓ Pedido registrado', 'success');
+  if (editandoIdx !== null) pedidosData[editandoIdx] = { ...pedidosData[editandoIdx], ...payload };
+  else pedidosData.unshift({ Numero: payload.orden_cva, ...payload });
+  renderTablaPedidos();
+  setTimeout(cerrarModal, 700);
+}
+
+async function enviarGuiaCVA() {
+  const el           = document.getElementById('modal-result');
+  const order_number = document.getElementById('m-orden-cva').value.trim();
+  const waybills     = document.getElementById('m-guia').value.trim();
+  const carrier      = document.getElementById('m-carrier').value;
+  if (!order_number) { alert_(el, '✖ Ingresa el No. Orden CVA', 'error'); return; }
+  if (!waybills)     { alert_(el, '✖ Ingresa el No. de Guía', 'error'); return; }
+  loading(el);
+  const data = await apiPost('cva_enviar_guia', { order_number, waybills, carrier, pdf_base64: pdfBase64 || '' });
+  if (!data.ok) { alert_(el, '✖ ' + data.error, 'error'); return; }
+  document.getElementById('m-guia-enviada').checked = true;
+  alert_(el, `✓ Guía enviada — ${order_number} · ${waybills}`, 'success');
+  await registrarPedido();
+}
+
+// ── SYNC ──────────────────────────────────────────────────
+async function ejecutarSync() {
+  const el = document.getElementById('sync-result');
+  loading(el);
+  const data = await apiPost('sync_precios', {
+    batch  : document.getElementById('sync-batch').value,
+    paginas: parseInt(document.getElementById('sync-paginas').value) || 3,
+    exist  : document.getElementById('sync-exist')?.value ?? '3',
+  });
+  if (!data.ok) { alert_(el, '✖ ' + data.error, 'error'); return; }
+  document.getElementById('sync-art').textContent   = data.articulos_procesados;
+  document.getElementById('sync-page').textContent  = data.next_page;
+  document.getElementById('sync-total').textContent = data.total_paginas || '—';
+  alert_(el, `✓ Sync completado · ${data.articulos_procesados} artículos · Siguiente: página ${data.next_page}`, 'success');
+}
+
+function instalarTriggers() {
+  alert_(document.getElementById('sync-result'), 'Los triggers se instalan desde el editor GAS ejecutando instalarTriggers() manualmente.', 'warn');
+}
+
+// ── ODOO ──────────────────────────────────────────────────
+async function cargarVentasOdoo() {
+  const el = document.getElementById('odoo-result');
+  loading(el);
+  const data = await api('odoo_ventas_pendientes', { limit: 50 });
+  if (!data.ok) { alert_(el, '✖ ' + data.error, 'error'); return; }
+  const ventas = data.ventas || [];
+  if (ventas.length === 0) { alert_(el, '✓ Sin ventas pendientes de dropship', 'success'); return; }
+  el.innerHTML = `<div class="table-wrap"><table>
+    <tr><th>SO</th><th>Cliente</th><th>Total</th><th>Estado</th><th>Fecha</th></tr>
+    ${ventas.map(v => `<tr>
+      <td class="mono">${v.name}</td>
+      <td>${Array.isArray(v.partner_id) ? v.partner_id[1] : v.partner_id}</td>
+      <td>${fmt(v.amount_total, 'Pesos')}</td>
+      <td><span style="letter-spacing:1px;font-size:10px;text-transform:uppercase;color:var(--muted)">${v.state}</span></td>
+      <td style="font-size:11px;color:var(--muted)">${v.date_order ? v.date_order.substring(0,10) : '—'}</td>
+    </tr>`).join('')}
+  </table></div>`;
+}
+
+async function buscarEnOdoo() {
+  const clave = document.getElementById('o-clave').value.trim();
+  if (!clave) return;
+  const el = document.getElementById('odoo-result');
+  loading(el);
+  const data = await api('odoo_buscar_producto', { clave });
+  if (!data.ok) { alert_(el, '✖ ' + data.error, 'error'); return; }
+  if (!data.encontrado) { alert_(el, `Clave "${clave}" no encontrada en Odoo`, 'warn'); return; }
+  const p = data.producto;
+  el.innerHTML = `<div class="card" style="max-width:480px">
+    <table>
+      <tr><td style="color:var(--muted);width:160px;font-size:10px;letter-spacing:1.5px;text-transform:uppercase;padding:8px 0">ID Odoo</td><td>${p.id}</td></tr>
+      <tr><td style="color:var(--muted);font-size:10px;letter-spacing:1.5px;text-transform:uppercase;padding:8px 0">Nombre</td><td>${p.name}</td></tr>
+      <tr><td style="color:var(--muted);font-size:10px;letter-spacing:1.5px;text-transform:uppercase;padding:8px 0">Referencia</td><td class="mono">${p.default_code}</td></tr>
+      <tr><td style="color:var(--muted);font-size:10px;letter-spacing:1.5px;text-transform:uppercase;padding:8px 0">Precio Lista</td><td>${fmt(p.list_price,'Pesos')}</td></tr>
+      <tr><td style="color:var(--muted);font-size:10px;letter-spacing:1.5px;text-transform:uppercase;padding:8px 0">Stock</td><td>${p.qty_available}</td></tr>
+      <tr><td style="color:var(--muted);font-size:10px;letter-spacing:1.5px;text-transform:uppercase;padding:8px 0">Stock Virtual</td><td>${p.virtual_available}</td></tr>
+    </table>
+  </div>`;
+}
+
+// ── DEBUG ─────────────────────────────────────────────────
+async function ejecutarDebug() {
+  const action = document.getElementById('d-action').value;
+  const el     = document.getElementById('d-result');
+  let params   = {};
+  try { params = JSON.parse(document.getElementById('d-params').value); } catch(_) {}
+  el.textContent = 'Ejecutando...';
+  try {
+    const data = await api(action, params);
+    el.textContent = JSON.stringify(data, null, 2);
+  } catch (e) {
+    el.textContent = 'Error: ' + e.message;
+  }
+}
+
+// ── INIT ──────────────────────────────────────────────────
+window.onload = () => {
+  // ── SPLASH SCREEN AM ──────────────────────────────────────
+  const splash      = document.getElementById('splash');
+  const splashLogo  = document.getElementById('splash-logo');
+  const wordmark    = document.getElementById('splash-wordmark');
+  const shell       = document.querySelector('.shell');
+
+  // Fase 1: logo aparece con easing suave (frame siguiente para que CSS transition funcione)
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      splash.classList.add('phase-1');
+    });
+  });
+
+  // Fase 2: después de 2.8s — logo y texto suben y desaparecen juntos, shell aparece
+  setTimeout(() => {
+    splash.classList.add('phase-2');
+    // Shell empieza a aparecer ligeramente después
+    setTimeout(() => { shell.classList.add('visible'); }, 200);
+    // Remover del DOM cuando termina la transición
+    setTimeout(() => { splash.remove(); }, 1100);
+  }, 2800);
+
+  // ─────────────────────────────────────────────────────────
+  history.replaceState({ page: 'buscar' }, '', '');
+  toggleFleteFields();
+  renderCarrito();
+  api('ping').then(d => {
+    if (d.ok) document.getElementById('badge-sync').textContent = 'Online';
+  }).catch(() => {});
+};
+</script>
+</body>
+</html>
