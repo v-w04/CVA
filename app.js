@@ -35,6 +35,8 @@ function showPage(id) {
   // scroll al tope
   const sw = document.querySelector('.scroll-wrap');
   if (sw) sw.scrollTop = 0;
+  // Cargar estado cuando se entra a sync
+  if (id === 'sync') setTimeout(() => { try { cargarEstadoSync(); } catch(e) {} }, 100);
 }
 
 window.addEventListener('popstate', e => {
@@ -706,6 +708,38 @@ async function enviarGuiaCVA() {
 }
 
 // ── SYNC ──────────────────────────────────────────────────
+// Cargar estado del sync al entrar a la sección
+async function cargarEstadoSync() {
+  const el = document.getElementById('sync-status-box');
+  if (!el) return;
+  el.innerHTML = '<span style="color:var(--muted);font-size:11px">Cargando estado...</span>';
+  const data = await api('sync_status');
+  if (!data.ok) { el.innerHTML = ''; return; }
+  el.innerHTML = `
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:16px">
+      <div style="background:rgba(0,102,94,0.1);border:1px solid rgba(0,102,94,0.2);padding:14px 16px">
+        <div style="font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:6px">Próxima página</div>
+        <div style="font-size:28px;font-family:'Barlow Condensed',sans-serif;font-weight:300;color:var(--text)">${data.pagina_actual}</div>
+        <div style="font-size:10px;color:var(--muted);margin-top:2px">checkpoint actual</div>
+      </div>
+      <div style="background:rgba(38,41,48,0.8);border:1px solid rgba(238,240,240,0.08);padding:14px 16px">
+        <div style="font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:6px">Registros SYNC_CVA</div>
+        <div style="font-size:28px;font-family:'Barlow Condensed',sans-serif;font-weight:300;color:var(--text)">${data.registros_sync_cva.toLocaleString()}</div>
+        <div style="font-size:10px;color:var(--muted);margin-top:2px">artículos en catálogo</div>
+      </div>
+      <div style="background:rgba(38,41,48,0.8);border:1px solid rgba(238,240,240,0.08);padding:14px 16px">
+        <div style="font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:6px">Historial de stock</div>
+        <div style="font-size:28px;font-family:'Barlow Condensed',sans-serif;font-weight:300;color:var(--text)">${data.registros_historial.toLocaleString()}</div>
+        <div style="font-size:10px;color:var(--muted);margin-top:2px">${data.fecha_inicio_historial ? 'desde ' + data.fecha_inicio_historial : 'sin datos aún'}</div>
+      </div>
+    </div>
+    ${data.ultimo_sync_log ? `<div style="font-size:11px;color:var(--muted);padding:8px 12px;background:rgba(238,240,240,0.03);border-left:2px solid rgba(238,240,240,0.1)">Último sync: ${data.ultimo_sync_log}</div>` : ''}
+  `;
+  // Actualizar KPIs de la página
+  document.getElementById('sync-page').textContent  = data.pagina_actual;
+  document.getElementById('sync-total').textContent = '—';
+}
+
 async function ejecutarSync() {
   const el = document.getElementById('sync-result');
   loading(el);
@@ -718,11 +752,24 @@ async function ejecutarSync() {
   document.getElementById('sync-art').textContent   = data.articulos_procesados;
   document.getElementById('sync-page').textContent  = data.next_page;
   document.getElementById('sync-total').textContent = data.total_paginas || '—';
-  alert_(el, `✓ Sync completado · ${data.articulos_procesados} artículos · Siguiente: página ${data.next_page}`, 'success');
+  alert_(el, `✓ Sync · ${data.articulos_procesados} artículos · Siguiente: pág ${data.next_page} de ${data.total_paginas || '?'}`, 'success');
+  addLog('ok', 'Sync ejecutado', `${data.articulos_procesados} artículos · pág ${data.next_page}`);
+  cargarEstadoSync();
+}
+
+async function resetearSync(limpiar) {
+  if (limpiar && !confirm('¿Borrar todos los datos de SYNC_CVA y empezar desde cero?')) return;
+  const el = document.getElementById('sync-result');
+  loading(el);
+  const data = await api('reset_sync', limpiar ? { limpiar: 'true' } : {});
+  if (!data.ok) { alert_(el, '✖ ' + data.error, 'error'); return; }
+  alert_(el, '✓ ' + data.mensaje, 'success');
+  addLog('info', 'Sync reseteado', limpiar ? 'SYNC_CVA limpiado' : 'solo checkpoint');
+  cargarEstadoSync();
 }
 
 function instalarTriggers() {
-  alert_(document.getElementById('sync-result'), 'Los triggers se instalan desde el editor GAS ejecutando instalarTriggers() manualmente.', 'warn');
+  alert_(document.getElementById('sync-result'), 'Triggers activos — corren automáticamente cada 60 minutos.', 'info');
 }
 
 // ── ODOO ──────────────────────────────────────────────────
