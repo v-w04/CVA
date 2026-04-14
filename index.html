@@ -868,19 +868,68 @@
   /* ━━ CART ━━ */
   .cart-item {
     display: flex; align-items: center; gap: 14px;
-    padding: 14px 16px;
-    background: var(--card);
-    border: 1px solid rgba(255,255,255,0.04);
-    border-left: 2px solid rgba(0,81,58,0.5);
+    padding: 12px 14px;
+    background: rgba(38,41,48,0.7);
+    border: 1px solid rgba(238,240,240,0.08);
+    border-left: 2px solid rgba(0,102,94,0.5);
     margin-bottom: 6px;
+    transition: background .18s;
   }
+  .cart-item:hover { background: rgba(42,45,52,0.85); }
+
+  /* Thumbnail cuadrado */
+  .cart-item-thumb {
+    width: 52px; height: 52px;
+    flex-shrink: 0;
+    background: rgba(238,240,240,0.05);
+    border: 1px solid rgba(238,240,240,0.08);
+    overflow: hidden;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .cart-item-thumb img {
+    width: 100%; height: 100%;
+    object-fit: contain;
+    padding: 4px;
+  }
+  .cart-item-thumb-ph {
+    display: flex; align-items: center; justify-content: center;
+    width: 100%; height: 100%;
+  }
+
   .cart-item-info { flex: 1; min-width: 0; }
   .cart-item-name {
-    font-size: 11px; font-weight: 500;
+    font-size: 12px; font-weight: 500;
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-    text-transform: uppercase; letter-spacing: 1px;
+    color: var(--text); letter-spacing: 0.3px;
+    margin-bottom: 3px;
   }
-  .cart-item-clave { font-size: 11px; color: var(--muted); font-family: monospace; margin-top: 3px; }
+  .cart-item-meta { display: flex; gap: 8px; align-items: center; margin-bottom: 3px; }
+  .cart-item-clave {
+    font-size: 10px; color: var(--green-lt);
+    font-family: monospace; letter-spacing: 0.5px;
+  }
+  .cart-item-marca {
+    font-size: 9px; color: var(--muted);
+    text-transform: uppercase; letter-spacing: 1.5px;
+  }
+  .cart-item-price-unit {
+    font-size: 11px; color: var(--muted); letter-spacing: 0.3px;
+  }
+  .cart-item-total {
+    text-align: right; flex-shrink: 0; min-width: 90px;
+    display: flex; flex-direction: column; align-items: flex-end; gap: 6px;
+  }
+  .cart-item-total-price {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 17px; font-weight: 400; color: var(--text);
+  }
+  .cart-item-remove {
+    background: none; border: none; cursor: pointer;
+    color: rgba(238,240,240,0.25); padding: 2px;
+    transition: color .18s;
+    display: flex; align-items: center;
+  }
+  .cart-item-remove:hover { color: #CC4444; }
   .qty-ctrl { display: flex; align-items: center; gap: 6px; }
   .qty-btn {
     width: 26px; height: 26px;
@@ -972,7 +1021,7 @@
   }
 
   #splash-logo img {
-    height: 68px;
+    height: 136px;
     filter: brightness(0) invert(1);
     opacity: 0.8;
   }
@@ -980,7 +1029,7 @@
   /* Wordmark SIN transition-delay — aparece al mismo tiempo que el logo */
   #splash-logo .splash-wordmark {
     font-family: 'Barlow Condensed', sans-serif;
-    font-size: 18px;
+    font-size: 36px;
     font-weight: 400;
     letter-spacing: 5px;
     text-transform: uppercase;
@@ -1359,7 +1408,7 @@
             </div>
             <div>
               <div class="section-title">Respuesta</div>
-              <pre id="d-result" style="background:#0A0A0A;border:1px solid rgba(255,255,255,0.06);padding:14px;font-size:11px;overflow:auto;max-height:400px;color:#7ABFAF;white-space:pre-wrap;font-family:'Consolas',monospace">// Respuesta aparecerá aquí...</pre>
+              <div id="d-result" style="min-height:80px"><div style="padding:20px;color:var(--muted);font-size:11px;letter-spacing:2px;text-transform:uppercase;text-align:center;opacity:0.5">El resultado aparecerá aquí</div></div>
             </div>
           </div>
         </div>
@@ -1729,9 +1778,20 @@ async function agregarAlCarrito() {
   const exist = carrito.findIndex(i => i.clave === clave);
   if (exist >= 0) { carrito[exist].qty += qty; }
   else {
+    // Traer imagen del producto para mostrar en carrito
+    let imagen = null;
+    try {
+      const pd = await api('cva_producto', { clave: art.clave });
+      imagen = pd.producto?.imagen || null;
+    } catch(_) {}
     carrito.push({
-      clave: art.clave, desc: art.codigo || clave,
-      precio: parseFloat(art.precio) || 0, moneda: art.moneda, qty,
+      clave: art.clave,
+      desc: art.descripcion || art.codigo || clave,
+      precio: parseFloat(art.precio) || 0,
+      moneda: art.moneda,
+      marca: art.marca || '',
+      qty,
+      imagen,
       stock_cedis: (art.inventario || []).find(x => x.nombre==='TOTAL')?.disponible || 0,
     });
   }
@@ -1761,18 +1821,40 @@ function renderCarrito() {
   const totalMXN = carrito.reduce((s, i) => s + i.precio * i.qty, 0);
   el.innerHTML = carrito.map((item, idx) => `
     <div class="cart-item">
+      <!-- Thumbnail del producto -->
+      <div class="cart-item-thumb">
+        ${item.imagen
+          ? `<img src="${item.imagen}" alt="${item.clave}" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">`
+          : ''}
+        <div class="cart-item-thumb-ph" style="${item.imagen ? 'display:none' : ''}">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" opacity="0.3">
+            <rect x="3" y="3" width="18" height="18"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/>
+          </svg>
+        </div>
+      </div>
+      <!-- Info -->
       <div class="cart-item-info">
         <div class="cart-item-name">${item.desc}</div>
-        <div class="cart-item-clave">${item.clave} · ${fmt(item.precio, item.moneda)} c/u · ${stockTag(item.stock_cedis,'CEDIS')}</div>
+        <div class="cart-item-meta">
+          <span class="cart-item-clave">${item.clave}</span>
+          ${item.marca ? `<span class="cart-item-marca">${item.marca}</span>` : ''}
+        </div>
+        <div class="cart-item-price-unit">${fmt(item.precio, item.moneda)} c/u</div>
       </div>
+      <!-- Controles qty -->
       <div class="qty-ctrl">
         <button class="qty-btn" onclick="cambiarQty(${idx},-1)">−</button>
-        <span style="min-width:24px;text-align:center;font-size:13px">${item.qty}</span>
+        <span style="min-width:24px;text-align:center;font-size:14px;font-weight:500">${item.qty}</span>
         <button class="qty-btn" onclick="cambiarQty(${idx},1)">+</button>
-        <button class="qty-btn" onclick="quitarItem(${idx})" style="color:#CC4444;border-color:rgba(204,68,68,0.3)">✕</button>
       </div>
-      <div style="text-align:right;min-width:100px">
-        <strong style="font-family:'Barlow Condensed',sans-serif;font-size:16px;font-weight:300">${fmt(item.precio * item.qty, item.moneda)}</strong>
+      <!-- Total item + quitar -->
+      <div class="cart-item-total">
+        <div class="cart-item-total-price">${fmt(item.precio * item.qty, item.moneda)}</div>
+        <button class="cart-item-remove" onclick="quitarItem(${idx})">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+            <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+          </svg>
+        </button>
       </div>
     </div>`).join('');
   tot.style.display = 'block';
@@ -2002,13 +2084,113 @@ async function ejecutarDebug() {
   const el     = document.getElementById('d-result');
   let params   = {};
   try { params = JSON.parse(document.getElementById('d-params').value); } catch(_) {}
-  el.textContent = 'Ejecutando...';
+  el.innerHTML = '<div style="padding:20px;color:var(--muted);font-size:11px;letter-spacing:2px"><span class="spin"></span>Ejecutando...</div>';
   try {
     const data = await api(action, params);
-    el.textContent = JSON.stringify(data, null, 2);
+    el.innerHTML = renderDebugResult(action, data);
   } catch (e) {
-    el.textContent = 'Error: ' + e.message;
+    el.innerHTML = `<div class="alert alert-error">Error: ${e.message}</div>`;
   }
+}
+
+function renderDebugResult(action, data) {
+  if (!data.ok) return `<div class="alert alert-error">❌ ${data.error || JSON.stringify(data)}</div>`;
+
+  // ── Marcas: grid de logos ───────────────────────────────────
+  if (action === 'cva_marcas' && data.marcas) {
+    const items = data.marcas;
+    return `
+      <div style="margin-bottom:10px;font-size:9px;letter-spacing:2px;color:var(--muted);text-transform:uppercase">${items.length} marcas</div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:8px">
+        ${items.map(m => `
+          <div style="background:rgba(238,240,240,0.04);border:1px solid rgba(238,240,240,0.08);padding:10px;display:flex;flex-direction:column;align-items:center;gap:8px">
+            ${m.logo ? `<img src="${m.logo}" style="height:32px;width:auto;object-fit:contain;filter:brightness(0) invert(1);opacity:0.7" onerror="this.style.display='none'">` : ''}
+            <span style="font-size:10px;letter-spacing:1px;color:var(--text-2);text-align:center">${m.marca}</span>
+          </div>`).join('')}
+      </div>`;
+  }
+
+  // ── Grupos: lista limpia ────────────────────────────────────
+  if (action === 'cva_grupos' && data.grupos) {
+    const items = data.grupos;
+    return `
+      <div style="margin-bottom:10px;font-size:9px;letter-spacing:2px;color:var(--muted);text-transform:uppercase">${items.length} grupos</div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:4px">
+        ${items.map(g => `
+          <div style="padding:8px 12px;background:rgba(238,240,240,0.03);border:1px solid rgba(238,240,240,0.07);font-size:12px;color:var(--text-2)">${g.nombre || g.grupo || g}</div>`).join('')}
+      </div>`;
+  }
+
+  // ── Sucursales: cards ───────────────────────────────────────
+  if (action === 'cva_sucursales' && data.sucursales) {
+    return `
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:8px">
+        ${data.sucursales.map(s => `
+          <div style="padding:14px 16px;background:rgba(38,41,48,0.8);border:1px solid rgba(238,240,240,0.08)">
+            <div style="font-size:13px;font-weight:500;color:var(--text);margin-bottom:4px">${s.nombre}</div>
+            <div style="font-size:10px;color:var(--muted);letter-spacing:1px">${s.estado || ''} ${s.ciudad || ''}</div>
+          </div>`).join('')}
+      </div>`;
+  }
+
+  // ── Producto individual ─────────────────────────────────────
+  if ((action === 'cva_producto' || action === 'cva_precio_stock') && data.producto) {
+    return renderProducto(data.producto);
+  }
+
+  // ── Lista de artículos ──────────────────────────────────────
+  if (data.articulos && data.articulos.length > 0) {
+    const arts = data.articulos;
+    return `
+      <div style="margin-bottom:10px;font-size:9px;letter-spacing:2px;color:var(--muted);text-transform:uppercase">${arts.length} artículos</div>
+      <div class="table-wrap"><table>
+        <thead><tr><th>Clave</th><th>Descripción</th><th>Marca</th><th>Precio</th><th>Suc</th><th>CEDIS</th></tr></thead>
+        <tbody>
+          ${arts.map(a => `<tr>
+            <td class="mono">${a.clave}</td>
+            <td style="max-width:260px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:12px">${a.descripcion||''}</td>
+            <td style="color:var(--muted);font-size:11px">${a.marca||'—'}</td>
+            <td class="td-price">${fmt(a.precio,a.moneda)}</td>
+            <td>${stockCellAM(a.disponible,'')}</td>
+            <td>${stockCellAM(a.disponibleCD,'')}</td>
+          </tr>`).join('')}
+        </tbody>
+      </table></div>`;
+  }
+
+  // ── Pedidos CVA ─────────────────────────────────────────────
+  if (data.pedidos && data.pedidos.length > 0) {
+    return `
+      <div class="table-wrap"><table>
+        <thead><tr><th>No Pedido</th><th>Fecha</th><th>Total</th><th>Estatus</th></tr></thead>
+        <tbody>
+          ${data.pedidos.map(p => `<tr>
+            <td class="mono">${p.Numero||p.numero||'—'}</td>
+            <td style="color:var(--muted);font-size:11px">${p.FechaAsignado||p.fecha||'—'}</td>
+            <td class="td-price">${p.Total ? fmt(p.Total,'Pesos') : '—'}</td>
+            <td><span style="font-size:9px;text-transform:uppercase;letter-spacing:1.5px;color:var(--green-lt)">${p.Asignado||'—'}</span></td>
+          </tr>`).join('')}
+        </tbody>
+      </table></div>`;
+  }
+
+  // ── Ping / respuesta simple ─────────────────────────────────
+  if (action === 'ping') {
+    return `<div class="alert alert-success">✓ Conexión activa · ${data.version || 'GAS Online'}</div>`;
+  }
+
+  // ── Fallback: JSON coloreado pero compacto ──────────────────
+  const json = JSON.stringify(data, null, 2);
+  return `
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+      <span style="font-size:9px;letter-spacing:2px;color:var(--muted);text-transform:uppercase">Respuesta JSON</span>
+      <button onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display==='none'?'block':'none'"
+        style="font-size:9px;background:none;border:1px solid rgba(238,240,240,0.15);color:var(--muted);padding:3px 10px;cursor:pointer;letter-spacing:1px">
+        VER JSON
+      </button>
+    </div>
+    <pre style="display:none;background:rgba(10,10,12,0.8);border:1px solid rgba(238,240,240,0.07);padding:14px;font-size:11px;overflow:auto;max-height:360px;color:#67b8af;white-space:pre-wrap;font-family:'Consolas',monospace">${json}</pre>
+    <div style="font-size:12px;color:var(--text-2)">Respuesta recibida · ${Object.keys(data).length} campos</div>`;
 }
 
 // ── INIT ──────────────────────────────────────────────────
