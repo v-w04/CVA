@@ -1296,9 +1296,22 @@
             </div>
             <div id="carrito-items"></div>
             <div class="card" id="carrito-totales" style="display:none">
-              <div style="display:flex;justify-content:space-between;margin-bottom:10px;align-items:baseline">
+              <div style="display:flex;justify-content:space-between;margin-bottom:14px;align-items:baseline">
                 <span class="section-title" style="margin:0">Total Estimado CVA</span>
                 <span id="carrito-total" class="price-big"></span>
+              </div>
+              <!-- Exports del carrito -->
+              <div style="display:flex;gap:6px;margin-bottom:12px">
+                <button class="btn btn-ghost" style="flex:1;font-size:10px;display:flex;align-items:center;justify-content:center;gap:5px"
+                  onclick="exportCarritoCSV()">
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                  Descargar CSV
+                </button>
+                <button class="btn btn-ghost" style="flex:1;font-size:10px;display:flex;align-items:center;justify-content:center;gap:5px"
+                  onclick="exportCarritoPDF()">
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                  Imprimir PDF
+                </button>
               </div>
               <button class="btn btn-primary" style="width:100%" onclick="showPage('orden')">
                 Confirmar Orden
@@ -1686,6 +1699,29 @@ function stockCellAM(qty, label) {
 
 // ── BUSCAR ────────────────────────────────────────────────
 let _buscarPage = 1;
+let _buscarArts  = [];   // cache de artículos actuales para sort/export
+let _sortCol     = null; // columna activa
+let _sortDir     = 1;    // 1 = asc, -1 = desc
+
+function sortBuscar(col) {
+  if (_sortCol === col) _sortDir *= -1;
+  else { _sortCol = col; _sortDir = 1; }
+  const sorted = [..._buscarArts].sort((a, b) => {
+    let va = a[col], vb = b[col];
+    if (col === 'precio') { va = parseFloat(va)||0; vb = parseFloat(vb)||0; }
+    else if (col === 'disponible' || col === 'disponibleCD') { va = parseInt(va)||0; vb = parseInt(vb)||0; }
+    else { va = String(va||'').toLowerCase(); vb = String(vb||'').toLowerCase(); }
+    return va < vb ? -_sortDir : va > vb ? _sortDir : 0;
+  });
+  renderTablaBusqueda(sorted);
+}
+
+function sortIcon(col) {
+  if (_sortCol !== col) return '<span style="opacity:0.2;margin-left:4px">⇅</span>';
+  return _sortDir === 1
+    ? '<span style="color:var(--green-lt);margin-left:4px">↑</span>'
+    : '<span style="color:var(--green-lt);margin-left:4px">↓</span>';
+}
 
 async function buscarCVA(pagina) {
   if (pagina !== undefined) _buscarPage = pagina;
@@ -1712,36 +1748,66 @@ async function buscarCVA(pagina) {
   if (params.clave && data.producto) { el.innerHTML = renderProducto(data.producto); return; }
   const arts = data.articulos || [];
   if (arts.length === 0) { alert_(el, 'Sin resultados para la búsqueda', 'warn'); return; }
+  _buscarArts = arts;
   const pag = data.paginacion || {};
   const totalPags = pag.total_paginas || 1;
   const pagActual = pag.pagina || _buscarPage;
+  // Guardar paginación para el toolbar
+  window._buscarPag = { totalPags, pagActual };
+  renderTablaBusqueda(arts);
+}
+
+function renderTablaBusqueda(arts) {
+  const el = document.getElementById('buscar-result');
+  const { totalPags = 1, pagActual = 1 } = window._buscarPag || {};
   el.innerHTML = `
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:8px">
+    <!-- Toolbar: info + paginación + exports -->
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px">
       <div style="color:var(--muted);font-size:10px;letter-spacing:2px;text-transform:uppercase">
         ${arts.length} resultados${totalPags > 1 ? ` — Página ${pagActual} de ${totalPags}` : ''}
       </div>
-      ${totalPags > 1 ? `<div style="display:flex;gap:6px;align-items:center">
-        <button class="btn btn-ghost" style="padding:5px 12px;font-size:10px"
-          onclick="buscarCVA(${pagActual-1})" ${pagActual<=1?'disabled':''}>← Ant</button>
-        <span style="font-size:11px;color:var(--muted)">${pagActual} / ${totalPags}</span>
-        <button class="btn btn-ghost" style="padding:5px 12px;font-size:10px"
-          onclick="buscarCVA(${pagActual+1})" ${pagActual>=totalPags?'disabled':''}>Sig →</button>
-      </div>` : ''}
+      <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+        ${totalPags > 1 ? `
+          <button class="btn btn-ghost" style="padding:4px 10px;font-size:10px"
+            onclick="buscarCVA(${pagActual-1})" ${pagActual<=1?'disabled':''}>← Ant</button>
+          <span style="font-size:11px;color:var(--muted);padding:0 2px">${pagActual}/${totalPags}</span>
+          <button class="btn btn-ghost" style="padding:4px 10px;font-size:10px"
+            onclick="buscarCVA(${pagActual+1})" ${pagActual>=totalPags?'disabled':''}>Sig →</button>` : ''}
+        <button class="btn btn-ghost" style="padding:4px 12px;font-size:10px;display:flex;align-items:center;gap:5px"
+          onclick="exportBuscarCSV()">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          CSV
+        </button>
+        <button class="btn btn-ghost" style="padding:4px 12px;font-size:10px;display:flex;align-items:center;gap:5px"
+          onclick="exportBuscarPDF()">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+          PDF
+        </button>
+      </div>
     </div>
+    <!-- Tabla con headers clickeables para ordenar -->
     <div class="table-wrap">
-      <table>
-        <thead><tr><th>Clave</th><th>Descripción</th><th>Marca</th><th>Precio</th><th>Suc.</th><th>CEDIS</th><th></th></tr></thead>
+      <table id="buscar-table">
+        <thead><tr>
+          <th onclick="sortBuscar('clave')"       style="cursor:pointer;user-select:none;white-space:nowrap">Clave${sortIcon('clave')}</th>
+          <th onclick="sortBuscar('descripcion')" style="cursor:pointer;user-select:none">Descripción${sortIcon('descripcion')}</th>
+          <th onclick="sortBuscar('marca')"       style="cursor:pointer;user-select:none">Marca${sortIcon('marca')}</th>
+          <th onclick="sortBuscar('precio')"      style="cursor:pointer;user-select:none;white-space:nowrap">Precio${sortIcon('precio')}</th>
+          <th onclick="sortBuscar('disponible')"  style="cursor:pointer;user-select:none;white-space:nowrap">Suc.${sortIcon('disponible')}</th>
+          <th onclick="sortBuscar('disponibleCD')"style="cursor:pointer;user-select:none;white-space:nowrap">CEDIS${sortIcon('disponibleCD')}</th>
+          <th></th>
+        </tr></thead>
         <tbody>${arts.map(a => `
           <tr>
             <td class="mono">${a.clave}</td>
-            <td style="max-width:300px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${a.descripcion}</td>
+            <td style="max-width:280px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${a.descripcion}</td>
             <td style="color:var(--muted);font-size:12px">${a.marca || '—'}</td>
             <td class="td-price">${fmt(a.precio, a.moneda)}</td>
             <td>${stockCellAM(a.disponible,'')}</td>
             <td>${stockCellAM(a.disponibleCD,'')}</td>
-            <td style="display:flex;gap:6px">
-              <button class="btn btn-ghost" style="padding:4px 10px;font-size:10px" onclick="verProducto('${a.clave}')">Ver</button>
-              <button class="btn btn-primary" style="padding:4px 10px;font-size:10px" onclick="agregarClave('${a.clave}',1)">+ Orden</button>
+            <td style="display:flex;gap:5px">
+              <button class="btn btn-ghost" style="padding:4px 9px;font-size:10px" onclick="verProducto('${a.clave}')">Ver</button>
+              <button class="btn btn-primary" style="padding:4px 9px;font-size:10px" onclick="agregarClave('${a.clave}',1)">+ Orden</button>
             </td>
           </tr>`).join('')}
         </tbody>
@@ -2505,6 +2571,90 @@ function renderDebugResult(action, data) {
     }))}`;
 }
 
+
+
+// ── EXPORTS ───────────────────────────────────────────────
+
+function exportBuscarCSV() {
+  if (!_buscarArts.length) return;
+  const rows = [['Clave','Descripción','Marca','Precio','Moneda','Stock Suc.','Stock CEDIS']];
+  _buscarArts.forEach(a => rows.push([
+    a.clave, a.descripcion, a.marca||'', a.precio||'', a.moneda||'MXN',
+    a.disponible||0, a.disponibleCD||0
+  ]));
+  downloadCSV(rows, 'CVA_Busqueda_' + new Date().toISOString().substring(0,10) + '.csv');
+}
+
+function exportBuscarPDF() {
+  if (!_buscarArts.length) return;
+  const rows = _buscarArts.map(a => [a.clave, a.descripcion, a.marca||'—', fmt(a.precio,a.moneda), a.disponible||0, a.disponibleCD||0]);
+  printPDF('Búsqueda CVA', ['Clave','Descripción','Marca','Precio','Suc.','CEDIS'], rows);
+}
+
+function exportCarritoCSV() {
+  if (!carrito.length) return;
+  const rows = [['Clave','Descripción','Marca','Precio Unit.','Cantidad','Total']];
+  carrito.forEach(i => rows.push([
+    i.clave, i.desc, i.marca||'', i.precio, i.qty,
+    (i.precio * i.qty).toFixed(2)
+  ]));
+  downloadCSV(rows, 'CVA_Carrito_' + new Date().toISOString().substring(0,10) + '.csv');
+}
+
+function exportCarritoPDF() {
+  if (!carrito.length) return;
+  const rows = carrito.map(i => [i.clave, i.desc, i.marca||'—', fmt(i.precio,i.moneda), i.qty, fmt(i.precio*i.qty,i.moneda)]);
+  const total = carrito.reduce((s,i) => s + i.precio*i.qty, 0);
+  printPDF('Carrito CVA — Electronics México',
+    ['Clave','Descripción','Marca','Precio c/u','Qty','Total'],
+    rows,
+    'TOTAL: ' + fmt(total,'Pesos')
+  );
+}
+
+function downloadCSV(rows, filename) {
+  const csv = rows.map(r => r.map(c => {
+    const s = String(c).replace(/"/g,'""');
+    return /[,"
+]/.test(s) ? `"${s}"` : s;
+  }).join(',')).join('
+');
+  const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' });
+  const a = Object.assign(document.createElement('a'), {
+    href: URL.createObjectURL(blob), download: filename
+  });
+  a.click(); URL.revokeObjectURL(a.href);
+}
+
+function printPDF(title, headers, rows, footer) {
+  const w = window.open('', '_blank', 'width=900,height=700');
+  const colW = Math.floor(100 / headers.length);
+  w.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8">
+  <title>${title}</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, sans-serif; font-size: 11px; color: #1e2025; padding: 28px; }
+    h1 { font-size: 16px; font-weight: 600; margin-bottom: 4px; letter-spacing: 1px; text-transform: uppercase; }
+    .meta { font-size: 10px; color: #666; margin-bottom: 18px; letter-spacing: 1px; }
+    table { width: 100%; border-collapse: collapse; }
+    th { background: #1e2025; color: #fff; padding: 8px 10px; font-size: 9px; letter-spacing: 1.5px; text-transform: uppercase; text-align: left; }
+    td { padding: 7px 10px; border-bottom: 1px solid #eee; font-size: 11px; }
+    tr:nth-child(even) td { background: #f8f8f8; }
+    .footer { margin-top: 14px; text-align: right; font-size: 13px; font-weight: 600; border-top: 2px solid #00665e; padding-top: 8px; color: #00665e; }
+    @media print { body { padding: 12px; } }
+  </style>
+  </head><body>
+  <h1>${title}</h1>
+  <div class="meta">Generado: ${new Date().toLocaleString('es-MX')} · Electronics México</div>
+  <table>
+    <thead><tr>${headers.map(h => `<th>${h}</th>`).join('')}</tr></thead>
+    <tbody>${rows.map(r => `<tr>${r.map(c => `<td>${c}</td>`).join('')}</tr>`).join('')}</tbody>
+  </table>
+  ${footer ? `<div class="footer">${footer}</div>` : ''}
+  </body></html>`);
+  w.document.close();
+  w.onload = () => { w.focus(); w.print(); };
+}
 
 // ── INIT ──────────────────────────────────────────────────
 window.onload = () => {
