@@ -1096,7 +1096,7 @@
       </svg>
     </button>
 
-    <div class="header-logo">
+    <div class="header-logo" onclick="showPage('buscar')" style="cursor:pointer" title="Ir a Buscar Productos">
       <img
         src="https://apicvaservices.grupocva.com/documentation/images/logo-fcd06fb4.png"
         alt="CVA"
@@ -1754,7 +1754,7 @@ function renderProducto(p) {
 
 function limpiarBusqueda() {
   ['s-clave','s-marca','s-grupo','s-desc'].forEach(id => document.getElementById(id).value = '');
-  document.getElementById('s-exist').value = '';
+  document.getElementById('s-exist').value = '3';
   document.getElementById('buscar-result').innerHTML = '';
 }
 
