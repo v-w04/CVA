@@ -737,7 +737,6 @@
     text-transform: uppercase;
     text-align: center;
     transition: background .2s;
-    margin-top: auto;
   }
   .pv-cta:hover { background: #00403a; }
 
@@ -1744,10 +1743,25 @@ function renderProducto(p) {
             </div>`).join('')}
         </div>
 
-        <!-- CTA — igual al "View your DBX S" -->
-        <button class="pv-cta" onclick="agregarClave('${p.clave}',1)">
-          Agregar a Orden
-        </button>
+        <!-- CTA con cantidad — igual al "View your DBX S" -->
+        <div style="display:flex;border-top:1px solid rgba(238,240,240,0.08)">
+          <!-- Input qty -->
+          <div style="display:flex;align-items:center;background:rgba(0,0,0,0.2);border-right:1px solid rgba(238,240,240,0.1);padding:0 4px;gap:0">
+            <button onclick="pvQtyChange(-1)"
+              style="width:36px;height:56px;background:none;border:none;color:rgba(238,240,240,0.5);font-size:20px;cursor:pointer;line-height:1;transition:color .15s"
+              onmouseover="this.style.color='#fff'" onmouseout="this.style.color='rgba(238,240,240,0.5)'">−</button>
+            <input id="pv-qty" type="number" value="1" min="1" max="999"
+              style="width:44px;height:56px;background:none;border:none;color:#fff;font-family:'Barlow Condensed',sans-serif;font-size:20px;font-weight:300;text-align:center;outline:none;-moz-appearance:textfield">
+            <button onclick="pvQtyChange(1)"
+              style="width:36px;height:56px;background:none;border:none;color:rgba(238,240,240,0.5);font-size:20px;cursor:pointer;line-height:1;transition:color .15s"
+              onmouseover="this.style.color='#fff'" onmouseout="this.style.color='rgba(238,240,240,0.5)'">+</button>
+          </div>
+          <!-- Botón principal -->
+          <button class="pv-cta" style="flex:1;border-top:none"
+            onclick="agregarClave('${p.clave}', parseInt(document.getElementById('pv-qty').value)||1)">
+            Agregar a Orden
+          </button>
+        </div>
 
       </div><!-- /pv-panel -->
     </div><!-- /pv-wrap -->
@@ -1763,6 +1777,11 @@ function limpiarBusqueda() {
 // ── CARRITO ───────────────────────────────────────────────
 let carrito = [];
 
+function pvQtyChange(delta) {
+  const el = document.getElementById('pv-qty');
+  if (!el) return;
+  el.value = Math.max(1, Math.min(999, (parseInt(el.value) || 1) + delta));
+}
 function agregarClave(clave, qty = 1) {
   showPage('orden');
   document.getElementById('cart-clave').value = clave;
@@ -2103,11 +2122,11 @@ function renderDebugResult(action, data) {
     const items = data.marcas;
     return `
       <div style="margin-bottom:10px;font-size:9px;letter-spacing:2px;color:var(--muted);text-transform:uppercase">${items.length} marcas</div>
-      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:8px">
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px">
         ${items.map(m => `
-          <div style="background:rgba(238,240,240,0.04);border:1px solid rgba(238,240,240,0.08);padding:10px;display:flex;flex-direction:column;align-items:center;gap:8px">
-            ${m.logo ? `<img src="${m.logo}" style="height:32px;width:auto;object-fit:contain;filter:brightness(0) invert(1);opacity:0.7" onerror="this.style.display='none'">` : ''}
-            <span style="font-size:10px;letter-spacing:1px;color:var(--text-2);text-align:center">${m.marca}</span>
+          <div style="background:rgba(38,41,48,0.8);border:1px solid rgba(238,240,240,0.1);padding:18px 14px;display:flex;flex-direction:column;align-items:center;gap:12px;min-height:90px;justify-content:center">
+            ${m.logo ? `<img src="${m.logo}" style="height:44px;width:auto;max-width:120px;object-fit:contain;filter:brightness(0) invert(1);opacity:0.8" onerror="this.style.display='none'">` : ''}
+            <span style="font-size:12px;letter-spacing:1.5px;color:rgba(238,240,240,0.7);text-align:center;text-transform:uppercase;font-weight:500">${m.marca}</span>
           </div>`).join('')}
       </div>`;
   }
