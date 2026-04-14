@@ -372,7 +372,7 @@
   .bg-anim {
     position: fixed;
     inset: 0;
-    z-index: 0;
+    z-index: -1;
     pointer-events: none;
     overflow: hidden;
   }
@@ -413,6 +413,7 @@
   /* ━━ SCROLL CONTENT ━━ */
   .scroll-wrap {
     flex: 1;
+    min-height: 0;
     overflow-y: auto;
     overflow-x: hidden;
     background: #1e2025;
@@ -1220,10 +1221,10 @@
   </div>
 </div>
 
-<!-- Fondo animado AM -->
-<div class="bg-anim" aria-hidden="true"></div>
-
 <div class="shell">
+
+  <!-- Fondo animado AM -->
+  <div class="bg-anim" aria-hidden="true"></div>
 
   <!-- ══ HEADER ══ -->
   <header class="header">
