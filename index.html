@@ -1492,27 +1492,36 @@
         <div class="page-header">
           <div class="page-rule"></div>
           <div class="page-title">Sincronización</div>
-          <div class="page-sub">Catálogo CVA → Sheets</div>
+          <div class="page-sub">Catálogo CVA → Sheets · Historial de stock</div>
         </div>
+
+        <!-- Estado actual del sync -->
+        <div id="sync-status-box" style="margin-bottom:20px">
+          <div style="color:var(--muted);font-size:11px;letter-spacing:1px">Carga la página para ver el estado...</div>
+        </div>
+
+        <!-- KPIs del último run manual -->
         <div class="grid-3" style="margin-bottom:20px">
           <div class="card">
-            <div class="card-title">Artículos Procesados</div>
+            <div class="card-title">Último Run — Artículos</div>
             <div class="kpi" id="sync-art">—</div>
-            <div class="kpi-sub">último sync</div>
+            <div class="kpi-sub">procesados</div>
           </div>
           <div class="card">
-            <div class="card-title">Próxima Página</div>
+            <div class="card-title">Checkpoint actual</div>
             <div class="kpi" id="sync-page">—</div>
-            <div class="kpi-sub">checkpoint</div>
+            <div class="kpi-sub">próxima página</div>
           </div>
           <div class="card">
-            <div class="card-title">Total Páginas</div>
+            <div class="card-title">Total Páginas CVA</div>
             <div class="kpi" id="sync-total">—</div>
-            <div class="kpi-sub">catálogo CVA</div>
+            <div class="kpi-sub">catálogo completo</div>
           </div>
         </div>
+
+        <!-- Configuración -->
         <div class="card">
-          <div class="section-title">Configuración Sync</div>
+          <div class="section-title">Configuración Sync manual</div>
           <div class="grid-2">
             <div class="form-group">
               <label>Batch Size</label>
@@ -1537,19 +1546,26 @@
               <option value="">Todo el catálogo (sin filtro)</option>
             </select>
           </div>
-          <div style="display:flex;gap:10px;margin-top:14px">
-            <button class="btn btn-primary" onclick="ejecutarSync()" style="flex:1">Ejecutar Sync</button>
-            <button class="btn btn-ghost"   onclick="instalarTriggers()" style="flex:1">Instalar Triggers</button>
+          <div style="display:flex;gap:10px;margin-top:14px;flex-wrap:wrap">
+            <button class="btn btn-primary" onclick="ejecutarSync()" style="flex:1;min-width:140px">▶ Ejecutar Sync</button>
+            <button class="btn btn-ghost"   onclick="cargarEstadoSync()" style="flex:1;min-width:120px">↻ Actualizar Estado</button>
           </div>
           <div id="sync-result" style="margin-top:14px"></div>
         </div>
-        <div class="card" style="margin-top:20px">
-          <div class="section-title">¿Para qué sirve el Sync?</div>
-          <p style="color:var(--muted);font-size:13px;line-height:1.8">
-            Descarga el catálogo CVA a tu hoja <strong style="color:var(--text)">SYNC_CVA</strong> en Google Sheets — precios, stock y claves — para consultas masivas offline y comparar contra tu inventario Odoo.<br><br>
-            <strong style="color:var(--text)">Recomendado:</strong> batch=MD · 3 páginas · filtro "Sucursal + CEDIS" · trigger cada 60 min.<br><br>
-            <strong style="color:var(--text)">Para operación diaria</strong> no necesitas usarlo — la búsqueda individual en tiempo real es suficiente.
+
+        <!-- Reset -->
+        <div class="card" style="margin-top:16px;border-color:rgba(200,151,58,0.2)">
+          <div class="section-title" style="color:var(--orange)">Resetear Sync</div>
+          <p style="color:var(--muted);font-size:13px;line-height:1.7;margin-bottom:14px">
+            El <strong style="color:var(--text)">checkpoint</strong> guarda en qué página va el sync automático. Si ves que siempre empieza en la misma página o los datos no actualizan, resetéalo aquí.<br>
+            Si además quieres <strong style="color:var(--text)">borrar SYNC_CVA</strong> y descargar todo desde cero (el HISTORIAL_STOCK no se borra), usa el segundo botón.
           </p>
+          <div style="display:flex;gap:10px;flex-wrap:wrap">
+            <button class="btn btn-ghost" style="border-color:rgba(200,151,58,0.3);color:var(--orange);flex:1;min-width:160px"
+              onclick="resetearSync(false)">Resetear checkpoint (pág 1)</button>
+            <button class="btn btn-ghost" style="border-color:rgba(204,68,68,0.3);color:#e05555;flex:1;min-width:160px"
+              onclick="resetearSync(true)">Resetear + limpiar SYNC_CVA</button>
+          </div>
         </div>
       </div>
 
