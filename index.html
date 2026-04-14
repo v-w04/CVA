@@ -1217,49 +1217,11 @@
   </div>
 </div>
 
-<div class="shell">
-
-  <!-- Fondo animado AM -->
-  <div class="bg-anim" aria-hidden="true"></div>
-
-  <!-- ══ HEADER ══ -->
-  <header class="header">
-    <button class="ham-btn" id="ham-btn" onclick="toggleSidebar()" aria-label="Menú" style="position:relative;width:44px;height:44px;cursor:pointer;background:none;border:none;flex-shrink:0;z-index:201">
-      <svg id="ham-svg-menu" width="22" height="15" viewBox="0 0 22 15" fill="none" style="display:block;position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);transition:opacity .3s">
-        <rect y="0"  width="22" height="1.5" rx="0.75" fill="#eef0f0"/>
-        <rect y="6.5" width="22" height="1.5" rx="0.75" fill="#eef0f0"/>
-        <rect y="13" width="22" height="1.5" rx="0.75" fill="#eef0f0"/>
-      </svg>
-      <svg id="ham-svg-close" width="18" height="18" viewBox="0 0 18 18" fill="none" style="display:none;position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);transition:opacity .3s">
-        <line x1="1" y1="1" x2="17" y2="17" stroke="#eef0f0" stroke-width="1.5" stroke-linecap="round"/>
-        <line x1="17" y1="1" x2="1" y2="17" stroke="#eef0f0" stroke-width="1.5" stroke-linecap="round"/>
-      </svg>
-    </button>
-
-    <div class="header-logo" onclick="showPage('buscar')" style="cursor:pointer" title="Ir a Buscar Productos">
-      <img
-        src="https://apicvaservices.grupocva.com/documentation/images/logo-fcd06fb4.png"
-        alt="CVA"
-        onerror="this.style.display='none'; this.nextElementSibling.style.display='block';"
-        style="display:block">
-      <div class="header-logo-fallback" style="display:none">CVA Dropship</div>
-      <div class="header-logo-sub">Electronics México</div>
-    </div>
-
-    <div class="header-right">
-      <span class="badge badge-green" id="badge-cva">CVA ✓</span>
-      <span class="badge badge-silver" id="badge-odoo">Odoo ✓</span>
-      <span class="badge badge-silver" id="badge-sync">Sync —</span>
-      <span id="cart-badge" class="badge badge-green" style="display:none">Cart 0</span>
-    </div>
-  </header>
-  <div class="header-line"></div>
-
-  <!-- ══ SIDEBAR OVERLAY ══ -->
+<!-- ══ SIDEBAR OVERLAY ══ -->
   <div class="sb-overlay" id="sb-overlay" onclick="closeSidebar()"></div>
 
   <!-- ══ SIDEBAR ══ -->
-  <nav class="sidebar" id="sidebar" style="position:relative">
+  <nav class="sidebar" id="sidebar">
     <div class="sb-head">
       <div class="sb-head-title">CVA Dropship</div>
       <div class="sb-head-sub">Electronics México</div>
@@ -1348,6 +1310,45 @@
       <div class="sb-foot-info">CVA Dropshipping · Electronics México</div>
     </div>
   </nav>
+
+<div class="shell">
+
+  <!-- Fondo animado AM -->
+  <div class="bg-anim" aria-hidden="true"></div>
+
+  <!-- ══ HEADER ══ -->
+  <header class="header">
+    <button class="ham-btn" id="ham-btn" onclick="toggleSidebar()" aria-label="Menú" style="position:relative;width:44px;height:44px;cursor:pointer;background:none;border:none;flex-shrink:0;z-index:201">
+      <svg id="ham-svg-menu" width="22" height="15" viewBox="0 0 22 15" fill="none" style="display:block;position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);transition:opacity .3s">
+        <rect y="0"  width="22" height="1.5" rx="0.75" fill="#eef0f0"/>
+        <rect y="6.5" width="22" height="1.5" rx="0.75" fill="#eef0f0"/>
+        <rect y="13" width="22" height="1.5" rx="0.75" fill="#eef0f0"/>
+      </svg>
+      <svg id="ham-svg-close" width="18" height="18" viewBox="0 0 18 18" fill="none" style="display:none;position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);transition:opacity .3s">
+        <line x1="1" y1="1" x2="17" y2="17" stroke="#eef0f0" stroke-width="1.5" stroke-linecap="round"/>
+        <line x1="17" y1="1" x2="1" y2="17" stroke="#eef0f0" stroke-width="1.5" stroke-linecap="round"/>
+      </svg>
+    </button>
+
+    <div class="header-logo" onclick="showPage('buscar')" style="cursor:pointer" title="Ir a Buscar Productos">
+      <img
+        src="https://apicvaservices.grupocva.com/documentation/images/logo-fcd06fb4.png"
+        alt="CVA"
+        onerror="this.style.display='none'; this.nextElementSibling.style.display='block';"
+        style="display:block">
+      <div class="header-logo-fallback" style="display:none">CVA Dropship</div>
+      <div class="header-logo-sub">Electronics México</div>
+    </div>
+
+    <div class="header-right">
+      <span class="badge badge-green" id="badge-cva">CVA ✓</span>
+      <span class="badge badge-silver" id="badge-odoo">Odoo ✓</span>
+      <span class="badge badge-silver" id="badge-sync">Sync —</span>
+      <span id="cart-badge" class="badge badge-green" style="display:none">Cart 0</span>
+    </div>
+  </header>
+  <div class="header-line"></div>
+
 
   <!-- ══ SCROLL CONTENT ══ -->
   <div class="scroll-wrap">
