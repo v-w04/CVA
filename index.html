@@ -1824,7 +1824,15 @@ function limpiarBusqueda() {
 }
 
 // ── CARRITO ───────────────────────────────────────────────
-let carrito = [];
+let carrito = (() => {
+  try { return JSON.parse(localStorage.getItem('cva_carrito') || '[]'); }
+  catch(_) { return []; }
+})();
+
+function guardarCarrito() {
+  try { localStorage.setItem('cva_carrito', JSON.stringify(carrito)); }
+  catch(_) {}
+}
 
 function pvQtyChange(delta) {
   const el = document.getElementById('pv-qty');
@@ -1866,6 +1874,7 @@ async function agregarAlCarrito() {
     });
   }
   document.getElementById('cart-clave').value = '';
+  guardarCarrito();
   renderCarrito();
 }
 
@@ -1936,9 +1945,9 @@ function renderCarrito() {
   document.getElementById('carrito-total').textContent = fmt(totalMXN, 'Pesos');
 }
 
-function cambiarQty(idx, delta) { carrito[idx].qty = Math.max(1, carrito[idx].qty + delta); renderCarrito(); }
-function setQty(idx, val) { const q = parseInt(val); if (q > 0) { carrito[idx].qty = q; renderCarrito(); } }
-function quitarItem(idx) { carrito.splice(idx, 1); renderCarrito(); }
+function cambiarQty(idx, delta) { carrito[idx].qty = Math.max(1, carrito[idx].qty + delta); guardarCarrito(); renderCarrito(); }
+function setQty(idx, val) { const q = parseInt(val); if (q > 0) { carrito[idx].qty = q; guardarCarrito(); renderCarrito(); } }
+function quitarItem(idx) { carrito.splice(idx, 1); guardarCarrito(); renderCarrito(); }
 
 async function enviarOrden(test = false) {
   if (carrito.length === 0) { alert('El carrito está vacío'); return; }
@@ -1969,7 +1978,7 @@ async function enviarOrden(test = false) {
     Total: ${fmt(data.total, data.moneda)}
     ${data.flete ? ` · Flete: ${fmt(data.flete.montoTotal, 'Pesos')} MXN` : ''}
   </div>`;
-  if (!test) { carrito = []; renderCarrito(); }
+  if (!test) { carrito = []; guardarCarrito(); renderCarrito(); }
 }
 function enviarOrdenTest() { enviarOrden(true); }
 
