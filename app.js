@@ -1249,10 +1249,16 @@ window.onload = () => {
   // T=2800ms: logo sube + todo desaparece (650ms)
   // T=3000ms: shell visible
 
-  // Fase 1: logo aparece — 800ms de verde puro primero
+  // Fase 1: logo CVA aparece
   setTimeout(() => {
     requestAnimationFrame(() => splash.classList.add('phase-1'));
   }, 800);
+
+  // Logo EM aparece 600ms después — escalonado, no duplica tiempo
+  setTimeout(() => {
+    const by = document.getElementById('splash-by');
+    if (by) by.style.opacity = '1';
+  }, 1600);
 
   // Fase 2: logo sube + fondo desaparece
   setTimeout(() => {
