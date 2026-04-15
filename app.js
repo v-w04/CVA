@@ -446,79 +446,71 @@ function renderProducto(p) {
 }
 
 
+
+// ── ML QUERY BUILDER ─────────────────────────────────────
+function _buildMLQueries(marca, descripcion) {
+  const words = (descripcion || '').split(/[\s\/,\(\)]+/).map(w => w.trim()).filter(Boolean);
+  const STOP = new Set(['DE','LA','EL','LOS','LAS','CON','POR','PARA','SIN','UNA','UNO',
+    'DISCO','DURO','LAPTOP','MONITOR','IMPRESORA','TECLADO','MOUSE','CABLE','MEMORIA',
+    'INTERNO','EXTERNO','NEGRO','BLANCO','PLATA','COLOR','PULGADAS','MODELO','TIPO',
+    'SMART','SERIE','NUEVA','NUEVO','ALTA','ALTO','BAJO','BAJA','GRAN','GRANDE']);
+  const isModelo = w =>
+    (/^[A-Z0-9]+-[A-Z0-9]+$/.test(w) || (/[A-Z]/.test(w) && /[0-9]/.test(w) && w.length >= 4)) &&
+    w !== marca && !STOP.has(w);
+  const modelos  = words.filter(w => isModelo(w)).slice(0, 2);
+  const desc     = words.filter(w => w.length > 3 && !STOP.has(w) && w !== marca && !/^\d+$/.test(w) && !modelos.includes(w)).slice(0, 3);
+  const q1 = modelos.length ? [marca, ...modelos].join(' ') : [marca, ...desc.slice(0,2)].join(' ');
+  const q2 = [marca, ...desc.slice(0,2)].join(' ');
+  const searchUrl = `https://listado.mercadolibre.com.mx/${encodeURIComponent(q1)}`;
+  return { q1, q2, searchUrl };
+}
+
+async function _fetchML(q, cond) {
+  const url = `https://api.mercadolibre.com/sites/MLM/search?q=${encodeURIComponent(q)}&limit=10${cond ? '&condition='+cond : ''}`;
+  const res = await fetch(url, { mode: 'cors' });
+  if (!res.ok) throw new Error(res.status);
+  return res.json();
+}
+
+async function _searchML(q1, q2) {
+  let data;
+  try { data = await _fetchML(q1, 'new'); } catch(e) { data = null; }
+  if (!data?.results?.length) { try { data = await _fetchML(q1, ''); } catch(e) { data = null; } }
+  if (!data?.results?.length) { try { data = await _fetchML(q2, ''); } catch(e) { data = null; } }
+  return data?.results?.filter(r => r.price > 0) || [];
+}
+
 // ── MERCADOLIBRE PRICE (client-side fetch) ───────────────
 async function buscarMeli(producto) {
   const bloque = document.getElementById('pv-meli-block');
   if (!bloque) return;
 
-  const marca = (producto.marca || '').trim();
-
-  // Query 1: marca + modelo (palabras alfanuméricas cortas tipo "HAT5320-4T")
-  // Query 2: fallback solo marca + primeras palabras descriptivas
-  const allWords = (producto.descripcion || '').split(/[\s\/,]+/).filter(w => w.length > 1);
-  const modelWords = allWords.filter(w => /[A-Z0-9]{3,}-?[A-Z0-9]+/.test(w) && w !== marca).slice(0, 2);
-  const descWords  = allWords.filter(w => w.length > 3 && !/^\d+$/.test(w) && w !== marca).slice(0, 4);
-
-  const queryPrincipal = [marca, ...modelWords].join(' ').trim();
-  const queryFallback  = [marca, ...descWords.slice(0, 3)].join(' ').trim();
-
-  const searchUrl = `https://listado.mercadolibre.com.mx/${encodeURIComponent(queryPrincipal)}`;
-
-  async function fetchML(q, condition) {
-    const url = `https://api.mercadolibre.com/sites/MLM/search?q=${encodeURIComponent(q)}&limit=10${condition ? '&condition=' + condition : ''}`;
-    const res = await fetch(url, { mode: 'cors' });
-    if (!res.ok) throw new Error(res.status);
-    return res.json();
-  }
+  const { q1, q2, searchUrl } = _buildMLQueries(producto.marca || '', producto.descripcion || '');
 
   try {
-    let data;
-    // Intento 1: query con modelo, solo nuevos
-    try { data = await fetchML(queryPrincipal, 'new'); } catch(e) { data = null; }
-    // Intento 2: sin filtro condición si no hay resultados
-    if (!data?.results?.length) {
-      try { data = await fetchML(queryPrincipal, ''); } catch(e) { data = null; }
-    }
-    // Intento 3: query fallback
-    if (!data?.results?.length) {
-      try { data = await fetchML(queryFallback, ''); } catch(e) { data = null; }
-    }
-
-    const results = (data?.results || []).filter(r => r.price > 0);
-
+    const results = await _searchML(q1, q2);
     if (!results.length) {
       bloque.innerHTML = `
         <div class="pv-meli-logo">ML</div>
-        <div class="pv-meli-content"><div class="pv-meli-error">Sin coincidencias en MeLi</div></div>
-        <a class="pv-meli-link" href="${searchUrl}" target="_blank">Buscar manualmente →</a>`;
+        <div class="pv-meli-content"><div class="pv-meli-error">Sin coincidencias · <a href="${searchUrl}" target="_blank" style="color:rgba(255,230,0,0.4)">buscar manualmente</a></div></div>`;
       return;
     }
-
-    const precios  = results.map(r => r.price).sort((a, b) => a - b);
-    const minPrecio = precios[0];
-    const mediana   = precios[Math.floor(precios.length / 2)];
-    const count     = data?.paging?.total || results.length;
-    const topItem   = results[0];
-
-    const precioCVA = producto.moneda === 'Dolares'
-      ? (producto.precio * (producto.tipo_cambio || 17.5))
-      : producto.precio;
-    const diff    = minPrecio - precioCVA;
-    const diffPct = precioCVA > 0 ? ((diff / precioCVA) * 100).toFixed(0) : null;
-    const diffStr = diffPct !== null
-      ? (diff >= 0
-          ? `<span style="color:rgba(0,200,120,0.8)"> · +${diffPct}% margen mín</span>`
-          : `<span style="color:rgba(255,100,100,0.7)"> · ${diffPct}% bajo costo</span>`)
+    const precios = results.map(r => r.price).sort((a,b) => a-b);
+    const min = precios[0], med = precios[Math.floor(precios.length/2)];
+    const total = results[0]?.__paging_total || results.length;
+    const cvaMXN = producto.moneda === 'Dolares' ? producto.precio*(producto.tipo_cambio||17.5) : producto.precio;
+    const pct = cvaMXN > 0 ? ((min-cvaMXN)/cvaMXN*100).toFixed(0) : null;
+    const diffStr = pct !== null
+      ? (pct>=0 ? ` · <span style="color:rgba(0,200,120,0.85)">+${pct}% margen</span>`
+                : ` · <span style="color:rgba(255,100,100,0.8)">${pct}% bajo costo</span>`)
       : '';
-
     bloque.innerHTML = `
       <div class="pv-meli-logo">ML</div>
       <div class="pv-meli-content">
-        <div class="pv-meli-price">$${minPrecio.toLocaleString('es-MX', {minimumFractionDigits:2, maximumFractionDigits:2})}</div>
-        <div class="pv-meli-sub">${count.toLocaleString()} publicaciones · mediana $${mediana.toLocaleString('es-MX')}${diffStr}</div>
+        <div class="pv-meli-price">$${min.toLocaleString('es-MX',{minimumFractionDigits:2,maximumFractionDigits:2})}</div>
+        <div class="pv-meli-sub">${results.length} pub encontradas · mediana $${med.toLocaleString('es-MX')}${diffStr}</div>
       </div>
       <a class="pv-meli-link" href="${searchUrl}" target="_blank">Ver en ML →</a>`;
-
   } catch(e) {
     bloque.innerHTML = `
       <div class="pv-meli-logo">ML</div>
@@ -530,45 +522,21 @@ async function buscarMeli(producto) {
 // ── MERCADOLIBRE PRECIO EN FILA DE TABLA ─────────────────
 async function buscarMeliFila(btn, clave, marca, descripcion, precioCVA, moneda, tc) {
   const cell = btn.parentElement;
-  cell.innerHTML = `<span style="font-size:9px;color:var(--muted);letter-spacing:1px">…</span>`;
-
-  const allWords = descripcion.split(/[\s\/,]+/).filter(w => w.length > 1);
-  const modelWords = allWords.filter(w => /[A-Z0-9]{3,}-?[A-Z0-9]+/.test(w) && w !== marca).slice(0, 2);
-  const descWords  = allWords.filter(w => w.length > 3 && !/^\d+$/.test(w) && w !== marca).slice(0, 3);
-  const q1 = [marca, ...modelWords].join(' ').trim();
-  const q2 = [marca, ...descWords].join(' ').trim();
-  const searchUrl = `https://listado.mercadolibre.com.mx/${encodeURIComponent(q1)}`;
-
-  async function fetchML(q, cond) {
-    const url = `https://api.mercadolibre.com/sites/MLM/search?q=${encodeURIComponent(q)}&limit=10${cond ? '&condition=' + cond : ''}`;
-    const res = await fetch(url, { mode: 'cors' });
-    if (!res.ok) throw new Error(res.status);
-    return res.json();
-  }
-
+  cell.innerHTML = `<span style="font-size:9px;color:var(--muted)">…</span>`;
+  const { q1, q2, searchUrl } = _buildMLQueries(marca, descripcion);
   try {
-    let data;
-    try { data = await fetchML(q1, 'new'); } catch(e) { data = null; }
-    if (!data?.results?.length) { try { data = await fetchML(q1, ''); } catch(e) { data = null; } }
-    if (!data?.results?.length) { try { data = await fetchML(q2, ''); } catch(e) { data = null; } }
-
-    const results = (data?.results || []).filter(r => r.price > 0);
+    const results = await _searchML(q1, q2);
     if (!results.length) {
-      cell.innerHTML = `<a href="${searchUrl}" target="_blank" style="font-size:9px;color:var(--muted);letter-spacing:1px;text-decoration:none">Sin coincid.</a>`;
+      cell.innerHTML = `<a href="${searchUrl}" target="_blank" style="font-size:9px;color:var(--muted);text-decoration:none">Sin coincid.</a>`;
       return;
     }
-
-    const precios = results.map(r => r.price).sort((a, b) => a - b);
-    const minML   = precios[0];
-    const cvaMXN  = moneda === 'Dolares' ? precioCVA * (tc || 17.5) : precioCVA;
-    const diff    = cvaMXN > 0 ? ((minML - cvaMXN) / cvaMXN * 100).toFixed(0) : null;
-    const color   = diff === null ? 'var(--muted)' : diff >= 0 ? 'rgba(0,200,120,0.85)' : 'rgba(255,100,100,0.8)';
-    const diffStr = diff !== null ? ` <span style="font-size:8px;color:${color}">${diff >= 0 ? '+' : ''}${diff}%</span>` : '';
-
+    const min    = results.map(r=>r.price).sort((a,b)=>a-b)[0];
+    const cvaMXN = moneda==='Dolares' ? precioCVA*(tc||17.5) : precioCVA;
+    const pct    = cvaMXN>0 ? ((min-cvaMXN)/cvaMXN*100).toFixed(0) : null;
+    const color  = pct===null ? 'var(--muted)' : pct>=0 ? 'rgba(0,200,120,0.85)' : 'rgba(255,100,100,0.8)';
+    const pctStr = pct!==null ? ` <span style="font-size:8px;color:${color}">${pct>=0?'+':''}${pct}%</span>` : '';
     cell.innerHTML = `<a href="${searchUrl}" target="_blank" style="text-decoration:none">
-      <span style="font-size:11px;font-family:'Barlow Condensed',sans-serif;font-weight:300;color:rgba(255,230,0,0.8)">
-        $${minML.toLocaleString('es-MX', {minimumFractionDigits:0})}
-      </span>${diffStr}
+      <span style="font-size:11px;font-family:'Barlow Condensed',sans-serif;font-weight:300;color:rgba(255,230,0,0.8)">$${min.toLocaleString('es-MX',{minimumFractionDigits:0})}</span>${pctStr}
     </a>`;
   } catch(e) {
     cell.innerHTML = `<span style="font-size:9px;color:var(--muted)">Error</span>`;
@@ -1497,27 +1465,40 @@ const MARCAS_FALLBACK = ['HP','Dell','Lenovo','Epson','Canon','Samsung','LG','As
 
 async function iniciarCarruselMarcas() {
   const track = document.getElementById('marcas-carousel-track');
+  const wrap  = document.getElementById('marcas-carousel-wrap');
   if (!track || _marcasCarousel.length > 0) return;
 
-  // Fallback inmediato: marcas + grupos mezclados aleatoriamente
+  // Fallback inmediato — visible sin esperar API
   const fb = [
     ...MARCAS_FALLBACK.map(m => ({ tipo:'marca', nombre:m, logo:'' })),
     ...GRUPOS_FALLBACK.map(g => ({ tipo:'grupo', nombre:g, logo:'' }))
   ];
   _renderCarruselItems(fb, track);
 
-  // Enriquecer con datos reales de ambas APIs
+  // Enriquecer con datos reales — transición suave al actualizar
   try {
     const [rM, rG] = await Promise.allSettled([api('cva_marcas'), api('cva_grupos')]);
     const marcas = (rM.status==='fulfilled' && rM.value?.ok) ? rM.value.marcas : [];
     const grupos = (rG.status==='fulfilled' && rG.value?.ok) ? rG.value.grupos : [];
-    if (marcas.length || grupos.length) {
-      const items = [
-        ...marcas.map(m => ({ tipo:'marca', nombre:m.marca||m.nombre||'', logo:m.logo||'' })),
-        ...grupos.map(g => ({ tipo:'grupo', nombre:g.nombre||g.grupo||g, logo:'' }))
-      ].filter(i => i.nombre);
+
+    // Solo actualizar si los datos reales son mejores (más items o tienen logos)
+    const tieneLogos = marcas.some(m => m.logo);
+    const masItems   = (marcas.length + grupos.length) > fb.length;
+    if (!marcas.length && !grupos.length) return;
+
+    const items = [
+      ...marcas.map(m => ({ tipo:'marca', nombre:m.marca||m.nombre||'', logo:m.logo||'' })),
+      ...grupos.map(g => ({ tipo:'grupo', nombre:g.nombre||g.grupo||g, logo:'' }))
+    ].filter(i => i.nombre);
+
+    // Fade out suave → actualizar → fade in
+    if (wrap) wrap.style.transition = 'opacity 0.4s ease';
+    if (wrap) wrap.style.opacity = '0';
+    setTimeout(() => {
       _renderCarruselItems(items, track);
-    }
+      if (wrap) wrap.style.opacity = '1';
+      setTimeout(() => { if (wrap) wrap.style.transition = ''; }, 400);
+    }, 400);
   } catch(e) {}
 }
 
