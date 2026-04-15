@@ -465,19 +465,15 @@ function _buildMLQueries(marca, descripcion) {
   return { q1, q2, searchUrl };
 }
 
-async function _fetchML(q, cond) {
-  const url = `https://api.mercadolibre.com/sites/MLM/search?q=${encodeURIComponent(q)}&limit=10${cond ? '&condition='+cond : ''}`;
-  const res = await fetch(url, { mode: 'cors' });
-  if (!res.ok) throw new Error(res.status);
-  return res.json();
-}
-
+// ML búsqueda via GAS proxy (evita bloqueo de IP/CORS de ML)
 async function _searchML(q1, q2) {
-  let data;
-  try { data = await _fetchML(q1, 'new'); } catch(e) { data = null; }
-  if (!data?.results?.length) { try { data = await _fetchML(q1, ''); } catch(e) { data = null; } }
-  if (!data?.results?.length) { try { data = await _fetchML(q2, ''); } catch(e) { data = null; } }
-  return data?.results?.filter(r => r.price > 0) || [];
+  // Intento 1: query con modelo
+  let data = await api('ml_precio', { q: q1 });
+  if (!data?.ok || !data.results?.length) {
+    // Intento 2: query fallback
+    data = await api('ml_precio', { q: q2 });
+  }
+  return (data?.results || []).filter(r => r.price > 0);
 }
 
 // ── MERCADOLIBRE PRICE (client-side fetch) ───────────────
