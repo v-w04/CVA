@@ -1175,6 +1175,18 @@
     text-transform: uppercase;
     color: rgba(255,255,255,0.55);
   }
+  .splash-by {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-top: 6px;
+    font-family: 'Barlow', sans-serif;
+    font-size: 11px;
+    font-weight: 400;
+    letter-spacing: 2.5px;
+    text-transform: uppercase;
+    color: rgba(255,255,255,0.3);
+  }
 
   /* Fase 1: logo aparece suavemente */
   #splash.phase-1 #splash-logo {
@@ -1203,12 +1215,23 @@
 <!-- ══ SPLASH SCREEN AM ══ -->
 <div id="splash">
   <div id="splash-logo">
+    <!-- Logo CVA principal -->
     <img
       src="https://apicvaservices.grupocva.com/documentation/images/logo-fcd06fb4.png"
       alt="CVA"
       onerror="this.style.display='none'"
     >
-    <div class="splash-wordmark" id="splash-wordmark">Electronics México</div>
+    <div class="splash-wordmark" id="splash-wordmark">CVA Dropshipping</div>
+    <!-- Electronics México — logo + nombre en blanco, pequeño, debajo -->
+    <div class="splash-by">
+      <img
+        src="https://acdn-us.mitiendanube.com/stores/006/131/081/themes/common/logo-257925442-1748975905-ea5b79b9b6bd00d801280c0aee35d5251748975905-320-0.webp"
+        alt=""
+        onerror="this.style.display='none'"
+        style="height:18px;filter:brightness(0) invert(1);opacity:0.6;vertical-align:middle;margin-right:6px"
+      >
+      <span>Electronics México</span>
+    </div>
   </div>
 </div>
 
