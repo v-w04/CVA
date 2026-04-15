@@ -1244,21 +1244,25 @@ window.onload = () => {
   const wordmark    = document.getElementById('splash-wordmark');
   const shell       = document.querySelector('.shell');
 
-  // Pausa de 550ms con fondo verde vacío → luego logo + wordmark aparecen juntos
-  setTimeout(() => {
-    requestAnimationFrame(() => {
-      requestAnimationFrame(() => {
-        splash.classList.add('phase-1');
-      });
-    });
-  }, 900);
+  // ── Timing AM — verde inmediato, logo entra suave ─────────
+  // T=0ms:    fondo verde visible
+  // T=300ms:  logo empieza fade in (1000ms — suave, sin prisa)
+  // T=1300ms: logo completamente visible
+  // T=1300ms: se queda quieto ~1500ms
+  // T=2800ms: logo sube + todo desaparece (650ms)
+  // T=3000ms: shell visible
 
-  // Fase 2: logo visible ~1.5s antes de salir
+  // Fase 1: logo aparece suavemente
+  setTimeout(() => {
+    requestAnimationFrame(() => splash.classList.add('phase-1'));
+  }, 300);
+
+  // Fase 2: logo sube + fondo desaparece
   setTimeout(() => {
     splash.classList.add('phase-2');
-    setTimeout(() => { shell.classList.add('visible'); }, 150);
+    setTimeout(() => { shell.classList.add('visible'); }, 200);
     setTimeout(() => { splash.remove(); }, 800);
-  }, 3000);
+  }, 2800);
 
   // ─────────────────────────────────────────────────────────
   // Inicializar página activa explicitamente
