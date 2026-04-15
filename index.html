@@ -1150,6 +1150,16 @@
     background: rgba(0,102,94,0.12);
     border-color: rgba(0,102,94,0.3);
   }
+  /* Grupos: borde punteado sutil para diferenciarlos */
+  .marca-chip-grupo {
+    border-style: dashed;
+    opacity: 0.85;
+  }
+  .marca-chip-grupo .marca-chip-name {
+    color: rgba(238,240,240,0.55);
+    font-weight: 400;
+    letter-spacing: 2px;
+  }
   .marca-chip img {
     height: 34px; max-width: 90px;
     object-fit: contain;
@@ -1299,6 +1309,8 @@
     align-items: center;
     gap: 20px;
     opacity: 0;
+    position: relative;
+    z-index: 2;
     transition: opacity 1.0s cubic-bezier(.22,1,.36,1),
                 transform 0.65s cubic-bezier(.4,0,.2,1);
   }
@@ -1334,7 +1346,7 @@
   #splash-cloud {
     position: absolute;
     inset: 0;
-    z-index: 0;
+    z-index: 1;
     overflow: hidden;
     opacity: 0;
     transition: opacity 0.4s ease;
