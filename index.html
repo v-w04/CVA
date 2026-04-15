@@ -1092,6 +1092,78 @@
   }
   .cart-item-remove:hover { color: #e05555; }
 
+
+  /* ━━ CARRUSEL DE MARCAS ━━ */
+  .marcas-carousel-wrap {
+    margin: -8px -48px 28px;
+    position: relative;
+    overflow: hidden;
+    padding: 16px 0;
+    border-bottom: 1px solid rgba(238,240,240,0.06);
+    cursor: grab;
+    user-select: none;
+  }
+  .marcas-carousel-wrap:active { cursor: grabbing; }
+  /* Degradado en los bordes */
+  .marcas-carousel-wrap::before,
+  .marcas-carousel-wrap::after {
+    content: '';
+    position: absolute;
+    top: 0; bottom: 0;
+    width: 80px;
+    z-index: 2;
+    pointer-events: none;
+  }
+  .marcas-carousel-wrap::before {
+    left: 0;
+    background: linear-gradient(to right, var(--bg), transparent);
+  }
+  .marcas-carousel-wrap::after {
+    right: 0;
+    background: linear-gradient(to left, var(--bg), transparent);
+  }
+  .marcas-carousel-track {
+    display: flex;
+    gap: 10px;
+    width: max-content;
+    animation: marquee 35s linear infinite;
+  }
+  .marcas-carousel-wrap:hover .marcas-carousel-track { animation-play-state: paused; }
+  .marcas-carousel-wrap.dragging .marcas-carousel-track { animation-play-state: paused; }
+  @keyframes marquee {
+    from { transform: translateX(0); }
+    to   { transform: translateX(-50%); }
+  }
+  .marca-chip {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 14px 6px 10px;
+    background: rgba(238,240,240,0.04);
+    border: 1px solid rgba(238,240,240,0.08);
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background .15s, border-color .15s;
+    flex-shrink: 0;
+  }
+  .marca-chip:hover {
+    background: rgba(0,102,94,0.12);
+    border-color: rgba(0,102,94,0.3);
+  }
+  .marca-chip img {
+    height: 18px; max-width: 48px;
+    object-fit: contain;
+    filter: brightness(0) invert(1);
+    opacity: 0.6;
+  }
+  .marca-chip-name {
+    font-family: 'Barlow', sans-serif;
+    font-size: 11px; font-weight: 600;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: rgba(238,240,240,0.55);
+  }
+
   /* ━━ SUCURSALES ━━ */
   .suc-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 6px; }
   .suc-item {
@@ -1297,7 +1369,7 @@
         src="https://acdn-us.mitiendanube.com/stores/006/131/081/themes/common/logo-257925442-1748975905-ea5b79b9b6bd00d801280c0aee35d5251748975905-320-0.webp"
         alt="Electronics México"
         onerror="this.style.display='none'"
-        style="height:64px;filter:brightness(0) invert(1);opacity:0.65"
+        style="height:51px;filter:brightness(0) invert(1);opacity:0.65"
       >
     </div>
   </div>
@@ -1451,6 +1523,11 @@
           <div class="page-title">Buscar Productos</div>
           <div class="page-sub">Catálogo CVA — búsqueda en tiempo real</div>
         </div>
+        <!-- Carrusel de marcas con stock -->
+        <div class="marcas-carousel-wrap" id="marcas-carousel-wrap">
+          <div class="marcas-carousel-track" id="marcas-carousel-track"></div>
+        </div>
+
         <div class="search-bar">
           <input id="s-clave"  type="text" placeholder="Clave CVA — ej: PR-2586" onkeydown="if(event.key==='Enter') buscarCVA()">
           <input id="s-marca"  type="text" placeholder="Marca — ej: HP, Lenovo"  onkeydown="if(event.key==='Enter') buscarCVA()">
