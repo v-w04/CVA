@@ -237,6 +237,7 @@ function renderTablaBusqueda(arts) {
           <th onclick="sortBuscar('precio')"      style="cursor:pointer;user-select:none;white-space:nowrap">Precio${sortIcon('precio')}</th>
           <th onclick="sortBuscar('disponible')"  style="cursor:pointer;user-select:none;white-space:nowrap">Suc.${sortIcon('disponible')}</th>
           <th onclick="sortBuscar('disponibleCD')"style="cursor:pointer;user-select:none;white-space:nowrap">CEDIS${sortIcon('disponibleCD')}</th>
+          <th style="white-space:nowrap;color:rgba(255,230,0,0.5);font-size:9px;letter-spacing:1px">ML</th>
           <th></th>
         </tr></thead>
         <tbody>${arts.map(a => `
@@ -247,6 +248,12 @@ function renderTablaBusqueda(arts) {
             <td class="td-price">${fmt(a.precio, a.moneda)}</td>
             <td>${stockCellAM(a.disponible,'')}</td>
             <td>${stockCellAM(a.disponibleCD,'')}</td>
+            <td id="ml-${a.clave.replace(/[^a-zA-Z0-9]/g,'_')}" style="white-space:nowrap;min-width:80px">
+              <button class="btn btn-ghost" style="padding:3px 8px;font-size:9px;letter-spacing:1px;color:rgba(255,230,0,0.45);border-color:rgba(255,230,0,0.12)"
+                onclick="buscarMeliFila(this,'${a.clave.replace(/'/g,"\\'")}','${(a.marca||'').replace(/'/g,"\\'")}','${a.descripcion.replace(/'/g,"\\'").replace(/\n/g,' ').substring(0,80)}',${a.precio},'${a.moneda||'Pesos'}',${a.tipo_cambio||0})">
+                ML ↗
+              </button>
+            </td>
             <td style="display:flex;gap:5px">
               <button class="btn btn-ghost" style="padding:4px 9px;font-size:10px" onclick="verProducto('${a.clave}')">Ver</button>
               <button class="btn btn-primary" style="padding:4px 9px;font-size:10px" onclick="agregarClave('${a.clave}',1)">+ Orden</button>
@@ -520,7 +527,55 @@ async function buscarMeli(producto) {
   }
 }
 
-// ── EXPORTAR PRODUCTO INDIVIDUAL ─────────────────────────
+// ── MERCADOLIBRE PRECIO EN FILA DE TABLA ─────────────────
+async function buscarMeliFila(btn, clave, marca, descripcion, precioCVA, moneda, tc) {
+  const cell = btn.parentElement;
+  cell.innerHTML = `<span style="font-size:9px;color:var(--muted);letter-spacing:1px">…</span>`;
+
+  const allWords = descripcion.split(/[\s\/,]+/).filter(w => w.length > 1);
+  const modelWords = allWords.filter(w => /[A-Z0-9]{3,}-?[A-Z0-9]+/.test(w) && w !== marca).slice(0, 2);
+  const descWords  = allWords.filter(w => w.length > 3 && !/^\d+$/.test(w) && w !== marca).slice(0, 3);
+  const q1 = [marca, ...modelWords].join(' ').trim();
+  const q2 = [marca, ...descWords].join(' ').trim();
+  const searchUrl = `https://listado.mercadolibre.com.mx/${encodeURIComponent(q1)}`;
+
+  async function fetchML(q, cond) {
+    const url = `https://api.mercadolibre.com/sites/MLM/search?q=${encodeURIComponent(q)}&limit=10${cond ? '&condition=' + cond : ''}`;
+    const res = await fetch(url, { mode: 'cors' });
+    if (!res.ok) throw new Error(res.status);
+    return res.json();
+  }
+
+  try {
+    let data;
+    try { data = await fetchML(q1, 'new'); } catch(e) { data = null; }
+    if (!data?.results?.length) { try { data = await fetchML(q1, ''); } catch(e) { data = null; } }
+    if (!data?.results?.length) { try { data = await fetchML(q2, ''); } catch(e) { data = null; } }
+
+    const results = (data?.results || []).filter(r => r.price > 0);
+    if (!results.length) {
+      cell.innerHTML = `<a href="${searchUrl}" target="_blank" style="font-size:9px;color:var(--muted);letter-spacing:1px;text-decoration:none">Sin coincid.</a>`;
+      return;
+    }
+
+    const precios = results.map(r => r.price).sort((a, b) => a - b);
+    const minML   = precios[0];
+    const cvaMXN  = moneda === 'Dolares' ? precioCVA * (tc || 17.5) : precioCVA;
+    const diff    = cvaMXN > 0 ? ((minML - cvaMXN) / cvaMXN * 100).toFixed(0) : null;
+    const color   = diff === null ? 'var(--muted)' : diff >= 0 ? 'rgba(0,200,120,0.85)' : 'rgba(255,100,100,0.8)';
+    const diffStr = diff !== null ? ` <span style="font-size:8px;color:${color}">${diff >= 0 ? '+' : ''}${diff}%</span>` : '';
+
+    cell.innerHTML = `<a href="${searchUrl}" target="_blank" style="text-decoration:none">
+      <span style="font-size:11px;font-family:'Barlow Condensed',sans-serif;font-weight:300;color:rgba(255,230,0,0.8)">
+        $${minML.toLocaleString('es-MX', {minimumFractionDigits:0})}
+      </span>${diffStr}
+    </a>`;
+  } catch(e) {
+    cell.innerHTML = `<span style="font-size:9px;color:var(--muted)">Error</span>`;
+  }
+}
+
+
 let _productoActual = null; // se guarda al renderizar
 
 function exportProductoCSV() {
@@ -1793,7 +1848,7 @@ window.onload = () => {
 // Las funciones llamadas desde onclick="" en el HTML necesitan estar en window
 Object.assign(window, {
   toggleSidebar, openSidebar, closeSidebar, showPage,
-  buscarCVA, verProducto, volverATabla, limpiarBusqueda, buscarMeli,
+  buscarCVA, verProducto, volverATabla, limpiarBusqueda, buscarMeli, buscarMeliFila,
   filtrarPorMarca, filtrarPorGrupo, sortBuscar,
   agregarClave, agregarAlCarrito, pvQtyChange, setQty,
   cambiarQty, quitarItem, renderCarrito,
