@@ -1317,7 +1317,7 @@ function initCarouselDrag(wrap, track) {
     const half = track.scrollWidth / 2;
     // Calcular dónde estaría en la animación estándar (0 → -half)
     const pct = Math.abs(curX / half) * 100;
-    track.style.animation = `marquee 35s linear ${-(pct/100)*35}s infinite`;
+    track.style.animation = `marquee 90s linear ${-(pct/100)*90}s infinite`;
   });
 
   // Touch support
@@ -1348,7 +1348,7 @@ function initCarouselDrag(wrap, track) {
     const curX = match ? parseFloat(match[1]) : 0;
     const half = track.scrollWidth / 2;
     const pct = Math.abs(curX / half) * 100;
-    track.style.animation = `marquee 35s linear ${-(pct/100)*35}s infinite`;
+    track.style.animation = `marquee 90s linear ${-(pct/100)*90}s infinite`;
   });
 }
 
@@ -1362,8 +1362,8 @@ function lanzarWordCloud(grupos) {
 
   const words = [...grupos].sort(() => Math.random() - 0.5);
   // Escalas y opacidades variadas
-  const sizes  = [11, 13, 15, 18, 22, 26, 32, 38, 14, 17, 20, 24, 28];
-  const alphas = [0.08, 0.10, 0.13, 0.16, 0.20, 0.11, 0.09, 0.14, 0.18];
+  const sizes  = [36, 44, 52, 62, 72, 84, 96, 42, 58, 68, 50, 78, 88];
+  const alphas = [0.10, 0.13, 0.16, 0.20, 0.24, 0.12, 0.10, 0.18, 0.22];
 
   cloud.innerHTML = '';
   const placed = []; // para evitar solapamiento
@@ -1394,18 +1394,39 @@ function lanzarWordCloud(grupos) {
     cloud.appendChild(el);
   });
 
-  // Hacer visible la nube
   cloud.classList.add('visible');
+  cloud._cycling = true;
 
-  // Hacer aparecer las palabras escalonadas rápido
-  const wordEls = cloud.querySelectorAll('.splash-word');
-  wordEls.forEach((el, i) => {
-    setTimeout(() => el.classList.add('show'), i * 40);
-  });
+  function cycleWords() {
+    if (!cloud._cycling) return;
+    const els = cloud.querySelectorAll('.splash-word');
+    // reposicionar aleatoriamente
+    els.forEach(el => {
+      el.style.left = (5 + Math.random() * 85) + '%';
+      el.style.top  = (5 + Math.random() * 88) + '%';
+      el.classList.remove('show');
+    });
+    // aparecer escalonado, 80ms entre cada una
+    els.forEach((el, i) => {
+      setTimeout(() => { if (cloud._cycling) el.classList.add('show'); }, i * 80);
+    });
+    const showFor = els.length * 80 + 2500; // pausa larga con todas visibles
+    // desaparecer todas y relanzar
+    setTimeout(() => {
+      if (!cloud._cycling) return;
+      els.forEach(el => el.classList.remove('show'));
+      setTimeout(() => { if (cloud._cycling) cycleWords(); }, 300);
+    }, showFor);
+  }
 
-  // Total: ~40ms * N palabras (128 grupos = ~5s max, pero ponemos cap)
-  const totalMs = Math.min(wordEls.length * 40, 1200);
-  return totalMs; // retorna cuándo terminó de llenar
+  cycleWords();
+}
+
+function detenerWordCloud() {
+  const cloud = document.getElementById('splash-cloud');
+  if (!cloud) return;
+  cloud._cycling = false;
+  cloud.classList.add('fadeout');
 }
 
 async function iniciarSplashCloud() {
@@ -1446,26 +1467,20 @@ window.onload = () => {
     // Después el cloud se desvanece y aparecen los logos
   });
 
-  // Fase 1: logo CVA aparece — después de que empieza a llenarse la nube
+  // Logos CVA + EM juntos a los 1500ms — palabras llenan primero
   setTimeout(() => {
     requestAnimationFrame(() => splash.classList.add('phase-1'));
-  }, 800);
-
-  // Logo EM aparece escalonado
-  setTimeout(() => {
     const by = document.getElementById('splash-by');
     if (by) by.style.opacity = '1';
-    // Desvanecer la nube cuando ya están los logos
-    const cloud = document.getElementById('splash-cloud');
-    if (cloud) cloud.classList.add('fadeout');
-  }, 1600);
+  }, 1500);
 
-  // Fase 2: logos suben + todo desaparece
+  // Fase 2: cloud + logos suben juntos (cloud se desvanece y sube con ellos)
   setTimeout(() => {
+    detenerWordCloud();
     splash.classList.add('phase-2');
     setTimeout(() => { shell.classList.add('visible'); }, 200);
-    setTimeout(() => { splash.remove(); }, 800);
-  }, 4000);
+    setTimeout(() => { splash.remove(); }, 900);
+  }, 6500);
 
   // ─────────────────────────────────────────────────────────
   // Inicializar página activa explicitamente
