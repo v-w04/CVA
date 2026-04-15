@@ -1252,10 +1252,10 @@ window.onload = () => {
   // T=2800ms: logo sube + todo desaparece (650ms)
   // T=3000ms: shell visible
 
-  // Fase 1: logo aparece suavemente
+  // Fase 1: logo aparece — 800ms de verde puro primero
   setTimeout(() => {
     requestAnimationFrame(() => splash.classList.add('phase-1'));
-  }, 300);
+  }, 800);
 
   // Fase 2: logo sube + fondo desaparece
   setTimeout(() => {
