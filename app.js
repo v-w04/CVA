@@ -444,56 +444,71 @@ async function buscarMeli(producto) {
   const bloque = document.getElementById('pv-meli-block');
   if (!bloque) return;
 
-  // Construir query: marca + palabras clave de descripcion (max 6 words)
-  const marca = producto.marca || '';
-  const descWords = (producto.descripcion || '')
-    .split(/[\s\/,]+/)
-    .filter(w => w.length > 2 && !/^\d+$/.test(w))
-    .slice(0, 5)
-    .join(' ');
-  const q = encodeURIComponent(`${marca} ${descWords}`.trim());
-  const searchUrl = `https://listado.mercadolibre.com.mx/${encodeURIComponent(`${marca} ${descWords}`.trim())}`;
+  const marca = (producto.marca || '').trim();
+
+  // Query 1: marca + modelo (palabras alfanuméricas cortas tipo "HAT5320-4T")
+  // Query 2: fallback solo marca + primeras palabras descriptivas
+  const allWords = (producto.descripcion || '').split(/[\s\/,]+/).filter(w => w.length > 1);
+  const modelWords = allWords.filter(w => /[A-Z0-9]{3,}-?[A-Z0-9]+/.test(w) && w !== marca).slice(0, 2);
+  const descWords  = allWords.filter(w => w.length > 3 && !/^\d+$/.test(w) && w !== marca).slice(0, 4);
+
+  const queryPrincipal = [marca, ...modelWords].join(' ').trim();
+  const queryFallback  = [marca, ...descWords.slice(0, 3)].join(' ').trim();
+
+  const searchUrl = `https://listado.mercadolibre.com.mx/${encodeURIComponent(queryPrincipal)}`;
+
+  async function fetchML(q, condition) {
+    const url = `https://api.mercadolibre.com/sites/MLM/search?q=${encodeURIComponent(q)}&limit=10${condition ? '&condition=' + condition : ''}`;
+    const res = await fetch(url, { mode: 'cors' });
+    if (!res.ok) throw new Error(res.status);
+    return res.json();
+  }
 
   try {
-    const res = await fetch(
-      `https://api.mercadolibre.com/sites/MLM/search?q=${q}&limit=8&condition=new`,
-      { headers: { 'Accept': 'application/json' } }
-    );
-    if (!res.ok) throw new Error('no response');
-    const data = await res.json();
-    const results = (data.results || []).filter(r => r.price > 0);
+    let data;
+    // Intento 1: query con modelo, solo nuevos
+    try { data = await fetchML(queryPrincipal, 'new'); } catch(e) { data = null; }
+    // Intento 2: sin filtro condición si no hay resultados
+    if (!data?.results?.length) {
+      try { data = await fetchML(queryPrincipal, ''); } catch(e) { data = null; }
+    }
+    // Intento 3: query fallback
+    if (!data?.results?.length) {
+      try { data = await fetchML(queryFallback, ''); } catch(e) { data = null; }
+    }
+
+    const results = (data?.results || []).filter(r => r.price > 0);
 
     if (!results.length) {
       bloque.innerHTML = `
         <div class="pv-meli-logo">ML</div>
-        <div class="pv-meli-content"><div class="pv-meli-error">Sin resultados en MeLi</div></div>
-        <a class="pv-meli-link" href="${searchUrl}" target="_blank">Buscar →</a>`;
+        <div class="pv-meli-content"><div class="pv-meli-error">Sin coincidencias en MeLi</div></div>
+        <a class="pv-meli-link" href="${searchUrl}" target="_blank">Buscar manualmente →</a>`;
       return;
     }
 
-    // Precio mínimo y mediana
-    const precios = results.map(r => r.price).sort((a,b) => a - b);
+    const precios  = results.map(r => r.price).sort((a, b) => a - b);
     const minPrecio = precios[0];
     const mediana   = precios[Math.floor(precios.length / 2)];
-    const count     = data.paging?.total || results.length;
+    const count     = data?.paging?.total || results.length;
+    const topItem   = results[0];
 
-    // Comparar con precio CVA (convertir si es USD)
     const precioCVA = producto.moneda === 'Dolares'
       ? (producto.precio * (producto.tipo_cambio || 17.5))
       : producto.precio;
-    const diff = minPrecio - precioCVA;
+    const diff    = minPrecio - precioCVA;
     const diffPct = precioCVA > 0 ? ((diff / precioCVA) * 100).toFixed(0) : null;
     const diffStr = diffPct !== null
       ? (diff >= 0
-          ? `<span style="color:rgba(0,200,120,0.7)">+${diffPct}% margen mín</span>`
-          : `<span style="color:rgba(255,100,100,0.6)">${diffPct}% vs CVA</span>`)
+          ? `<span style="color:rgba(0,200,120,0.8)"> · +${diffPct}% margen mín</span>`
+          : `<span style="color:rgba(255,100,100,0.7)"> · ${diffPct}% bajo costo</span>`)
       : '';
 
     bloque.innerHTML = `
       <div class="pv-meli-logo">ML</div>
       <div class="pv-meli-content">
         <div class="pv-meli-price">$${minPrecio.toLocaleString('es-MX', {minimumFractionDigits:2, maximumFractionDigits:2})}</div>
-        <div class="pv-meli-sub">precio mín · ${count.toLocaleString()} pub · mediana $${mediana.toLocaleString('es-MX', {minimumFractionDigits:0})} ${diffStr}</div>
+        <div class="pv-meli-sub">${count.toLocaleString()} publicaciones · mediana $${mediana.toLocaleString('es-MX')}${diffStr}</div>
       </div>
       <a class="pv-meli-link" href="${searchUrl}" target="_blank">Ver en ML →</a>`;
 
@@ -537,24 +552,55 @@ function exportProductoPDF() {
   const p = _productoActual;
   if (!p) return;
   const dim = p.dimensiones;
+  const w = window.open('', '_blank', 'width=900,height=700');
+  const imgHtml = p.imagen
+    ? `<img src="${p.imagen}" style="max-height:180px;max-width:220px;object-fit:contain;display:block;margin:0 auto 20px">`
+    : '';
   const rows = [
-    ['Clave',        p.clave],
-    ['Marca',        p.marca || '—'],
-    ['Grupo',        p.grupo || '—'],
-    ['Precio',       fmt(p.precio, p.moneda) + (p.tipo_cambio ? ` · TC $${p.tipo_cambio}` : '')],
-    ['Stock Suc.',   p.disponible ? `${p.disponible} uds` : 'Sin stock'],
-    ['Stock CEDIS',  p.disponibleCD ? `${p.disponibleCD} uds` : 'Sin stock'],
-    ['En Tránsito',  p.en_transito ? `${p.en_transito} uds` : '—'],
-    ['Garantía',     p.garantia || '—'],
-    ['Código UPC',   p.codigo || '—'],
-    ['Dimensiones',  dim ? `${dim.alto}m × ${dim.ancho}m × ${dim.profundidad}m · ${dim.peso} ${dim.unidad_peso}` : '—'],
-    ['Promoción',    p.promociones ? `${p.promociones.descripcion_promocion} · ${fmt(p.promociones.precio_descuento, p.promociones.moneda_precio_descuento)}` : '—'],
+    ['Clave', p.clave],
+    ['Marca', p.marca || '—'],
+    ['Grupo', p.grupo || '—'],
+    ['Precio', fmt(p.precio, p.moneda) + (p.tipo_cambio ? ` · TC $${p.tipo_cambio}` : '')],
+    ['Stock Suc.', p.disponible ? `${p.disponible} uds` : 'Sin stock'],
+    ['Stock CEDIS', p.disponibleCD ? `${p.disponibleCD} uds` : 'Sin stock'],
+    ['En Tránsito', p.en_transito ? `${p.en_transito} uds` : '—'],
+    ['Garantía', p.garantia || '—'],
+    ['Código UPC', p.codigo || '—'],
+    ['Dimensiones', dim ? `${dim.alto}m × ${dim.ancho}m × ${dim.profundidad}m · ${dim.peso} ${dim.unidad_peso}` : '—'],
+    ['Promoción', p.promociones ? `${p.promociones.descripcion_promocion} · ${fmt(p.promociones.precio_descuento, p.promociones.moneda_precio_descuento)}` : '—'],
   ];
-  printPDF(
-    p.descripcion,
-    ['Campo', 'Valor'],
-    rows
-  );
+  w.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${p.clave}</title>
+  <style>
+    * { box-sizing:border-box; margin:0; padding:0; }
+    body { font-family:-apple-system,sans-serif; font-size:11px; color:#1e2025; padding:28px; }
+    h1 { font-size:13px; font-weight:600; margin-bottom:2px; letter-spacing:.5px; text-transform:uppercase; line-height:1.3; }
+    .meta { font-size:10px; color:#666; margin-bottom:18px; letter-spacing:1px; }
+    .layout { display:flex; gap:28px; align-items:flex-start; }
+    .img-col { flex-shrink:0; }
+    .data-col { flex:1; }
+    table { width:100%; border-collapse:collapse; }
+    th { background:#1e2025; color:#fff; padding:7px 10px; font-size:9px; letter-spacing:1.5px; text-transform:uppercase; text-align:left; }
+    td { padding:6px 10px; border-bottom:1px solid #eee; font-size:11px; }
+    td:first-child { color:#666; font-size:10px; letter-spacing:.5px; white-space:nowrap; width:120px; }
+    tr:last-child td { border-bottom:none; }
+    .price-badge { display:inline-block; background:#00665e; color:#fff; padding:4px 12px; font-size:16px; font-weight:600; margin:10px 0 18px; }
+    @media print { body { padding:12px; } }
+  </style></head><body>
+  <h1>${p.descripcion}</h1>
+  <div class="meta">${p.clave} · Generado: ${new Date().toLocaleString('es-MX')} · Electronics México</div>
+  <div class="layout">
+    ${p.imagen ? `<div class="img-col"><img src="${p.imagen}" style="max-height:160px;max-width:200px;object-fit:contain;border:1px solid #eee;padding:8px"></div>` : ''}
+    <div class="data-col">
+      <div class="price-badge">${fmt(p.precio, p.moneda)}</div>
+      <table>
+        <thead><tr><th>Campo</th><th>Valor</th></tr></thead>
+        <tbody>${rows.map(r => `<tr><td>${r[0]}</td><td>${r[1]}</td></tr>`).join('')}</tbody>
+      </table>
+    </div>
+  </div>
+  </body></html>`);
+  w.document.close();
+  w.onload = () => { w.focus(); w.print(); };
 }
 
 function filtrarPorMarca(marca) {
