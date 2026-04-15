@@ -183,7 +183,7 @@ async function buscarCVA(pagina) {
       isTimeout ? 'warn' : 'error');
     return;
   }
-  if (params.clave && data.producto) { el.innerHTML = renderProducto(data.producto); return; }
+  if (params.clave && data.producto) { el.innerHTML = renderProducto(data.producto); buscarMeli(data.producto); return; }
   const arts = data.articulos || [];
   if (arts.length === 0) { alert_(el, 'Sin resultados para la búsqueda', 'warn'); return; }
   _buscarArts = arts;
@@ -270,6 +270,7 @@ async function verProducto(clave) {
   const data = await api('cva_producto', { clave });
   if (!data.ok) { alert_(el, '✖ ' + data.error, 'error'); return; }
   el.innerHTML = renderProducto(data.producto);
+  buscarMeli(data.producto);
 }
 
 function volverATabla() {
@@ -370,6 +371,14 @@ function renderProducto(p) {
           ${promo ? `<div class="pv-price-promo">Promo activa</div>` : ''}
         </div>
 
+        <!-- MercadoLibre price — loaded client-side -->
+        <div class="pv-meli-block" id="pv-meli-block">
+          <div class="pv-meli-logo">ML</div>
+          <div class="pv-meli-content">
+            <div class="pv-meli-loading" id="pv-meli-loading">Buscando en MercadoLibre…</div>
+          </div>
+        </div>
+
         <div class="pv-items">
           ${items.map(it => `
             <div class="pv-item">
@@ -400,6 +409,73 @@ function renderProducto(p) {
       </div>
     </div>
   `;
+}
+
+
+// ── MERCADOLIBRE PRICE (client-side fetch) ───────────────
+async function buscarMeli(producto) {
+  const bloque = document.getElementById('pv-meli-block');
+  if (!bloque) return;
+
+  // Construir query: marca + palabras clave de descripcion (max 6 words)
+  const marca = producto.marca || '';
+  const descWords = (producto.descripcion || '')
+    .split(/[\s\/,]+/)
+    .filter(w => w.length > 2 && !/^\d+$/.test(w))
+    .slice(0, 5)
+    .join(' ');
+  const q = encodeURIComponent(`${marca} ${descWords}`.trim());
+  const searchUrl = `https://listado.mercadolibre.com.mx/${encodeURIComponent(`${marca} ${descWords}`.trim())}`;
+
+  try {
+    const res = await fetch(
+      `https://api.mercadolibre.com/sites/MLM/search?q=${q}&limit=8&condition=new`,
+      { headers: { 'Accept': 'application/json' } }
+    );
+    if (!res.ok) throw new Error('no response');
+    const data = await res.json();
+    const results = (data.results || []).filter(r => r.price > 0);
+
+    if (!results.length) {
+      bloque.innerHTML = `
+        <div class="pv-meli-logo">ML</div>
+        <div class="pv-meli-content"><div class="pv-meli-error">Sin resultados en MeLi</div></div>
+        <a class="pv-meli-link" href="${searchUrl}" target="_blank">Buscar →</a>`;
+      return;
+    }
+
+    // Precio mínimo y mediana
+    const precios = results.map(r => r.price).sort((a,b) => a - b);
+    const minPrecio = precios[0];
+    const mediana   = precios[Math.floor(precios.length / 2)];
+    const count     = data.paging?.total || results.length;
+
+    // Comparar con precio CVA (convertir si es USD)
+    const precioCVA = producto.moneda === 'Dolares'
+      ? (producto.precio * (producto.tipo_cambio || 17.5))
+      : producto.precio;
+    const diff = minPrecio - precioCVA;
+    const diffPct = precioCVA > 0 ? ((diff / precioCVA) * 100).toFixed(0) : null;
+    const diffStr = diffPct !== null
+      ? (diff >= 0
+          ? `<span style="color:rgba(0,200,120,0.7)">+${diffPct}% margen mín</span>`
+          : `<span style="color:rgba(255,100,100,0.6)">${diffPct}% vs CVA</span>`)
+      : '';
+
+    bloque.innerHTML = `
+      <div class="pv-meli-logo">ML</div>
+      <div class="pv-meli-content">
+        <div class="pv-meli-price">$${minPrecio.toLocaleString('es-MX', {minimumFractionDigits:2, maximumFractionDigits:2})}</div>
+        <div class="pv-meli-sub">precio mín · ${count.toLocaleString()} pub · mediana $${mediana.toLocaleString('es-MX', {minimumFractionDigits:0})} ${diffStr}</div>
+      </div>
+      <a class="pv-meli-link" href="${searchUrl}" target="_blank">Ver en ML →</a>`;
+
+  } catch(e) {
+    bloque.innerHTML = `
+      <div class="pv-meli-logo">ML</div>
+      <div class="pv-meli-content"><div class="pv-meli-error">No disponible</div></div>
+      <a class="pv-meli-link" href="${searchUrl}" target="_blank">Buscar →</a>`;
+  }
 }
 
 function filtrarPorMarca(marca) {
@@ -1330,7 +1406,7 @@ function initCarouselDrag(wrap, track) {
     const half = track.scrollWidth / 2;
     // Calcular dónde estaría en la animación estándar (0 → -half)
     const pct = Math.abs(curX / half) * 100;
-    track.style.animation = `marquee 320s linear ${-(pct/100)*320}s infinite`;
+    track.style.animation = `marquee 500s linear ${-(pct/100)*500}s infinite`;
   });
 
   // Touch support
@@ -1361,7 +1437,7 @@ function initCarouselDrag(wrap, track) {
     const curX = match ? parseFloat(match[1]) : 0;
     const half = track.scrollWidth / 2;
     const pct = Math.abs(curX / half) * 100;
-    track.style.animation = `marquee 320s linear ${-(pct/100)*320}s infinite`;
+    track.style.animation = `marquee 500s linear ${-(pct/100)*500}s infinite`;
   });
 }
 
@@ -1373,55 +1449,44 @@ function lanzarWordCloud(grupos) {
   const cloud = document.getElementById('splash-cloud');
   if (!cloud) return;
 
+  cloud._alive = false;
+
+  const isMobile = window.innerWidth < 600;
   const words = [...grupos].sort(() => Math.random() - 0.5);
-  // Escalas y opacidades variadas
-  const sizes  = [36, 44, 52, 62, 72, 84, 96, 42, 58, 68, 50, 78, 88];
-  const alphas = [0.10, 0.13, 0.16, 0.20, 0.24, 0.12, 0.10, 0.18, 0.22];
+
+  // Tamaños más pequeños en móvil
+  const sizes = isMobile
+    ? [16, 20, 24, 28, 32, 38, 22, 26, 30, 18, 34, 21, 27]
+    : [28, 34, 40, 48, 56, 64, 72, 32, 44, 52, 38, 46, 60, 36, 42];
+  const alphas = [0.11, 0.14, 0.17, 0.21, 0.25, 0.12, 0.10, 0.19, 0.23, 0.15];
 
   cloud.innerHTML = '';
-  const placed = []; // para evitar solapamiento
 
-  const vw = window.innerWidth;
-  const vh = window.innerHeight;
-
-  // Colocar palabras aleatoriamente sin solaparse demasiado
   words.forEach((word, i) => {
     const el = document.createElement('div');
     el.className = 'splash-word';
     el.textContent = word;
-    const size  = sizes[i % sizes.length];
-    const alpha = alphas[i % alphas.length];
-    el.style.fontSize = size + 'px';
-    el.style.setProperty('--splash-word-color', `rgba(255,255,255,${alpha})`);
-
-    // Posición aleatoria
-    let x, y, attempts = 0;
-    do {
-      x = 5 + Math.random() * 85; // % del ancho
-      y = 5 + Math.random() * 88; // % del alto
-      attempts++;
-    } while (attempts < 10);
-
-    el.style.left = x + '%';
-    el.style.top  = y + '%';
+    el.style.fontSize = sizes[i % sizes.length] + 'px';
+    el.style.setProperty('--splash-word-color', `rgba(255,255,255,${alphas[i % alphas.length]})`);
+    el.style.left = '-200%'; // fuera de pantalla hasta que ciclo lo posicione
+    el.style.top  = '-200%';
     cloud.appendChild(el);
   });
 
   cloud.classList.add('visible');
   cloud._alive = true;
 
-  // Cada palabra tiene su propio ciclo independiente
-  // → nunca hay un momento en que todo desaparece junto
-  const els = cloud.querySelectorAll('.splash-word');
-
-  // Zona de exclusión: área del logo + margen generoso
+  // Zona de exclusión — usa getBoundingClientRect en tiempo real
+  // El logo ya está visible cuando se llama lanzarWordCloud (T=1800ms)
   function getLogoZone() {
     const logo = document.getElementById('splash-logo');
     if (!logo) return null;
-    const r = logo.getBoundingClientRect();
-    const vw = window.innerWidth;
-    const vh = window.innerHeight;
-    const pad = 40; // px de margen extra alrededor del logo
+    const r  = logo.getBoundingClientRect();
+    // Si el logo no está en pantalla todavía, r.width === 0
+    if (r.width === 0) return null;
+    const vw  = window.innerWidth;
+    const vh  = window.innerHeight;
+    const pad = isMobile ? 30 : 50; // margen alrededor del logo
     return {
       x1: (r.left   - pad) / vw * 100,
       y1: (r.top    - pad) / vh * 100,
@@ -1430,47 +1495,59 @@ function lanzarWordCloud(grupos) {
     };
   }
 
-  function posicionLibre() {
-    const zone = getLogoZone();
-    let x, y, tries = 0;
-    do {
-      x = 4 + Math.random() * 87;
-      y = 4 + Math.random() * 87;
-      tries++;
-      // Si no hay zona o ya intentamos mucho, aceptar
-      if (!zone || tries > 30) break;
-    } while (x > zone.x1 && x < zone.x2 && y > zone.y1 && y < zone.y2);
-    return { x, y };
+  function enZonaLogo(x, y) {
+    const z = getLogoZone();
+    if (!z) return false;
+    return x > z.x1 && x < z.x2 && y > z.y1 && y < z.y2;
   }
 
+  // Grid para distribuir en toda la pantalla
+  const cols = isMobile ? 3 : 4;
+  const rows = isMobile ? 6 : 5;
+  const sectores = [];
+  for (let r = 0; r < rows; r++)
+    for (let c = 0; c < cols; c++)
+      sectores.push({ c, r });
+
+  function posicionEnSector(sec) {
+    const cw = 100 / cols;
+    const rh = 100 / rows;
+    return {
+      x: sec.c * cw + cw * 0.1 + Math.random() * cw * 0.8,
+      y: sec.r * rh + rh * 0.1 + Math.random() * rh * 0.8,
+    };
+  }
+
+  const els = Array.from(cloud.querySelectorAll('.splash-word'));
+
   els.forEach((el, i) => {
-    // Escalonar el inicio para que no arranquen todas a la vez
-    const startDelay = i * 120;
+    let sectorIdx = i % sectores.length;
+    const startDelay = i * 280;
 
     function cicloUnapalabra() {
       if (!cloud._alive) return;
 
-      // Reposicionar evitando la zona del logo
-      const pos = posicionLibre();
+      // Buscar sector libre (fuera del logo)
+      let pos, tries = 0;
+      do {
+        pos = posicionEnSector(sectores[(sectorIdx + tries) % sectores.length]);
+        tries++;
+      } while (enZonaLogo(pos.x, pos.y) && tries < sectores.length);
+
+      sectorIdx = (sectorIdx + 3) % sectores.length;
       el.style.left = pos.x + '%';
       el.style.top  = pos.y + '%';
 
-      // Aparecer
       setTimeout(() => {
         if (!cloud._alive) return;
         el.classList.add('show');
-
-        // Quedarse visible entre 2.5s y 5s (random por palabra)
-        const stayMs = 2500 + Math.random() * 2500;
+        const stayMs = 3000 + Math.random() * 3000;
         setTimeout(() => {
           if (!cloud._alive) return;
           el.classList.remove('show');
-
-          // Pausa breve antes de reaparecer en otro lugar (0.4–1.2s)
-          const pauseMs = 400 + Math.random() * 800;
-          setTimeout(cicloUnapalabra, pauseMs);
+          setTimeout(cicloUnapalabra, 400 + Math.random() * 500);
         }, stayMs);
-      }, 80);
+      }, 60);
     }
 
     setTimeout(cicloUnapalabra, startDelay);
@@ -1481,30 +1558,28 @@ function detenerWordCloud() {
   const cloud = document.getElementById('splash-cloud');
   if (!cloud) return;
   cloud._alive = false;
-  // Las palabras que están visibles se quedan — el CSS de phase-2 las lleva arriba
+  // Las palabras visibles se quedan — phase-2 CSS las lleva arriba con los logos
 }
 
 async function iniciarSplashCloud() {
-  // Fallback inmediato: grupos + marcas mezclados
-  const wordsFallback = [...GRUPOS_FALLBACK, ...MARCAS_FALLBACK]
-    .sort(() => Math.random() - 0.5);
-  lanzarWordCloud(wordsFallback);
-
-  // Enriquecer con datos reales de ambas APIs
+  // Intentar obtener datos reales con timeout corto
+  // Si no llegan a tiempo, usar fallback — pero SOLO llamar lanzarWordCloud UNA vez
+  let grupos = GRUPOS_FALLBACK;
+  let marcas  = MARCAS_FALLBACK;
   try {
     const [rG, rM] = await Promise.allSettled([
-      Promise.race([api('cva_grupos'), new Promise((_,r)=>setTimeout(()=>r('t'),1200))]),
-      Promise.race([api('cva_marcas'), new Promise((_,r)=>setTimeout(()=>r('t'),1200))])
+      Promise.race([api('cva_grupos'), new Promise((_,r) => setTimeout(() => r('t'), 800))]),
+      Promise.race([api('cva_marcas'), new Promise((_,r) => setTimeout(() => r('t'), 800))])
     ]);
-    const grupos = (rG.status==='fulfilled' && rG.value?.ok)
-      ? rG.value.grupos.map(g => g.nombre||g.grupo||g).filter(Boolean)
-      : GRUPOS_FALLBACK;
-    const marcas = (rM.status==='fulfilled' && rM.value?.ok)
-      ? rM.value.marcas.map(m => m.marca||m.nombre||m).filter(Boolean)
-      : MARCAS_FALLBACK;
-    const words = [...grupos, ...marcas].sort(() => Math.random() - 0.5);
-    lanzarWordCloud(words);
+    if (rG.status === 'fulfilled' && rG.value?.ok && rG.value.grupos?.length)
+      grupos = rG.value.grupos.map(g => g.nombre||g.grupo||g).filter(Boolean);
+    if (rM.status === 'fulfilled' && rM.value?.ok && rM.value.marcas?.length)
+      marcas = rM.value.marcas.map(m => m.marca||m.nombre||m).filter(Boolean);
   } catch(e) {}
+
+  // Una sola llamada — sin reinicio
+  const words = [...grupos, ...marcas].sort(() => Math.random() - 0.5);
+  lanzarWordCloud(words);
 }
 
 // ── INIT ──────────────────────────────────────────────────
@@ -1515,33 +1590,43 @@ window.onload = () => {
   const wordmark    = document.getElementById('splash-wordmark');
   const shell       = document.querySelector('.shell');
 
-  // ── Timing AM — verde inmediato, logo entra suave ─────────
-  // T=0ms:    fondo verde visible
-  // T=300ms:  logo empieza fade in (1000ms — suave, sin prisa)
-  // T=1300ms: logo completamente visible
-  // T=1300ms: se queda quieto ~1500ms
-  // T=2800ms: logo sube + todo desaparece (650ms)
-  // T=3000ms: shell visible
+  // FLUJO LIMPIO:
+  // T=0ms    → verde puro (cargando palabras en background)
+  // T=800ms  → logos entran (fade 1s)
+  // T=1800ms → logos visibles → palabras empiezan a aparecer
+  // T=7500ms → todo sube junto y desaparece
 
-  // ── Lanzar word cloud inmediatamente ─────────────────────
-  iniciarSplashCloud().then(cloudDuration => {
-    // La nube se llena en ~cloudDuration ms
-    // Después el cloud se desvanece y aparecen los logos
-  });
+  // Pre-cargar palabras en background durante el verde inicial
+  let _cloudWords = [...GRUPOS_FALLBACK, ...MARCAS_FALLBACK].sort(() => Math.random() - 0.5);
+  Promise.allSettled([
+    Promise.race([api('cva_grupos'), new Promise((_,r) => setTimeout(() => r(), 700))]),
+    Promise.race([api('cva_marcas'), new Promise((_,r) => setTimeout(() => r(), 700))])
+  ]).then(([rG, rM]) => {
+    const g = (rG.status==='fulfilled' && rG.value?.ok && rG.value.grupos?.length)
+      ? rG.value.grupos.map(x => x.nombre||x.grupo||x).filter(Boolean) : GRUPOS_FALLBACK;
+    const m = (rM.status==='fulfilled' && rM.value?.ok && rM.value.marcas?.length)
+      ? rM.value.marcas.map(x => x.marca||x.nombre||x).filter(Boolean) : MARCAS_FALLBACK;
+    _cloudWords = [...g, ...m].sort(() => Math.random() - 0.5);
+  }).catch(() => {});
 
-  // Logos CVA + EM juntos a los 1500ms — palabras llenan primero
+  // Logos entran a los 800ms
   setTimeout(() => {
     requestAnimationFrame(() => splash.classList.add('phase-1'));
     const by = document.getElementById('splash-by');
     if (by) by.style.opacity = '1';
-  }, 1500);
+  }, 800);
 
-  // Fase 2: logos + cloud suben juntos — el CSS mueve todo, no paramos el ciclo
+  // Palabras empiezan a los 1800ms — logos ya visibles, sin reinicio
+  setTimeout(() => {
+    lanzarWordCloud(_cloudWords);
+  }, 1800);
+
+  // Fase 2: todo sube junto
   setTimeout(() => {
     splash.classList.add('phase-2');
     setTimeout(() => { shell.classList.add('visible'); }, 200);
     setTimeout(() => { splash.remove(); }, 900);
-  }, 6500);
+  }, 7500);
 
   // ─────────────────────────────────────────────────────────
   // Inicializar página activa explicitamente
@@ -1570,7 +1655,7 @@ window.onload = () => {
 // Las funciones llamadas desde onclick="" en el HTML necesitan estar en window
 Object.assign(window, {
   toggleSidebar, openSidebar, closeSidebar, showPage,
-  buscarCVA, verProducto, volverATabla, limpiarBusqueda,
+  buscarCVA, verProducto, volverATabla, limpiarBusqueda, buscarMeli,
   filtrarPorMarca, filtrarPorGrupo, sortBuscar,
   agregarClave, agregarAlCarrito, pvQtyChange, setQty,
   cambiarQty, quitarItem, renderCarrito,
