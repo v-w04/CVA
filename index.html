@@ -1329,6 +1329,32 @@
     color: rgba(255,255,255,0.35);
   }
 
+
+  /* ━━ SPLASH WORD CLOUD ━━ */
+  #splash-cloud {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    overflow: hidden;
+    opacity: 0;
+    transition: opacity 0.4s ease;
+    pointer-events: none;
+  }
+  #splash-cloud.visible { opacity: 1; }
+  #splash-cloud.fadeout { opacity: 0; transition: opacity 0.8s ease; }
+  .splash-word {
+    position: absolute;
+    font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 400;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: rgba(255,255,255,0);
+    white-space: nowrap;
+    transition: color 0.3s ease;
+    user-select: none;
+  }
+  .splash-word.show { color: var(--splash-word-color, rgba(255,255,255,0.12)); }
+
   /* Fase 1: logo aparece suavemente */
   #splash.phase-1 #splash-logo {
     opacity: 1;
@@ -1355,6 +1381,7 @@
 
 <!-- ══ SPLASH SCREEN AM ══ -->
 <div id="splash">
+  <div id="splash-cloud"></div>
   <div id="splash-logo">
     <!-- Logo CVA principal -->
     <img
