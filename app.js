@@ -373,9 +373,23 @@ function renderProducto(p) {
       <div class="pv-panel">
 
         <div class="pv-panel-head">
-          <div class="pv-panel-marca">${p.marca || 'CVA'}</div>
-          <div class="pv-panel-nombre">${p.descripcion}</div>
-          ${p.grupo ? `<div class="pv-panel-grupo">${p.grupo}</div>` : ''}
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px">
+            <div style="min-width:0">
+              <div class="pv-panel-marca">${p.marca || 'CVA'}</div>
+              <div class="pv-panel-nombre">${p.descripcion}</div>
+              ${p.grupo ? `<div class="pv-panel-grupo">${p.grupo}</div>` : ''}
+            </div>
+            <div style="display:flex;gap:6px;flex-shrink:0;margin-top:2px">
+              <button class="btn btn-ghost" style="padding:5px 10px;font-size:10px;letter-spacing:1px;display:flex;align-items:center;gap:5px" onclick="exportProductoCSV()" title="Exportar CSV">
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                CSV
+              </button>
+              <button class="btn btn-ghost" style="padding:5px 10px;font-size:10px;letter-spacing:1px;display:flex;align-items:center;gap:5px" onclick="exportProductoPDF()" title="Exportar PDF">
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                PDF
+              </button>
+            </div>
+          </div>
         </div>
 
         <div class="pv-price-block">
@@ -404,20 +418,6 @@ function renderProducto(p) {
                 <span class="pv-item-arrow">${arrow}</span>
               </div>
             </div>`).join('')}
-        </div>
-
-        <!-- Exportar producto -->
-        <div style="display:flex;gap:8px;padding:10px 24px;border-top:1px solid rgba(238,240,240,0.06)">
-          <button class="btn btn-ghost" style="flex:1;padding:8px;font-size:10px;letter-spacing:1.5px;display:flex;align-items:center;justify-content:center;gap:6px"
-            onclick="exportProductoCSV()">
-            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-            CSV
-          </button>
-          <button class="btn btn-ghost" style="flex:1;padding:8px;font-size:10px;letter-spacing:1.5px;display:flex;align-items:center;justify-content:center;gap:6px"
-            onclick="exportProductoPDF()">
-            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
-            PDF
-          </button>
         </div>
 
         <!-- CTA -->
