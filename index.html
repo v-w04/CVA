@@ -875,7 +875,12 @@
   .pv-cta-bar {
     border-top: 1px solid rgba(238,240,240,0.08);
     display: flex;
-    background: #242629;
+    background: #1e2127;
+    position: sticky;
+    bottom: 0;
+    margin-top: auto;
+    flex-shrink: 0;
+    z-index: 2;
   }
   .pv-qty-ctrl {
     display: flex;
@@ -1220,7 +1225,7 @@
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 20px;
+    gap: 28px;
     opacity: 0;
     transition: opacity 1.0s cubic-bezier(.22,1,.36,1),
                 transform 0.65s cubic-bezier(.4,0,.2,1);
@@ -1285,9 +1290,8 @@
       alt="CVA"
       onerror="this.style.display='none'"
     >
-    <div class="splash-wordmark" id="splash-wordmark">CVA Dropshipping</div>
-    <!-- Electronics México — logo + nombre en blanco, pequeño, debajo -->
-    <div class="splash-by">
+    <!-- Electronics México — logo debajo del CVA -->
+    <div class="splash-by" id="splash-by" style="opacity:0;transition:opacity 0.8s ease">
       <span style="margin-right:8px">by</span>
       <img
         src="https://acdn-us.mitiendanube.com/stores/006/131/081/themes/common/logo-257925442-1748975905-ea5b79b9b6bd00d801280c0aee35d5251748975905-320-0.webp"
