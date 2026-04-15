@@ -1126,7 +1126,7 @@
     display: flex;
     gap: 14px;
     width: max-content;
-    animation: marquee 320s linear infinite;
+    animation: marquee 500s linear infinite;
   }
   .marcas-carousel-wrap:hover .marcas-carousel-track { animation-play-state: paused; }
   .marcas-carousel-wrap.dragging .marcas-carousel-track { animation-play-state: paused; }
@@ -1172,6 +1172,63 @@
     letter-spacing: 2.5px;
     text-transform: uppercase;
     color: rgba(238,240,240,0.7);
+  }
+
+
+  /* ━━ MERCADOLIBRE PRICE BLOCK ━━ */
+  .pv-meli-block {
+    margin: 0 24px 4px;
+    padding: 14px 16px;
+    background: rgba(255,230,0,0.04);
+    border: 1px solid rgba(255,230,0,0.10);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    min-height: 52px;
+  }
+  .pv-meli-logo {
+    font-family: 'Barlow', sans-serif;
+    font-size: 9px; font-weight: 700;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: rgba(255,230,0,0.5);
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+  .pv-meli-content { flex: 1; min-width: 0; }
+  .pv-meli-loading {
+    font-size: 10px; letter-spacing: 1.5px;
+    color: rgba(238,240,240,0.2);
+    text-transform: uppercase;
+  }
+  .pv-meli-price {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 22px; font-weight: 300;
+    color: rgba(255,230,0,0.75);
+    line-height: 1;
+  }
+  .pv-meli-sub {
+    font-size: 9px; letter-spacing: 1px;
+    color: rgba(238,240,240,0.25);
+    text-transform: uppercase;
+    margin-top: 3px;
+  }
+  .pv-meli-link {
+    font-size: 9px; font-weight: 600;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: rgba(255,230,0,0.4);
+    text-decoration: none;
+    white-space: nowrap;
+    flex-shrink: 0;
+    transition: color .15s;
+  }
+  .pv-meli-link:hover { color: rgba(255,230,0,0.8); }
+  .pv-meli-error {
+    font-size: 10px; letter-spacing: 1px;
+    color: rgba(238,240,240,0.15);
+    text-transform: uppercase;
   }
 
   /* ━━ SUCURSALES ━━ */
