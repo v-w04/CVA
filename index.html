@@ -377,23 +377,23 @@
     content: '';
     position: absolute;
     border-radius: 50%;
-    filter: blur(120px);
-    opacity: 0.055;
+    filter: blur(100px);
   }
-  /* Mancha verde — esquina superior derecha, se mueve en diagonal */
+  /* Mancha verde — esquina superior derecha */
   .bg-anim::before {
     width: 70vw; height: 70vw;
     background: radial-gradient(circle, #00665e 0%, transparent 70%);
     top: -20%; right: -20%;
+    opacity: 0.13;
     animation: bgDrift1 18s ease-in-out infinite alternate;
   }
-  /* Mancha más suave — esquina inferior izquierda */
+  /* Mancha secundaria — esquina inferior izquierda */
   .bg-anim::after {
-    width: 50vw; height: 50vw;
-    background: radial-gradient(circle, #67b8af 0%, transparent 70%);
+    width: 55vw; height: 55vw;
+    background: radial-gradient(circle, #00998e 0%, transparent 70%);
     bottom: -10%; left: -10%;
+    opacity: 0.07;
     animation: bgDrift2 24s ease-in-out infinite alternate;
-    opacity: 0.03;
   }
   @keyframes bgDrift1 {
     0%   { transform: translate(0,    0)    scale(1);    }
@@ -1179,13 +1179,12 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    margin-top: 6px;
+    margin-top: 10px;
     font-family: 'Barlow', sans-serif;
     font-size: 11px;
     font-weight: 400;
-    letter-spacing: 2.5px;
-    text-transform: uppercase;
-    color: rgba(255,255,255,0.3);
+    letter-spacing: 1px;
+    color: rgba(255,255,255,0.35);
   }
 
   /* Fase 1: logo aparece suavemente */
@@ -1224,12 +1223,12 @@
     <div class="splash-wordmark" id="splash-wordmark">CVA Dropshipping</div>
     <!-- Electronics México — logo + nombre en blanco, pequeño, debajo -->
     <div class="splash-by">
-      <span style="margin-right:7px">by</span>
+      <span style="margin-right:8px">by</span>
       <img
         src="https://acdn-us.mitiendanube.com/stores/006/131/081/themes/common/logo-257925442-1748975905-ea5b79b9b6bd00d801280c0aee35d5251748975905-320-0.webp"
         alt="Electronics México"
-        onerror="this.style.display='none'"
-        style="height:20px;filter:brightness(0) invert(1);opacity:0.55"
+        onerror="this.style.display:'none'"
+        style="height:32px;filter:brightness(0) invert(1);opacity:0.6"
       >
     </div>
   </div>
@@ -1321,13 +1320,13 @@
 
     </div>
     <div class="sb-foot">
-      <div style="display:flex;align-items:center;gap:8px;padding:4px 0 8px">
-        <span style="font-size:9px;letter-spacing:2px;text-transform:uppercase;color:rgba(238,240,240,0.25)">by</span>
+      <div style="display:flex;flex-direction:column;align-items:center;gap:5px;padding:6px 0 10px">
+        <span style="font-size:9px;letter-spacing:1px;color:rgba(238,240,240,0.2)">by</span>
         <img
           src="https://acdn-us.mitiendanube.com/stores/006/131/081/themes/common/logo-257925442-1748975905-ea5b79b9b6bd00d801280c0aee35d5251748975905-320-0.webp"
           alt="Electronics México"
-          onerror="this.style.display='none'"
-          style="height:22px;filter:brightness(0) invert(1);opacity:0.35"
+          onerror="this.style.display:'none'"
+          style="height:36px;filter:brightness(0) invert(1);opacity:0.4"
         >
       </div>
     </div>
