@@ -1233,6 +1233,113 @@ function printPDF(title, headers, rows, footer) {
   w.onload = () => { w.focus(); w.print(); };
 }
 
+
+// ── CARRUSEL DE MARCAS ────────────────────────────────────
+let _marcasCarousel = [];
+
+async function iniciarCarruselMarcas() {
+  const track = document.getElementById('marcas-carousel-track');
+  if (!track || _marcasCarousel.length > 0) return;
+  try {
+    const data = await api('cva_marcas');
+    if (!data.ok || !data.marcas?.length) return;
+    // Mezclar aleatoriamente
+    const marcas = [...data.marcas].sort(() => Math.random() - 0.5);
+    _marcasCarousel = marcas;
+    // Duplicar para loop infinito
+    const renderChip = (m) => {
+      const nombre = m.marca || m.nombre || '';
+      const logo   = m.logo  || '';
+      return `<div class="marca-chip" onclick="filtrarPorMarca('${nombre.replace(/'/g,"\'")}')">
+        ${logo ? `<img src="${logo}" alt="${nombre}" onerror="this.style.display='none'">` : ''}
+        <span class="marca-chip-name">${nombre}</span>
+      </div>`;
+    };
+    const html = marcas.map(renderChip).join('');
+    // Doble para loop continuo
+    track.innerHTML = html + html;
+    // Drag scroll
+    initCarouselDrag(document.getElementById('marcas-carousel-wrap'), track);
+  } catch(e) {}
+}
+
+function initCarouselDrag(wrap, track) {
+  let startX = 0, scrollLeft = 0, isDragging = false, animOffset = 0;
+  let rafId = null;
+
+  wrap.addEventListener('mousedown', e => {
+    isDragging = true;
+    wrap.classList.add('dragging');
+    startX = e.pageX;
+    // Capturar offset actual de la animación
+    const mat = window.getComputedStyle(track).transform;
+    if (mat && mat !== 'none') {
+      const vals = mat.match(/matrix.*\((.+)\)/)[1].split(', ');
+      animOffset = parseFloat(vals[4]) || 0;
+    }
+    scrollLeft = animOffset;
+    track.style.transform = `translateX(${animOffset}px)`;
+    track.style.animation  = 'none';
+    e.preventDefault();
+  });
+
+  document.addEventListener('mousemove', e => {
+    if (!isDragging) return;
+    const dx = e.pageX - startX;
+    let newX = scrollLeft + dx;
+    // Limitar al ancho de la primera mitad
+    const half = track.scrollWidth / 2;
+    if (newX < -half) newX += half;
+    if (newX > 0)     newX -= half;
+    track.style.transform = `translateX(${newX}px)`;
+  });
+
+  document.addEventListener('mouseup', () => {
+    if (!isDragging) return;
+    isDragging = false;
+    wrap.classList.remove('dragging');
+    // Retomar animación desde la posición actual
+    const cur = track.style.transform;
+    const match = cur.match(/translateX\((.+)px\)/);
+    const curX = match ? parseFloat(match[1]) : 0;
+    const half = track.scrollWidth / 2;
+    // Calcular dónde estaría en la animación estándar (0 → -half)
+    const pct = Math.abs(curX / half) * 100;
+    track.style.animation = `marquee 35s linear ${-(pct/100)*35}s infinite`;
+  });
+
+  // Touch support
+  wrap.addEventListener('touchstart', e => {
+    startX = e.touches[0].pageX;
+    const mat = window.getComputedStyle(track).transform;
+    if (mat && mat !== 'none') {
+      const vals = mat.match(/matrix.*\((.+)\)/)[1].split(', ');
+      animOffset = parseFloat(vals[4]) || 0;
+    }
+    scrollLeft = animOffset;
+    track.style.animation = 'none';
+    track.style.transform = `translateX(${animOffset}px)`;
+  }, { passive: true });
+
+  wrap.addEventListener('touchmove', e => {
+    const dx = e.touches[0].pageX - startX;
+    let newX = scrollLeft + dx;
+    const half = track.scrollWidth / 2;
+    if (newX < -half) newX += half;
+    if (newX > 0)     newX -= half;
+    track.style.transform = `translateX(${newX}px)`;
+  }, { passive: true });
+
+  wrap.addEventListener('touchend', () => {
+    const cur = track.style.transform;
+    const match = cur.match(/translateX\((.+)px\)/);
+    const curX = match ? parseFloat(match[1]) : 0;
+    const half = track.scrollWidth / 2;
+    const pct = Math.abs(curX / half) * 100;
+    track.style.animation = `marquee 35s linear ${-(pct/100)*35}s infinite`;
+  });
+}
+
 // ── INIT ──────────────────────────────────────────────────
 window.onload = () => {
   // ── SPLASH SCREEN AM ──────────────────────────────────────
@@ -1283,6 +1390,7 @@ window.onload = () => {
   try { history.replaceState({ page: 'buscar' }, '', ''); } catch(e) {}
   try { toggleFleteFields(); } catch(e) {}
   try { renderCarrito(); } catch(e) {}
+  try { iniciarCarruselMarcas(); } catch(e) {}
   try { renderLog(); } catch(e) {}
 
   api('ping').then(d => {
@@ -1304,4 +1412,5 @@ Object.assign(window, {
   cargarVentasOdoo, buscarEnOdoo, ejecutarDebug,
   exportBuscarCSV, exportBuscarPDF, exportCarritoCSV, exportCarritoPDF,
   limpiarLog,
+  iniciarCarruselMarcas,
 });
