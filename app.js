@@ -1282,3 +1282,19 @@ window.onload = () => {
     if (d.ok) { const b = document.getElementById('badge-cva'); if(b) b.textContent = 'CVA ✓'; }
   }).catch(() => {});
 };
+// ── EXPONER FUNCIONES AL SCOPE GLOBAL (necesario con script externo) ──────────
+// Las funciones llamadas desde onclick="" en el HTML necesitan estar en window
+Object.assign(window, {
+  toggleSidebar, openSidebar, closeSidebar, showPage,
+  buscarCVA, verProducto, volverATabla, limpiarBusqueda,
+  filtrarPorMarca, filtrarPorGrupo, sortBuscar,
+  agregarClave, agregarAlCarrito, pvQtyChange, setQty,
+  cambiarQty, quitarItem, renderCarrito,
+  enviarOrden, enviarOrdenTest, toggleFleteFields,
+  cargarPedidos, filtrarPedidos, abrirModalPedido, cerrarModal,
+  handleFileSelect, handleDrop, registrarPedido, enviarGuiaCVA,
+  ejecutarSync, resetearSync, cargarEstadoSync, instalarTriggers, instalarTriggersUI,
+  cargarVentasOdoo, buscarEnOdoo, ejecutarDebug,
+  exportBuscarCSV, exportBuscarPDF, exportCarritoCSV, exportCarritoPDF,
+  limpiarLog,
+});
