@@ -199,6 +199,7 @@ function renderTablaBusqueda(arts) {
   const el = document.getElementById('buscar-result');
   const { totalPags = 1, pagActual = 1 } = window._buscarPag || {};
 
+  const { totalPags: tp = 1 } = window._buscarPag || {};
   const btnCSV = `<button class="btn btn-ghost" style="padding:6px 14px;font-size:11px;display:flex;align-items:center;gap:6px"
     onclick="exportBuscarCSV()">
     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
@@ -209,6 +210,16 @@ function renderTablaBusqueda(arts) {
     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
     PDF
   </button>`;
+  const btnTodoCSV = tp > 1 ? `<button id="btn-export-todo" class="btn btn-ghost" style="padding:6px 14px;font-size:11px;display:flex;align-items:center;gap:6px;color:var(--green-lt);border-color:rgba(0,200,120,0.2)"
+    onclick="exportarTodoCSV()">
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+    Todo CSV (${tp} págs)
+  </button>` : '';
+  const btnTodoPDF = tp > 1 ? `<button id="btn-export-todo-pdf" class="btn btn-ghost" style="padding:6px 14px;font-size:11px;display:flex;align-items:center;gap:6px;color:var(--green-lt);border-color:rgba(0,200,120,0.2)"
+    onclick="exportarTodoPDF()">
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+    Todo PDF (${tp} págs)
+  </button>` : '';
 
   el.innerHTML = `
     <!-- Toolbar: info + paginación + exports -->
@@ -225,6 +236,8 @@ function renderTablaBusqueda(arts) {
             onclick="buscarCVA(${pagActual+1})" ${pagActual>=totalPags?'disabled':''}>Sig →</button>` : ''}
         ${btnCSV}
         ${btnPDF}
+        ${btnTodoCSV}
+        ${btnTodoPDF}
       </div>
     </div>
     <!-- Tabla con headers clickeables para ordenar -->
@@ -269,6 +282,8 @@ function renderTablaBusqueda(arts) {
       </span>
       ${btnCSV}
       ${btnPDF}
+      ${btnTodoCSV}
+      ${btnTodoPDF}
     </div>`;
 }
 
@@ -539,6 +554,78 @@ async function buscarMeliFila(btn, clave, marca, descripcion, precioCVA, moneda,
   }
 }
 
+
+// ── EXPORTAR TODAS LAS PÁGINAS ───────────────────────────
+let _exportando = false;
+
+async function exportarTodoCSV() {
+  if (_exportando) return;
+  const { totalPags = 1 } = window._buscarPag || {};
+  if (totalPags <= 1) { exportBuscarCSV(); return; }
+  const params = {
+    clave: document.getElementById('s-clave').value.trim(),
+    marca: document.getElementById('s-marca').value.trim(),
+    grupo: document.getElementById('s-grupo').value.trim(),
+    desc : document.getElementById('s-desc').value.trim(),
+    exist: document.getElementById('s-exist').value,
+  };
+  const btn = document.getElementById('btn-export-todo');
+  if (btn) btn.disabled = true;
+  _exportando = true;
+  const todos = [..._buscarArts];
+  const pagActual = (window._buscarPag || {}).pagActual || 1;
+  try {
+    for (let pag = 1; pag <= totalPags; pag++) {
+      if (pag === pagActual) continue;
+      if (btn) btn.textContent = `Descargando ${pag}/${totalPags}…`;
+      const data = await api('cva_buscar', { ...params, page: pag });
+      if (data.ok && data.articulos?.length) todos.push(...data.articulos);
+      await new Promise(r => setTimeout(r, 300));
+    }
+    const rows = [['Clave','Descripción','Marca','Grupo','Precio','Moneda','Stock Suc.','Stock CEDIS','Garantía']];
+    todos.forEach(a => rows.push([a.clave, a.descripcion, a.marca||'', a.grupo||'', a.precio||'', a.moneda||'MXN', a.disponible||0, a.disponibleCD||0, a.garantia||'']));
+    downloadCSV(rows, `CVA_Completo_${new Date().toISOString().substring(0,10)}.csv`);
+    addLog('ok', `Export completo: ${todos.length} artículos`, `${totalPags} páginas`);
+  } catch(e) { addLog('error', 'Error export completo', e.message); }
+  finally {
+    _exportando = false;
+    if (btn) { btn.disabled = false; btn.textContent = `↓ Todo CSV (${totalPags} págs)`; }
+  }
+}
+
+async function exportarTodoPDF() {
+  if (_exportando) return;
+  const { totalPags = 1 } = window._buscarPag || {};
+  if (totalPags <= 1) { exportBuscarPDF(); return; }
+  const params = {
+    clave: document.getElementById('s-clave').value.trim(),
+    marca: document.getElementById('s-marca').value.trim(),
+    grupo: document.getElementById('s-grupo').value.trim(),
+    desc : document.getElementById('s-desc').value.trim(),
+    exist: document.getElementById('s-exist').value,
+  };
+  const btn = document.getElementById('btn-export-todo-pdf');
+  if (btn) btn.disabled = true;
+  _exportando = true;
+  const todos = [..._buscarArts];
+  const pagActual = (window._buscarPag || {}).pagActual || 1;
+  try {
+    for (let pag = 1; pag <= totalPags; pag++) {
+      if (pag === pagActual) continue;
+      if (btn) btn.textContent = `Descargando ${pag}/${totalPags}…`;
+      const data = await api('cva_buscar', { ...params, page: pag });
+      if (data.ok && data.articulos?.length) todos.push(...data.articulos);
+      await new Promise(r => setTimeout(r, 300));
+    }
+    const rows = todos.map(a => [a.clave, a.descripcion, a.marca||'—', fmt(a.precio, a.moneda), a.disponible||0, a.disponibleCD||0]);
+    printPDF(`Búsqueda CVA — ${todos.length} artículos`, ['Clave','Descripción','Marca','Precio','Suc.','CEDIS'], rows);
+    addLog('ok', `PDF completo: ${todos.length} artículos`);
+  } catch(e) { addLog('error', 'Error PDF completo', e.message); }
+  finally {
+    _exportando = false;
+    if (btn) { btn.disabled = false; btn.textContent = `↓ Todo PDF (${totalPags} págs)`; }
+  }
+}
 
 let _productoActual = null; // se guarda al renderizar
 
@@ -1847,7 +1934,8 @@ Object.assign(window, {
   handleFileSelect, handleDrop, registrarPedido, enviarGuiaCVA,
   ejecutarSync, resetearSync, cargarEstadoSync, instalarTriggers, instalarTriggersUI,
   cargarVentasOdoo, buscarEnOdoo, ejecutarDebug,
-  exportBuscarCSV, exportBuscarPDF, exportProductoCSV, exportProductoPDF, exportCarritoCSV, exportCarritoPDF,
+  exportBuscarCSV, exportBuscarPDF, exportProductoCSV, exportProductoPDF,
+  exportarTodoCSV, exportarTodoPDF, exportCarritoCSV, exportCarritoPDF,
   limpiarLog,
   iniciarCarruselMarcas, _renderCarruselMarcas,
 });
