@@ -1128,7 +1128,7 @@
     width: max-content;
     animation: marquee 500s linear infinite;
   }
-  .marcas-carousel-wrap:hover .marcas-carousel-track { animation-play-state: paused; }
+  /* hover pause desactivado — se maneja por JS para compatibilidad móvil */
   .marcas-carousel-wrap.dragging .marcas-carousel-track { animation-play-state: paused; }
   @keyframes marquee {
     from { transform: translateX(0); }
@@ -1636,10 +1636,11 @@
           <input id="s-grupo"  type="text" placeholder="Grupo — ej: Impresoras"  onkeydown="if(event.key==='Enter') buscarCVA()">
           <input id="s-desc"   type="text" placeholder="Descripción"             onkeydown="if(event.key==='Enter') buscarCVA()">
           <select id="s-exist">
-            <option value="">Disponibilidad: Todos</option>
+            <option value="">Todos (sin filtro)</option>
             <option value="2">Con stock CEDIS</option>
             <option value="1">Con stock Sucursal</option>
-            <option value="3" selected>Con stock Ambos</option>
+            <option value="3">Con stock Ambos</option>
+            <option value="any" selected>Con stock (suc O cedis)</option>
           </select>
           <button class="btn btn-primary" onclick="buscarCVA()">Buscar</button>
           <button class="btn btn-ghost"   onclick="limpiarBusqueda()">Limpiar</button>
