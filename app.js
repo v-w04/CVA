@@ -198,6 +198,18 @@ async function buscarCVA(pagina) {
 function renderTablaBusqueda(arts) {
   const el = document.getElementById('buscar-result');
   const { totalPags = 1, pagActual = 1 } = window._buscarPag || {};
+
+  const btnCSV = `<button class="btn btn-ghost" style="padding:6px 14px;font-size:11px;display:flex;align-items:center;gap:6px"
+    onclick="exportBuscarCSV()">
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+    CSV
+  </button>`;
+  const btnPDF = `<button class="btn btn-ghost" style="padding:6px 14px;font-size:11px;display:flex;align-items:center;gap:6px"
+    onclick="exportBuscarPDF()">
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+    PDF
+  </button>`;
+
   el.innerHTML = `
     <!-- Toolbar: info + paginación + exports -->
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px">
@@ -211,16 +223,8 @@ function renderTablaBusqueda(arts) {
           <span style="font-size:11px;color:var(--muted);padding:0 2px">${pagActual}/${totalPags}</span>
           <button class="btn btn-ghost" style="padding:4px 10px;font-size:10px"
             onclick="buscarCVA(${pagActual+1})" ${pagActual>=totalPags?'disabled':''}>Sig →</button>` : ''}
-        <button class="btn btn-ghost" style="padding:4px 12px;font-size:10px;display:flex;align-items:center;gap:5px"
-          onclick="exportBuscarCSV()">
-          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-          CSV
-        </button>
-        <button class="btn btn-ghost" style="padding:4px 12px;font-size:10px;display:flex;align-items:center;gap:5px"
-          onclick="exportBuscarPDF()">
-          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
-          PDF
-        </button>
+        ${btnCSV}
+        ${btnPDF}
       </div>
     </div>
     <!-- Tabla con headers clickeables para ordenar -->
@@ -250,6 +254,14 @@ function renderTablaBusqueda(arts) {
           </tr>`).join('')}
         </tbody>
       </table>
+    </div>
+    <!-- Barra de exportación al pie — visible en móvil sin hacer scroll arriba -->
+    <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:14px;padding-top:12px;border-top:1px solid rgba(238,240,240,0.06)">
+      <span style="color:var(--muted);font-size:10px;letter-spacing:1.5px;text-transform:uppercase;align-self:center;margin-right:auto">
+        ${arts.length} artículos
+      </span>
+      ${btnCSV}
+      ${btnPDF}
     </div>`;
 }
 
@@ -287,6 +299,7 @@ function volverATabla() {
 
 function renderProducto(p) {
   if (!p) return '<div class="alert alert-warn">Producto no encontrado</div>';
+  _productoActual = p; // guardar para exportar
   const promo      = p.promociones;
   const sucursales = p.disponibilidad_sucursales || [];
   const dim        = p.dimensiones;
@@ -393,6 +406,20 @@ function renderProducto(p) {
             </div>`).join('')}
         </div>
 
+        <!-- Exportar producto -->
+        <div style="display:flex;gap:8px;padding:10px 24px;border-top:1px solid rgba(238,240,240,0.06)">
+          <button class="btn btn-ghost" style="flex:1;padding:8px;font-size:10px;letter-spacing:1.5px;display:flex;align-items:center;justify-content:center;gap:6px"
+            onclick="exportProductoCSV()">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            CSV
+          </button>
+          <button class="btn btn-ghost" style="flex:1;padding:8px;font-size:10px;letter-spacing:1.5px;display:flex;align-items:center;justify-content:center;gap:6px"
+            onclick="exportProductoPDF()">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+            PDF
+          </button>
+        </div>
+
         <!-- CTA -->
         <div class="pv-cta-bar">
           <div class="pv-qty-ctrl">
@@ -476,6 +503,58 @@ async function buscarMeli(producto) {
       <div class="pv-meli-content"><div class="pv-meli-error">No disponible</div></div>
       <a class="pv-meli-link" href="${searchUrl}" target="_blank">Buscar →</a>`;
   }
+}
+
+// ── EXPORTAR PRODUCTO INDIVIDUAL ─────────────────────────
+let _productoActual = null; // se guarda al renderizar
+
+function exportProductoCSV() {
+  const p = _productoActual;
+  if (!p) return;
+  const dim = p.dimensiones;
+  const rows = [
+    ['Campo', 'Valor'],
+    ['Clave',        p.clave],
+    ['Descripción',  p.descripcion],
+    ['Marca',        p.marca || ''],
+    ['Grupo',        p.grupo || ''],
+    ['Precio',       p.precio],
+    ['Moneda',       p.moneda || 'Pesos'],
+    ['Tipo Cambio',  p.tipo_cambio || ''],
+    ['Stock Suc.',   p.disponible || 0],
+    ['Stock CEDIS',  p.disponibleCD || 0],
+    ['En Tránsito',  p.en_transito || 0],
+    ['Garantía',     p.garantia || ''],
+    ['Código UPC',   p.codigo || ''],
+    ['Dimensiones',  dim ? `${dim.alto}m × ${dim.ancho}m × ${dim.profundidad}m · ${dim.peso} ${dim.unidad_peso}` : ''],
+    ['Promo Precio', p.promociones?.precio_descuento || ''],
+    ['Promo Vence',  p.promociones?.promocion_vencimiento || ''],
+  ];
+  downloadCSV(rows, `CVA_${p.clave}_${new Date().toISOString().substring(0,10)}.csv`);
+}
+
+function exportProductoPDF() {
+  const p = _productoActual;
+  if (!p) return;
+  const dim = p.dimensiones;
+  const rows = [
+    ['Clave',        p.clave],
+    ['Marca',        p.marca || '—'],
+    ['Grupo',        p.grupo || '—'],
+    ['Precio',       fmt(p.precio, p.moneda) + (p.tipo_cambio ? ` · TC $${p.tipo_cambio}` : '')],
+    ['Stock Suc.',   p.disponible ? `${p.disponible} uds` : 'Sin stock'],
+    ['Stock CEDIS',  p.disponibleCD ? `${p.disponibleCD} uds` : 'Sin stock'],
+    ['En Tránsito',  p.en_transito ? `${p.en_transito} uds` : '—'],
+    ['Garantía',     p.garantia || '—'],
+    ['Código UPC',   p.codigo || '—'],
+    ['Dimensiones',  dim ? `${dim.alto}m × ${dim.ancho}m × ${dim.profundidad}m · ${dim.peso} ${dim.unidad_peso}` : '—'],
+    ['Promoción',    p.promociones ? `${p.promociones.descripcion_promocion} · ${fmt(p.promociones.precio_descuento, p.promociones.moneda_precio_descuento)}` : '—'],
+  ];
+  printPDF(
+    p.descripcion,
+    ['Campo', 'Valor'],
+    rows
+  );
 }
 
 function filtrarPorMarca(marca) {
@@ -1409,21 +1488,32 @@ function initCarouselDrag(wrap, track) {
     track.style.animation = `marquee 500s linear ${-(pct/100)*500}s infinite`;
   });
 
-  // Touch support
+  // Touch support — solo pausar si hay movimiento real (no en tap)
+  let touchMoved = false;
+
   wrap.addEventListener('touchstart', e => {
+    touchMoved = false;
     startX = e.touches[0].pageX;
+    // Capturar offset PERO no detener animación todavía
     const mat = window.getComputedStyle(track).transform;
     if (mat && mat !== 'none') {
-      const vals = mat.match(/matrix.*\((.+)\)/)[1].split(', ');
-      animOffset = parseFloat(vals[4]) || 0;
+      const vals = mat.match(/matrix.*\((.+)\)/);
+      animOffset = vals ? (parseFloat(vals[1].split(', ')[4]) || 0) : 0;
+    } else {
+      animOffset = 0;
     }
     scrollLeft = animOffset;
-    track.style.animation = 'none';
-    track.style.transform = `translateX(${animOffset}px)`;
   }, { passive: true });
 
   wrap.addEventListener('touchmove', e => {
     const dx = e.touches[0].pageX - startX;
+    if (!touchMoved && Math.abs(dx) > 5) {
+      // Primer movimiento real — ahora sí detener animación
+      touchMoved = true;
+      track.style.animation = 'none';
+      track.style.transform = `translateX(${animOffset}px)`;
+    }
+    if (!touchMoved) return;
     let newX = scrollLeft + dx;
     const half = track.scrollWidth / 2;
     if (newX < -half) newX += half;
@@ -1432,12 +1522,14 @@ function initCarouselDrag(wrap, track) {
   }, { passive: true });
 
   wrap.addEventListener('touchend', () => {
+    if (!touchMoved) return; // fue un tap, no drag — no hacer nada
     const cur = track.style.transform;
     const match = cur.match(/translateX\((.+)px\)/);
     const curX = match ? parseFloat(match[1]) : 0;
     const half = track.scrollWidth / 2;
     const pct = Math.abs(curX / half) * 100;
     track.style.animation = `marquee 500s linear ${-(pct/100)*500}s infinite`;
+    touchMoved = false;
   });
 }
 
@@ -1664,7 +1756,7 @@ Object.assign(window, {
   handleFileSelect, handleDrop, registrarPedido, enviarGuiaCVA,
   ejecutarSync, resetearSync, cargarEstadoSync, instalarTriggers, instalarTriggersUI,
   cargarVentasOdoo, buscarEnOdoo, ejecutarDebug,
-  exportBuscarCSV, exportBuscarPDF, exportCarritoCSV, exportCarritoPDF,
+  exportBuscarCSV, exportBuscarPDF, exportProductoCSV, exportProductoPDF, exportCarritoCSV, exportCarritoPDF,
   limpiarLog,
   iniciarCarruselMarcas, _renderCarruselMarcas,
 });
