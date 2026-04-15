@@ -1243,36 +1243,49 @@ async function iniciarCarruselMarcas() {
   const track = document.getElementById('marcas-carousel-track');
   if (!track || _marcasCarousel.length > 0) return;
 
-  // Renderizar con fallback inmediatamente
-  _renderCarruselMarcas(MARCAS_FALLBACK.map(m => ({ marca: m, logo: '' })), track);
+  // Fallback inmediato: marcas + grupos mezclados aleatoriamente
+  const fb = [
+    ...MARCAS_FALLBACK.map(m => ({ tipo:'marca', nombre:m, logo:'' })),
+    ...GRUPOS_FALLBACK.map(g => ({ tipo:'grupo', nombre:g, logo:'' }))
+  ];
+  _renderCarruselItems(fb, track);
 
-  // Luego intentar enriquecer con logos reales
+  // Enriquecer con datos reales de ambas APIs
   try {
-    const data = await api('cva_marcas');
-    if (!data.ok || !data.marcas?.length) return;
-    // Enriquecer con datos reales + logos
-    const marcas = [...data.marcas].sort(() => Math.random() - 0.5);
-    _renderCarruselMarcas(marcas, track);
+    const [rM, rG] = await Promise.allSettled([api('cva_marcas'), api('cva_grupos')]);
+    const marcas = (rM.status==='fulfilled' && rM.value?.ok) ? rM.value.marcas : [];
+    const grupos = (rG.status==='fulfilled' && rG.value?.ok) ? rG.value.grupos : [];
+    if (marcas.length || grupos.length) {
+      const items = [
+        ...marcas.map(m => ({ tipo:'marca', nombre:m.marca||m.nombre||'', logo:m.logo||'' })),
+        ...grupos.map(g => ({ tipo:'grupo', nombre:g.nombre||g.grupo||g, logo:'' }))
+      ].filter(i => i.nombre);
+      _renderCarruselItems(items, track);
+    }
   } catch(e) {}
 }
 
-function _renderCarruselMarcas(marcas, track) {
+function _renderCarruselItems(items, track) {
   if (!track) return;
-  _marcasCarousel = marcas;
-  const shuffled = [...marcas].sort(() => Math.random() - 0.5);
-  const renderChip = (m) => {
-    const nombre = (m.marca || m.nombre || '').replace(/'/g, "\'");
-    const logo   = m.logo || '';
-    return `<div class="marca-chip" onclick="filtrarPorMarca('${nombre}')">
+  _marcasCarousel = items;
+  const shuffled = [...items].sort(() => Math.random() - 0.5);
+  const renderChip = (item) => {
+    const nombre = item.nombre.replace(/'/g, "\'");
+    const logo   = item.logo || '';
+    const isGrupo = item.tipo === 'grupo';
+    const onclick = isGrupo ? `filtrarPorGrupo('${nombre}')` : `filtrarPorMarca('${nombre}')`;
+    return `<div class="marca-chip${isGrupo ? ' marca-chip-grupo' : ''}" onclick="${onclick}">
       ${logo ? `<img src="${logo}" alt="${nombre}" onerror="this.style.display='none'">` : ''}
       <span class="marca-chip-name">${nombre}</span>
     </div>`;
   };
   const html = shuffled.map(renderChip).join('');
-  track.innerHTML = html + html; // doble para loop
-  // Reiniciar drag
+  track.innerHTML = html + html;
   const wrap = document.getElementById('marcas-carousel-wrap');
   if (wrap) initCarouselDrag(wrap, track);
+}
+function _renderCarruselMarcas(marcas, track) {
+  _renderCarruselItems(marcas.map(m => ({ tipo:'marca', nombre:m.marca||m.nombre||'', logo:m.logo||'' })), track);
 }
 
 function initCarouselDrag(wrap, track) {
@@ -1395,53 +1408,102 @@ function lanzarWordCloud(grupos) {
   });
 
   cloud.classList.add('visible');
-  cloud._cycling = true;
+  cloud._alive = true;
 
-  function cycleWords() {
-    if (!cloud._cycling) return;
-    const els = cloud.querySelectorAll('.splash-word');
-    // reposicionar aleatoriamente
-    els.forEach(el => {
-      el.style.left = (5 + Math.random() * 85) + '%';
-      el.style.top  = (5 + Math.random() * 88) + '%';
-      el.classList.remove('show');
-    });
-    // aparecer escalonado, 80ms entre cada una
-    els.forEach((el, i) => {
-      setTimeout(() => { if (cloud._cycling) el.classList.add('show'); }, i * 80);
-    });
-    const showFor = els.length * 80 + 2500; // pausa larga con todas visibles
-    // desaparecer todas y relanzar
-    setTimeout(() => {
-      if (!cloud._cycling) return;
-      els.forEach(el => el.classList.remove('show'));
-      setTimeout(() => { if (cloud._cycling) cycleWords(); }, 300);
-    }, showFor);
+  // Cada palabra tiene su propio ciclo independiente
+  // → nunca hay un momento en que todo desaparece junto
+  const els = cloud.querySelectorAll('.splash-word');
+
+  // Zona de exclusión: área del logo + margen generoso
+  function getLogoZone() {
+    const logo = document.getElementById('splash-logo');
+    if (!logo) return null;
+    const r = logo.getBoundingClientRect();
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
+    const pad = 40; // px de margen extra alrededor del logo
+    return {
+      x1: (r.left   - pad) / vw * 100,
+      y1: (r.top    - pad) / vh * 100,
+      x2: (r.right  + pad) / vw * 100,
+      y2: (r.bottom + pad) / vh * 100,
+    };
   }
 
-  cycleWords();
+  function posicionLibre() {
+    const zone = getLogoZone();
+    let x, y, tries = 0;
+    do {
+      x = 4 + Math.random() * 87;
+      y = 4 + Math.random() * 87;
+      tries++;
+      // Si no hay zona o ya intentamos mucho, aceptar
+      if (!zone || tries > 30) break;
+    } while (x > zone.x1 && x < zone.x2 && y > zone.y1 && y < zone.y2);
+    return { x, y };
+  }
+
+  els.forEach((el, i) => {
+    // Escalonar el inicio para que no arranquen todas a la vez
+    const startDelay = i * 120;
+
+    function cicloUnapalabra() {
+      if (!cloud._alive) return;
+
+      // Reposicionar evitando la zona del logo
+      const pos = posicionLibre();
+      el.style.left = pos.x + '%';
+      el.style.top  = pos.y + '%';
+
+      // Aparecer
+      setTimeout(() => {
+        if (!cloud._alive) return;
+        el.classList.add('show');
+
+        // Quedarse visible entre 2.5s y 5s (random por palabra)
+        const stayMs = 2500 + Math.random() * 2500;
+        setTimeout(() => {
+          if (!cloud._alive) return;
+          el.classList.remove('show');
+
+          // Pausa breve antes de reaparecer en otro lugar (0.4–1.2s)
+          const pauseMs = 400 + Math.random() * 800;
+          setTimeout(cicloUnapalabra, pauseMs);
+        }, stayMs);
+      }, 80);
+    }
+
+    setTimeout(cicloUnapalabra, startDelay);
+  });
 }
 
 function detenerWordCloud() {
   const cloud = document.getElementById('splash-cloud');
   if (!cloud) return;
-  cloud._cycling = false;
-  cloud.classList.add('fadeout');
+  cloud._alive = false;
+  // Las palabras que están visibles se quedan — el CSS de phase-2 las lleva arriba
 }
 
 async function iniciarSplashCloud() {
-  // Lanzar inmediatamente con fallback — no esperar API
-  lanzarWordCloud(GRUPOS_FALLBACK);
-  // En paralelo intentar enriquecer si el API responde rápido
+  // Fallback inmediato: grupos + marcas mezclados
+  const wordsFallback = [...GRUPOS_FALLBACK, ...MARCAS_FALLBACK]
+    .sort(() => Math.random() - 0.5);
+  lanzarWordCloud(wordsFallback);
+
+  // Enriquecer con datos reales de ambas APIs
   try {
-    const data = await Promise.race([
-      api('cva_grupos'),
-      new Promise((_, rej) => setTimeout(() => rej('t'), 800))
+    const [rG, rM] = await Promise.allSettled([
+      Promise.race([api('cva_grupos'), new Promise((_,r)=>setTimeout(()=>r('t'),1200))]),
+      Promise.race([api('cva_marcas'), new Promise((_,r)=>setTimeout(()=>r('t'),1200))])
     ]);
-    if (data?.ok && data.grupos?.length > 0) {
-      const grupos = data.grupos.map(g => g.nombre || g.grupo || g).filter(Boolean);
-      lanzarWordCloud(grupos); // re-lanzar con datos reales si llegó a tiempo
-    }
+    const grupos = (rG.status==='fulfilled' && rG.value?.ok)
+      ? rG.value.grupos.map(g => g.nombre||g.grupo||g).filter(Boolean)
+      : GRUPOS_FALLBACK;
+    const marcas = (rM.status==='fulfilled' && rM.value?.ok)
+      ? rM.value.marcas.map(m => m.marca||m.nombre||m).filter(Boolean)
+      : MARCAS_FALLBACK;
+    const words = [...grupos, ...marcas].sort(() => Math.random() - 0.5);
+    lanzarWordCloud(words);
   } catch(e) {}
 }
 
