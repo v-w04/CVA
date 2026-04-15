@@ -1265,7 +1265,7 @@ window.onload = () => {
     splash.classList.add('phase-2');
     setTimeout(() => { shell.classList.add('visible'); }, 200);
     setTimeout(() => { splash.remove(); }, 800);
-  }, 2800);
+  }, 4000);
 
   // ─────────────────────────────────────────────────────────
   // Inicializar página activa explicitamente
