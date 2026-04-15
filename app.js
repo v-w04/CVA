@@ -1317,7 +1317,7 @@ function initCarouselDrag(wrap, track) {
     const half = track.scrollWidth / 2;
     // Calcular dónde estaría en la animación estándar (0 → -half)
     const pct = Math.abs(curX / half) * 100;
-    track.style.animation = `marquee 90s linear ${-(pct/100)*90}s infinite`;
+    track.style.animation = `marquee 320s linear ${-(pct/100)*320}s infinite`;
   });
 
   // Touch support
@@ -1348,7 +1348,7 @@ function initCarouselDrag(wrap, track) {
     const curX = match ? parseFloat(match[1]) : 0;
     const half = track.scrollWidth / 2;
     const pct = Math.abs(curX / half) * 100;
-    track.style.animation = `marquee 90s linear ${-(pct/100)*90}s infinite`;
+    track.style.animation = `marquee 320s linear ${-(pct/100)*320}s infinite`;
   });
 }
 
@@ -1474,9 +1474,8 @@ window.onload = () => {
     if (by) by.style.opacity = '1';
   }, 1500);
 
-  // Fase 2: cloud + logos suben juntos (cloud se desvanece y sube con ellos)
+  // Fase 2: logos + cloud suben juntos — el CSS mueve todo, no paramos el ciclo
   setTimeout(() => {
-    detenerWordCloud();
     splash.classList.add('phase-2');
     setTimeout(() => { shell.classList.add('visible'); }, 200);
     setTimeout(() => { splash.remove(); }, 900);
