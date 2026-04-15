@@ -604,255 +604,320 @@
 
   /* ━━ PRODUCTO CARD ━━ */
   /* ━━ PRODUCT VIEW — estilo AM configurador ━━ */
+  /* ━━ PRODUCT VIEW — estilo AM configurador ━━ */
+  /* ━━ VISTA DE PRODUCTO — estilo AM Vanquish summary ━━ */
   .pv-wrap {
     display: grid;
-    grid-template-columns: 1fr 380px;
-    gap: 24px;
-    align-items: start;
+    grid-template-columns: 1fr 440px;
+    min-height: 78vh;
+    align-items: stretch;
+    border: 1px solid rgba(238,240,240,0.08);
+    overflow: hidden;
   }
-  @media (max-width: 900px) { .pv-wrap { grid-template-columns: 1fr; } }
+  @media (max-width: 960px) { .pv-wrap { grid-template-columns: 1fr; } }
 
-  /* Imagen hero — ocupa toda la columna izquierda */
-  .pv-hero {
+  /* Columna izquierda — imagen full con fondo oscuro */
+  .pv-left {
+    display: flex;
+    flex-direction: column;
     position: relative;
-    background: rgba(20,22,27,0.6);
-    border: 1px solid rgba(238,240,240,0.07);
-    aspect-ratio: 1/1;
-    max-height: 300px;
+    background: #0d0f13;
+    overflow: hidden;
+  }
+
+  /* Fondo de pantalla de electronics — siempre visible */
+  .pv-bg {
+    position: absolute;
+    inset: 0;
+    background-size: cover;
+    background-position: center;
+    filter: brightness(0.18) saturate(0.6);
+    transition: filter .4s ease;
+    z-index: 0;
+  }
+  .pv-left:hover .pv-bg { filter: brightness(0.22) saturate(0.7); }
+
+  /* Imagen del producto — encima del fondo */
+  .pv-hero {
+    flex: 1;
     display: flex;
     align-items: center;
     justify-content: center;
-    overflow: hidden;
-    backdrop-filter: blur(4px);
+    padding: 60px 48px;
+    position: relative;
+    z-index: 1;
+    min-height: 340px;
   }
   .pv-hero img {
-    width: auto; height: auto;
-    max-width: 75%; max-height: 75%;
+    max-width: 80%; max-height: 360px;
     object-fit: contain;
-    transition: transform .4s ease;
-    image-rendering: -webkit-optimize-contrast;
+    transition: transform .6s cubic-bezier(.22,1,.36,1);
+    filter: drop-shadow(0 24px 48px rgba(0,0,0,0.7));
   }
-  .pv-hero:hover img { transform: scale(1.04); }
+  .pv-left:hover .pv-hero img { transform: scale(1.04) translateY(-6px); }
+
   .pv-hero-placeholder {
     display: flex; flex-direction: column;
     align-items: center; justify-content: center;
-    gap: 12px; color: rgba(238,240,240,0.15);
-    width: 100%; height: 100%;
+    gap: 16px; color: rgba(238,240,240,0.12);
+    width: 100%; min-height: 300px;
   }
-  .pv-hero-placeholder svg { opacity: 0.2; }
 
-  /* Clave flotante sobre la imagen */
+  /* Badge de clave — esquina superior izquierda */
   .pv-hero-badge {
     position: absolute;
-    bottom: 16px; left: 16px;
-    background: rgba(14,15,18,0.75);
+    top: 22px; left: 22px; z-index: 2;
+    background: rgba(0,0,0,0.55);
     backdrop-filter: blur(12px);
-    border: 1px solid rgba(238,240,240,0.1);
-    padding: 5px 12px;
-    font-family: 'Consolas', monospace;
-    font-size: 11px;
-    color: rgba(103,184,175,0.9);
-    letter-spacing: 1px;
-  }
-
-  /* Panel derecho — glassmorphism */
-  .pv-panel {
-    background: rgba(20,22,27,0.72);
-    backdrop-filter: blur(24px);
-    -webkit-backdrop-filter: blur(24px);
-    border: 1px solid rgba(238,240,240,0.1);
-    border-top: 2px solid var(--green);
-    display: flex;
-    flex-direction: column;
-  }
-
-  /* Cabecera del panel */
-  .pv-panel-head {
-    padding: 24px 24px 16px;
-    border-bottom: 1px solid rgba(238,240,240,0.07);
-  }
-  .pv-panel-marca {
-    font-size: 9px;
-    letter-spacing: 3px;
+    border: 1px solid rgba(238,240,240,0.12);
+    padding: 5px 14px;
+    font-family: 'Barlow', monospace;
+    font-size: 10px; font-weight: 600;
+    color: var(--green-lt);
+    letter-spacing: 2.5px;
     text-transform: uppercase;
-    color: var(--green-hi);
-    margin-bottom: 6px;
-  }
-  .pv-panel-nombre {
-    font-family: 'Barlow Condensed', sans-serif;
-    font-size: 19px;
-    font-weight: 400;
-    letter-spacing: 1px;
-    text-transform: uppercase;
-    color: var(--text);
-    line-height: 1.25;
-  }
-  .pv-panel-grupo {
-    font-size: 11px;
-    color: rgba(238,240,240,0.3);
-    margin-top: 6px;
-    letter-spacing: 1px;
   }
 
-  /* Precio hero */
-  .pv-price-block {
-    padding: 20px 24px;
-    border-bottom: 1px solid rgba(238,240,240,0.07);
-    display: flex;
-    align-items: baseline;
-    gap: 12px;
+  /* Botón volver */
+  .pv-back {
+    position: absolute;
+    top: 22px; right: 22px; z-index: 2;
+    background: rgba(0,0,0,0.45);
+    backdrop-filter: blur(12px);
+    border: 1px solid rgba(238,240,240,0.12);
+    color: rgba(238,240,240,0.55);
+    padding: 7px 16px;
+    font-size: 10px; letter-spacing: 2px;
+    text-transform: uppercase; cursor: pointer;
+    transition: color .2s, border-color .2s, background .2s;
+    display: flex; align-items: center; gap: 6px;
+    font-family: 'Barlow', sans-serif;
   }
-  .pv-price {
-    font-family: 'Barlow Condensed', sans-serif;
-    font-size: 38px;
-    font-weight: 300;
-    color: var(--text);
-    letter-spacing: -0.5px;
-    line-height: 1;
-  }
-  .pv-price-moneda {
-    font-size: 13px;
-    color: rgba(238,240,240,0.35);
-    text-transform: uppercase;
-    letter-spacing: 1px;
-  }
-  .pv-price-promo {
-    font-size: 12px;
-    color: var(--green-hi);
-    letter-spacing: 0.5px;
-  }
-
-  /* Items de detalle — como "Paint / Satin Xenon Grey" de AM */
-  .pv-items { flex: 1; }
-  .pv-item {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 15px 24px;
-    border-bottom: 1px solid rgba(238,240,240,0.06);
-    gap: 16px;
-    transition: background .18s;
-    cursor: default;
-  }
-  .pv-item:last-child { border-bottom: none; }
-  .pv-item:hover { background: rgba(238,240,240,0.03); }
-  .pv-item-left {}
-  .pv-item-label {
-    font-size: 14px;
-    font-weight: 500;
-    color: var(--text);
-    letter-spacing: 0.2px;
-    margin-bottom: 3px;
-  }
-  .pv-item-value {
-    font-size: 12px;
-    color: rgba(238,240,240,0.45);
-    letter-spacing: 0.5px;
-  }
-  .pv-item-right {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    flex-shrink: 0;
-  }
-  .pv-item-arrow {
-    color: rgba(238,240,240,0.2);
-    font-size: 14px;
-    transition: color .18s, transform .18s;
-  }
-  .pv-item:hover .pv-item-arrow {
-    color: rgba(238,240,240,0.5);
-    transform: translateX(2px);
-  }
-
-  /* Stock indicator en el panel */
-  .pv-stock-dot {
-    width: 7px; height: 7px;
-    border-radius: 50%;
-    flex-shrink: 0;
-  }
-  .pv-stock-dot.ok   { background: #67b8af; box-shadow: 0 0 7px rgba(103,184,175,0.6); }
-  .pv-stock-dot.low  { background: var(--orange); box-shadow: 0 0 7px rgba(200,151,58,0.5); }
-  .pv-stock-dot.none { background: rgba(238,240,240,0.15); }
-
-  /* Botón CTA — igual al "View your DBX S" de AM */
-  .pv-cta {
-    display: block;
-    width: 100%;
-    padding: 18px 24px;
-    background: var(--green);
+  .pv-back:hover {
     color: #fff;
-    border: none;
-    cursor: pointer;
-    font-family: 'Barlow Condensed', sans-serif;
-    font-size: 15px;
-    font-weight: 400;
-    letter-spacing: 2px;
-    text-transform: uppercase;
-    text-align: center;
-    transition: background .2s;
+    border-color: rgba(238,240,240,0.35);
+    background: rgba(0,0,0,0.65);
   }
-  .pv-cta:hover { background: #00403a; }
+
+  /* Marca en la esquina inferior del hero */
+  .pv-hero-marca {
+    position: absolute;
+    bottom: 24px; left: 24px; z-index: 2;
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 32px; font-weight: 300;
+    letter-spacing: 6px; text-transform: uppercase;
+    color: rgba(255,255,255,0.12);
+    user-select: none;
+  }
 
   /* Promo banner */
   .pv-promo {
-    margin: 0 24px 16px;
-    padding: 12px 16px;
-    background: rgba(0,176,106,0.08);
-    border-left: 2px solid var(--green-hi);
-    font-size: 12px;
-    color: var(--green-hi);
-    line-height: 1.6;
+    position: relative; z-index: 1;
+    padding: 12px 24px;
+    background: rgba(0,102,94,0.2);
+    border-top: 1px solid rgba(0,102,94,0.3);
+    font-size: 12px; font-family: 'Barlow', sans-serif;
+    color: var(--green-lt); line-height: 1.6;
   }
 
-  /* Sucursales — abajo del panel principal */
+  /* Sucursales — al pie del panel izquierdo */
   .pv-sucursales {
-    margin-top: 20px;
-    background: rgba(20,22,27,0.6);
-    backdrop-filter: blur(12px);
-    border: 1px solid rgba(238,240,240,0.07);
-    padding: 20px 24px;
+    position: relative; z-index: 1;
+    padding: 16px 24px 20px;
+    background: rgba(0,0,0,0.35);
+    backdrop-filter: blur(8px);
+    border-top: 1px solid rgba(238,240,240,0.07);
   }
   .pv-suc-title {
-    font-size: 9px;
-    letter-spacing: 3px;
+    font-family: 'Barlow', sans-serif;
+    font-size: 9px; letter-spacing: 3px;
     text-transform: uppercase;
     color: rgba(238,240,240,0.3);
-    margin-bottom: 14px;
+    margin-bottom: 10px;
   }
   .pv-suc-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
-    gap: 8px;
+    gap: 5px;
   }
   .pv-suc-item {
-    padding: 10px 14px;
-    background: rgba(238,240,240,0.03);
-    border: 1px solid rgba(238,240,240,0.06);
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    transition: background .18s;
+    padding: 7px 12px;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(238,240,240,0.07);
+    display: flex; align-items: center;
+    justify-content: space-between; gap: 6px;
+    transition: background .15s;
   }
-  .pv-suc-item:hover { background: rgba(238,240,240,0.06); }
+  .pv-suc-item:hover { background: rgba(255,255,255,0.08); }
   .pv-suc-nombre {
-    font-size: 10px;
-    color: rgba(238,240,240,0.45);
-    text-transform: uppercase;
-    letter-spacing: 1px;
-    flex: 1;
-    min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    font-family: 'Barlow', sans-serif;
+    font-size: 9px; color: rgba(238,240,240,0.4);
+    text-transform: uppercase; letter-spacing: 0.8px;
+    overflow: hidden; text-overflow: ellipsis;
+    white-space: nowrap; flex: 1;
   }
   .pv-suc-qty {
     font-family: 'Barlow Condensed', sans-serif;
-    font-size: 18px;
-    font-weight: 300;
-    color: var(--text);
+    font-size: 18px; font-weight: 300;
+    color: #eef0f0; flex-shrink: 0;
   }
-  .pv-suc-qty.zero { color: rgba(238,240,240,0.18); }
+  .pv-suc-qty.zero { color: rgba(238,240,240,0.15); }
+
+  /* ── Panel derecho — AM summary dark ── */
+  .pv-panel {
+    background: #22252c;
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+    border-left: 1px solid rgba(238,240,240,0.07);
+  }
+
+  /* Header: nombre del modelo grande */
+  .pv-panel-head {
+    padding: 28px 28px 22px;
+    background: #1e2127;
+    border-bottom: 1px solid rgba(238,240,240,0.08);
+    flex-shrink: 0;
+  }
+  .pv-panel-marca {
+    font-family: 'Barlow', sans-serif;
+    font-size: 10px; font-weight: 700;
+    letter-spacing: 4px; text-transform: uppercase;
+    color: var(--green-lt); margin-bottom: 10px;
+  }
+  .pv-panel-nombre {
+    font-family: 'Barlow', sans-serif;
+    font-size: 20px; font-weight: 500;
+    color: #eef0f0; line-height: 1.45;
+    letter-spacing: 0.1px;
+  }
+  .pv-panel-grupo {
+    font-family: 'Barlow', sans-serif;
+    font-size: 12px; color: rgba(238,240,240,0.3);
+    margin-top: 8px; letter-spacing: 0.5px;
+  }
+
+  /* Bloque de precio */
+  .pv-price-block {
+    padding: 18px 28px;
+    border-bottom: 1px solid rgba(238,240,240,0.08);
+    display: flex; align-items: baseline;
+    gap: 10px; flex-wrap: wrap;
+    flex-shrink: 0;
+  }
+  .pv-price {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 44px; font-weight: 300;
+    color: #eef0f0; letter-spacing: -0.5px;
+    line-height: 1;
+  }
+  .pv-price-moneda {
+    font-family: 'Barlow', sans-serif;
+    font-size: 11px; font-weight: 600;
+    color: rgba(238,240,240,0.3);
+    text-transform: uppercase; letter-spacing: 2px;
+  }
+  .pv-price-promo {
+    font-family: 'Barlow', sans-serif;
+    font-size: 10px; color: var(--green-lt);
+    letter-spacing: 1px; padding: 3px 10px;
+    background: rgba(0,102,94,0.2);
+    border: 1px solid rgba(0,102,94,0.35);
+    text-transform: uppercase;
+  }
+
+  /* Items info — estilo "Paint / Podium Green ›" de AM */
+  .pv-items { flex: 1; }
+  .pv-item {
+    display: flex; align-items: center;
+    justify-content: space-between;
+    padding: 14px 28px;
+    border-bottom: 1px solid rgba(238,240,240,0.06);
+    gap: 16px; transition: background .15s; cursor: default;
+  }
+  .pv-item:last-child { border-bottom: none; }
+  .pv-item:hover { background: rgba(238,240,240,0.03); }
+  .pv-item-label {
+    font-family: 'Barlow', sans-serif;
+    font-size: 12px; font-weight: 600;
+    color: rgba(238,240,240,0.45);
+    letter-spacing: 0.5px; text-transform: uppercase;
+    margin-bottom: 3px;
+  }
+  .pv-item-value {
+    font-family: 'Barlow', sans-serif;
+    font-size: 15px; font-weight: 400;
+    color: #d8dadc; letter-spacing: 0.1px;
+  }
+  .pv-item-right {
+    display: flex; align-items: center;
+    gap: 10px; flex-shrink: 0;
+  }
+  .pv-item-arrow {
+    color: rgba(238,240,240,0.15);
+    transition: color .15s, transform .15s;
+  }
+  .pv-item:hover .pv-item-arrow {
+    color: rgba(238,240,240,0.4);
+    transform: translateX(2px);
+  }
+
+  /* Stock dot */
+  .pv-stock-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%; flex-shrink: 0;
+  }
+  .pv-stock-dot.ok   { background: #67b8af; box-shadow: 0 0 6px rgba(103,184,175,0.5); }
+  .pv-stock-dot.low  { background: var(--orange); box-shadow: 0 0 6px rgba(200,151,58,0.4); }
+  .pv-stock-dot.none { background: rgba(238,240,240,0.12); }
+
+  /* CTA — "Review & Proceed" de AM */
+  .pv-cta-bar {
+    border-top: 1px solid rgba(238,240,240,0.08);
+    display: flex;
+    background: #242629;
+  }
+  .pv-qty-ctrl {
+    display: flex;
+    align-items: center;
+    border-right: 1px solid rgba(238,240,240,0.08);
+  }
+  .pv-qty-btn {
+    width: 44px; height: 60px;
+    background: none; border: none;
+    color: rgba(238,240,240,0.4);
+    font-size: 20px; line-height: 1;
+    cursor: pointer;
+    transition: color .15s;
+    font-family: 'Barlow', sans-serif;
+  }
+  .pv-qty-btn:hover { color: #eef0f0; }
+  .pv-qty-input {
+    width: 48px; height: 60px;
+    background: none; border: none;
+    color: #eef0f0;
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 20px; font-weight: 300;
+    text-align: center; outline: none;
+    -moz-appearance: textfield;
+  }
+  .pv-qty-input::-webkit-outer-spin-button,
+  .pv-qty-input::-webkit-inner-spin-button { -webkit-appearance: none; }
+  .pv-cta {
+    flex: 1;
+    height: 60px;
+    background: var(--green);
+    color: #fff;
+    border: none;
+    cursor: pointer;
+    font-family: 'Barlow', sans-serif;
+    font-size: 13px;
+    font-weight: 500;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    transition: background .2s;
+  }
+  .pv-cta:hover { background: #005048; }
 
   /* Tags (se mantienen para otros usos) */
   .tag {
