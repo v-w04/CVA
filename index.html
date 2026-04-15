@@ -1098,7 +1098,7 @@
     margin: -8px -48px 28px;
     position: relative;
     overflow: hidden;
-    padding: 16px 0;
+    padding: 22px 0;
     border-bottom: 1px solid rgba(238,240,240,0.06);
     cursor: grab;
     user-select: none;
@@ -1124,9 +1124,9 @@
   }
   .marcas-carousel-track {
     display: flex;
-    gap: 10px;
+    gap: 14px;
     width: max-content;
-    animation: marquee 35s linear infinite;
+    animation: marquee 180s linear infinite;
   }
   .marcas-carousel-wrap:hover .marcas-carousel-track { animation-play-state: paused; }
   .marcas-carousel-wrap.dragging .marcas-carousel-track { animation-play-state: paused; }
@@ -1137,8 +1137,8 @@
   .marca-chip {
     display: flex;
     align-items: center;
-    gap: 8px;
-    padding: 6px 14px 6px 10px;
+    gap: 12px;
+    padding: 14px 28px 14px 18px;
     background: rgba(238,240,240,0.04);
     border: 1px solid rgba(238,240,240,0.08);
     cursor: pointer;
@@ -1151,17 +1151,17 @@
     border-color: rgba(0,102,94,0.3);
   }
   .marca-chip img {
-    height: 18px; max-width: 48px;
+    height: 34px; max-width: 90px;
     object-fit: contain;
     filter: brightness(0) invert(1);
-    opacity: 0.6;
+    opacity: 0.65;
   }
   .marca-chip-name {
     font-family: 'Barlow', sans-serif;
-    font-size: 11px; font-weight: 600;
-    letter-spacing: 1.5px;
+    font-size: 17px; font-weight: 600;
+    letter-spacing: 2.5px;
     text-transform: uppercase;
-    color: rgba(238,240,240,0.55);
+    color: rgba(238,240,240,0.7);
   }
 
   /* ━━ SUCURSALES ━━ */
@@ -1360,17 +1360,23 @@
     opacity: 1;
   }
 
-  /* Fase 2: todo desaparece — logo sube + fondo fade out simultáneo */
+  /* Fase 2: todo sube y desaparece */
   #splash.phase-2 {
     opacity: 0;
     pointer-events: none;
-    transition: opacity 0.65s ease;
+    transition: opacity 0.75s ease;
   }
   #splash.phase-2 #splash-logo {
     opacity: 0;
     transform: translateY(-40vh);
-    transition: opacity 0.6s ease,
-                transform 0.65s cubic-bezier(.4,0,.2,1);
+    transition: opacity 0.65s ease,
+                transform 0.75s cubic-bezier(.4,0,.2,1);
+  }
+  /* Cloud también sube con los logos */
+  #splash.phase-2 #splash-cloud {
+    opacity: 0 !important;
+    transform: translateY(-20vh);
+    transition: opacity 0.75s ease, transform 0.75s cubic-bezier(.4,0,.2,1);
   }
 
   /* Shell oculto hasta que splash termina */
