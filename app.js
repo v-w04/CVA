@@ -567,14 +567,27 @@ function exportProductoCSV() {
   downloadCSV(rows, `CVA_${p.clave}_${new Date().toISOString().substring(0,10)}.csv`);
 }
 
-function exportProductoPDF() {
+async function exportProductoPDF() {
   const p = _productoActual;
   if (!p) return;
   const dim = p.dimensiones;
+
+  // Convertir imagen a base64 para evitar bloqueo CORS en la ventana del PDF
+  let imgBase64 = null;
+  if (p.imagen) {
+    try {
+      const res = await fetch(p.imagen);
+      const blob = await res.blob();
+      imgBase64 = await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result); // data:image/...;base64,...
+        reader.onerror = reject;
+        reader.readAsDataURL(blob);
+      });
+    } catch(e) { imgBase64 = null; }
+  }
+
   const w = window.open('', '_blank', 'width=900,height=700');
-  const imgHtml = p.imagen
-    ? `<img src="${p.imagen}" style="max-height:180px;max-width:220px;object-fit:contain;display:block;margin:0 auto 20px">`
-    : '';
   const rows = [
     ['Clave', p.clave],
     ['Marca', p.marca || '—'],
@@ -608,7 +621,7 @@ function exportProductoPDF() {
   <h1>${p.descripcion}</h1>
   <div class="meta">${p.clave} · Generado: ${new Date().toLocaleString('es-MX')} · Electronics México</div>
   <div class="layout">
-    ${p.imagen ? `<div class="img-col"><img src="${p.imagen}" style="max-height:160px;max-width:200px;object-fit:contain;border:1px solid #eee;padding:8px"></div>` : ''}
+    ${imgBase64 ? `<div class="img-col"><img src="${imgBase64}" style="max-height:160px;max-width:200px;object-fit:contain;border:1px solid #eee;padding:8px"></div>` : ''}
     <div class="data-col">
       <div class="price-badge">${fmt(p.precio, p.moneda)}</div>
       <table>
