@@ -1237,30 +1237,42 @@ function printPDF(title, headers, rows, footer) {
 // ── CARRUSEL DE MARCAS ────────────────────────────────────
 let _marcasCarousel = [];
 
+const MARCAS_FALLBACK = ['HP','Dell','Lenovo','Epson','Canon','Samsung','LG','Asus','Acer','Toshiba','Brother','Logitech','Kingston','Western Digital','Seagate','Intel','AMD','Cisco','Ubiquiti','Hikvision','Dahua','Netgear','TP-Link','Belkin','Verbatim','Micron','Crucial','Corsair','MSI','Gigabyte','Viewsonic','BenQ','Targus','Fellowes','Plantronics','Jabra','Yealink','Motorola','Zebra','Honeywell'];
+
 async function iniciarCarruselMarcas() {
   const track = document.getElementById('marcas-carousel-track');
   if (!track || _marcasCarousel.length > 0) return;
+
+  // Renderizar con fallback inmediatamente
+  _renderCarruselMarcas(MARCAS_FALLBACK.map(m => ({ marca: m, logo: '' })), track);
+
+  // Luego intentar enriquecer con logos reales
   try {
     const data = await api('cva_marcas');
     if (!data.ok || !data.marcas?.length) return;
-    // Mezclar aleatoriamente
+    // Enriquecer con datos reales + logos
     const marcas = [...data.marcas].sort(() => Math.random() - 0.5);
-    _marcasCarousel = marcas;
-    // Duplicar para loop infinito
-    const renderChip = (m) => {
-      const nombre = m.marca || m.nombre || '';
-      const logo   = m.logo  || '';
-      return `<div class="marca-chip" onclick="filtrarPorMarca('${nombre.replace(/'/g,"\'")}')">
-        ${logo ? `<img src="${logo}" alt="${nombre}" onerror="this.style.display='none'">` : ''}
-        <span class="marca-chip-name">${nombre}</span>
-      </div>`;
-    };
-    const html = marcas.map(renderChip).join('');
-    // Doble para loop continuo
-    track.innerHTML = html + html;
-    // Drag scroll
-    initCarouselDrag(document.getElementById('marcas-carousel-wrap'), track);
+    _renderCarruselMarcas(marcas, track);
   } catch(e) {}
+}
+
+function _renderCarruselMarcas(marcas, track) {
+  if (!track) return;
+  _marcasCarousel = marcas;
+  const shuffled = [...marcas].sort(() => Math.random() - 0.5);
+  const renderChip = (m) => {
+    const nombre = (m.marca || m.nombre || '').replace(/'/g, "\'");
+    const logo   = m.logo || '';
+    return `<div class="marca-chip" onclick="filtrarPorMarca('${nombre}')">
+      ${logo ? `<img src="${logo}" alt="${nombre}" onerror="this.style.display='none'">` : ''}
+      <span class="marca-chip-name">${nombre}</span>
+    </div>`;
+  };
+  const html = shuffled.map(renderChip).join('');
+  track.innerHTML = html + html; // doble para loop
+  // Reiniciar drag
+  const wrap = document.getElementById('marcas-carousel-wrap');
+  if (wrap) initCarouselDrag(wrap, track);
 }
 
 function initCarouselDrag(wrap, track) {
@@ -1397,18 +1409,19 @@ function lanzarWordCloud(grupos) {
 }
 
 async function iniciarSplashCloud() {
-  let grupos = GRUPOS_FALLBACK;
+  // Lanzar inmediatamente con fallback — no esperar API
+  lanzarWordCloud(GRUPOS_FALLBACK);
+  // En paralelo intentar enriquecer si el API responde rápido
   try {
-    // Intentar obtener grupos reales con stock
     const data = await Promise.race([
       api('cva_grupos'),
-      new Promise((_, rej) => setTimeout(() => rej('timeout'), 1500))
+      new Promise((_, rej) => setTimeout(() => rej('t'), 800))
     ]);
-    if (data.ok && data.grupos?.length > 0) {
-      grupos = data.grupos.map(g => g.nombre || g.grupo || g).filter(Boolean);
+    if (data?.ok && data.grupos?.length > 0) {
+      const grupos = data.grupos.map(g => g.nombre || g.grupo || g).filter(Boolean);
+      lanzarWordCloud(grupos); // re-lanzar con datos reales si llegó a tiempo
     }
   } catch(e) {}
-  return lanzarWordCloud(grupos);
 }
 
 // ── INIT ──────────────────────────────────────────────────
@@ -1492,5 +1505,5 @@ Object.assign(window, {
   cargarVentasOdoo, buscarEnOdoo, ejecutarDebug,
   exportBuscarCSV, exportBuscarPDF, exportCarritoCSV, exportCarritoPDF,
   limpiarLog,
-  iniciarCarruselMarcas,
+  iniciarCarruselMarcas, _renderCarruselMarcas,
 });
