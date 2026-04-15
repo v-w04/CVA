@@ -1340,6 +1340,77 @@ function initCarouselDrag(wrap, track) {
   });
 }
 
+
+// ── SPLASH WORD CLOUD ─────────────────────────────────────
+const GRUPOS_FALLBACK = ['LAPTOPS', 'IMPRESORAS', 'MONITORES', 'CABLES', 'CAMARAS', 'REDES', 'SERVIDORES', 'BOCINAS', 'AUDIFONOS', 'TABLETS', 'CELULARES', 'ACCESORIOS', 'ALMACENAMIENTO', 'PROYECTORES', 'CONSUMIBLES', 'SEGURIDAD', 'ENERGIA', 'GAMING', 'DRONES', 'SCANNERS', 'MEMORIAS', 'DISCOS DUROS', 'TECLADOS', 'MOUSE', 'WEBCAMS', 'UPS', 'SWITCHES', 'ROUTERS', 'ANTENAS', 'SOFTWARES', 'LICENCIAS', 'CARTUCHOS', 'TONERS'];
+
+function lanzarWordCloud(grupos) {
+  const cloud = document.getElementById('splash-cloud');
+  if (!cloud) return;
+
+  const words = [...grupos].sort(() => Math.random() - 0.5);
+  // Escalas y opacidades variadas
+  const sizes  = [11, 13, 15, 18, 22, 26, 32, 38, 14, 17, 20, 24, 28];
+  const alphas = [0.08, 0.10, 0.13, 0.16, 0.20, 0.11, 0.09, 0.14, 0.18];
+
+  cloud.innerHTML = '';
+  const placed = []; // para evitar solapamiento
+
+  const vw = window.innerWidth;
+  const vh = window.innerHeight;
+
+  // Colocar palabras aleatoriamente sin solaparse demasiado
+  words.forEach((word, i) => {
+    const el = document.createElement('div');
+    el.className = 'splash-word';
+    el.textContent = word;
+    const size  = sizes[i % sizes.length];
+    const alpha = alphas[i % alphas.length];
+    el.style.fontSize = size + 'px';
+    el.style.setProperty('--splash-word-color', `rgba(255,255,255,${alpha})`);
+
+    // Posición aleatoria
+    let x, y, attempts = 0;
+    do {
+      x = 5 + Math.random() * 85; // % del ancho
+      y = 5 + Math.random() * 88; // % del alto
+      attempts++;
+    } while (attempts < 10);
+
+    el.style.left = x + '%';
+    el.style.top  = y + '%';
+    cloud.appendChild(el);
+  });
+
+  // Hacer visible la nube
+  cloud.classList.add('visible');
+
+  // Hacer aparecer las palabras escalonadas rápido
+  const wordEls = cloud.querySelectorAll('.splash-word');
+  wordEls.forEach((el, i) => {
+    setTimeout(() => el.classList.add('show'), i * 40);
+  });
+
+  // Total: ~40ms * N palabras (128 grupos = ~5s max, pero ponemos cap)
+  const totalMs = Math.min(wordEls.length * 40, 1200);
+  return totalMs; // retorna cuándo terminó de llenar
+}
+
+async function iniciarSplashCloud() {
+  let grupos = GRUPOS_FALLBACK;
+  try {
+    // Intentar obtener grupos reales con stock
+    const data = await Promise.race([
+      api('cva_grupos'),
+      new Promise((_, rej) => setTimeout(() => rej('timeout'), 1500))
+    ]);
+    if (data.ok && data.grupos?.length > 0) {
+      grupos = data.grupos.map(g => g.nombre || g.grupo || g).filter(Boolean);
+    }
+  } catch(e) {}
+  return lanzarWordCloud(grupos);
+}
+
 // ── INIT ──────────────────────────────────────────────────
 window.onload = () => {
   // ── SPLASH SCREEN AM ──────────────────────────────────────
@@ -1356,18 +1427,27 @@ window.onload = () => {
   // T=2800ms: logo sube + todo desaparece (650ms)
   // T=3000ms: shell visible
 
-  // Fase 1: logo CVA aparece
+  // ── Lanzar word cloud inmediatamente ─────────────────────
+  iniciarSplashCloud().then(cloudDuration => {
+    // La nube se llena en ~cloudDuration ms
+    // Después el cloud se desvanece y aparecen los logos
+  });
+
+  // Fase 1: logo CVA aparece — después de que empieza a llenarse la nube
   setTimeout(() => {
     requestAnimationFrame(() => splash.classList.add('phase-1'));
   }, 800);
 
-  // Logo EM aparece 600ms después — escalonado, no duplica tiempo
+  // Logo EM aparece escalonado
   setTimeout(() => {
     const by = document.getElementById('splash-by');
     if (by) by.style.opacity = '1';
+    // Desvanecer la nube cuando ya están los logos
+    const cloud = document.getElementById('splash-cloud');
+    if (cloud) cloud.classList.add('fadeout');
   }, 1600);
 
-  // Fase 2: logo sube + fondo desaparece
+  // Fase 2: logos suben + todo desaparece
   setTimeout(() => {
     splash.classList.add('phase-2');
     setTimeout(() => { shell.classList.add('visible'); }, 200);
