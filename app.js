@@ -286,122 +286,119 @@ function volverATabla() {
 
 function renderProducto(p) {
   if (!p) return '<div class="alert alert-warn">Producto no encontrado</div>';
-  const promo       = p.promociones;
-  const sucursales  = p.disponibilidad_sucursales || [];
-  const dim         = p.dimensiones;
+  const promo      = p.promociones;
+  const sucursales = p.disponibilidad_sucursales || [];
+  const dim        = p.dimensiones;
+  const monedaStr  = p.moneda === 'Dolares' ? 'USD' : 'MXN';
 
-  // Stock helpers
   const sdot = (qty) => {
     const cls = !qty ? 'none' : qty < 5 ? 'low' : 'ok';
     return `<div class="pv-stock-dot ${cls}"></div>`;
   };
-  const sval = (qty) => qty ? `${qty} uds` : '—';
+  const sval = (qty) => qty ? `${qty.toLocaleString()} uds` : 'Sin stock';
 
-  // Arrow SVG
-  const arrow = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>`;
+  const arrow = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>`;
 
-  // Items del panel derecho — estilo "Paint / Satin Xenon Grey"
   const items = [
-    { label: 'Precio',    value: `${fmt(p.precio, p.moneda)}${p.tipo_cambio ? ` · TC $${p.tipo_cambio}` : ''}`, right: '' },
-    { label: 'Stock Sucursal',  value: sval(p.disponible),   right: sdot(p.disponible)  },
-    { label: 'Stock CEDIS',     value: sval(p.disponibleCD), right: sdot(p.disponibleCD) },
-    p.en_transito ? { label: 'En Tránsito', value: `${p.en_transito} uds`, right: '' } : null,
-    p.garantia    ? { label: 'Garantía',    value: p.garantia, right: '' } : null,
-    dim ? { label: 'Dimensiones', value: `${dim.alto}m × ${dim.ancho}m × ${dim.profundidad}m · ${dim.peso} ${dim.unidad_peso}`, right: '' } : null,
-    p.tipo_producto?.tipo ? { label: 'Tipo', value: p.tipo_producto.tipo, right: '' } : null,
+    { label: 'Precio unitario',   value: `${fmt(p.precio, p.moneda)}${p.tipo_cambio ? `  ·  TC $${p.tipo_cambio}` : ''}`, dot: '' },
+    { label: 'Stock Sucursal',    value: sval(p.disponible),   dot: sdot(p.disponible)   },
+    { label: 'Stock CEDIS',       value: sval(p.disponibleCD), dot: sdot(p.disponibleCD) },
+    p.en_transito  ? { label: 'En Tránsito', value: `${p.en_transito.toLocaleString()} uds`, dot: '' } : null,
+    p.garantia     ? { label: 'Garantía',    value: p.garantia, dot: '' } : null,
+    dim            ? { label: 'Dimensiones', value: `${dim.alto}m × ${dim.ancho}m × ${dim.profundidad}m · ${dim.peso} ${dim.unidad_peso}`, dot: '' } : null,
+    p.tipo_producto?.tipo ? { label: 'Categoría', value: p.tipo_producto.tipo, dot: '' } : null,
+    p.codigo       ? { label: 'Código UPC',  value: p.codigo, dot: '' } : null,
   ].filter(Boolean);
 
   return `
     <div class="pv-wrap">
 
-      <!-- Columna izquierda: imagen hero -->
-      <div>
+      <!-- ── Columna izquierda: imagen hero ── -->
+      <div class="pv-left">
+
+        <!-- Fondo Electronics México -->
+        <div class="pv-bg" style="background-image:url('$https://scontent.fmex2-1.fna.fbcdn.net/v/t51.82787-15/659706298_18000092243874422_9119422759033187488_n.jpg?_nc_cat=105&ccb=1-7&_nc_sid=13d280&_nc_ohc=bm9i1gFUPvsQ7kNvwHcsUGX&_nc_oc=Adpqrbuw4Mmqj4cjlAZnnITYlSwvyRlb0r0F6l7dW-1kArE-OC3P-7eFJwIPIeB6-pJXrafqt5BkazC2b6le24tg&_nc_zt=23&_nc_ht=scontent.fmex2-1.fna&_nc_gid=jC4nLpwmJ0FtdK8tnOoJqA&_nc_ss=7a389&oh=00_Af0evN3Pory9mFyVDoafX4ALX81r2VgmZySxHOAY84vsbQ&oe=69E4B65A')"></div>
+
         <div class="pv-hero">
-          ${p.imagen
-            ? `<img src="${p.imagen}" alt="${p.clave}" onerror="this.parentElement.innerHTML='<div class=pv-hero-placeholder><svg width=64 height=64 viewBox=\'0 0 24 24\' fill=\'none\' stroke=\'currentColor\' stroke-width=\'1\'><rect x=\'3\' y=\'3\' width=\'18\' height=\'18\'/><circle cx=\'8.5\' cy=\'8.5\' r=\'1.5\'/><polyline points=\'21 15 16 10 5 21\'/></svg></div>'">`
-            : `<div class="pv-hero-placeholder">
-                <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1">
-                  <rect x="3" y="3" width="18" height="18"/>
-                  <circle cx="8.5" cy="8.5" r="1.5"/>
-                  <polyline points="21 15 16 10 5 21"/>
-                </svg>
-               </div>`
-          }
           <div class="pv-hero-badge">${p.clave}</div>
+          <button class="pv-back" onclick="volverATabla()">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+            Volver
+          </button>
+          ${p.imagen
+            ? `<img src="${p.imagen}" alt="${p.descripcion}" onerror="this.style.display='none'">`
+            : `<div class="pv-hero-placeholder">
+                <svg width="80" height="80" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="0.4">
+                  <rect x="3" y="3" width="18" height="18"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/>
+                </svg>
+                <div style="font-size:10px;letter-spacing:2px;text-transform:uppercase;color:rgba(238,240,240,0.15)">Sin imagen disponible</div>
+               </div>`}
+          ${p.marca ? `<div class="pv-hero-marca">${p.marca}</div>` : ''}
         </div>
 
-        ${promo ? `<div class="pv-promo" style="margin:12px 0 0">
-          <strong>Promoción activa:</strong> ${promo.descripcion_promocion}<br>
-          ${fmt(promo.precio_descuento, promo.moneda_precio_descuento)} · Vence: ${promo.promocion_vencimiento}
+        ${promo ? `
+        <div class="pv-promo">
+          <strong style="color:#fff;font-weight:600">Promoción activa:</strong> ${promo.descripcion_promocion}<br>
+          <span style="opacity:.8">${fmt(promo.precio_descuento, promo.moneda_precio_descuento)} · Vence: ${promo.promocion_vencimiento}</span>
         </div>` : ''}
 
         ${sucursales.length > 0 ? `
         <div class="pv-sucursales">
-          <div class="pv-suc-title">Disponibilidad por Sucursal</div>
+          <div class="pv-suc-title">Disponibilidad por sucursal</div>
           <div class="pv-suc-grid">
             ${sucursales.map(s => `
               <div class="pv-suc-item">
-                <div class="pv-suc-nombre">${s.nombre}</div>
+                <div class="pv-suc-nombre">${s.nombre.replace('VENTAS ', '').replace('CENTRO DE DIST.', 'CDIST')}</div>
                 <div class="pv-suc-qty ${s.disponible === 0 ? 'zero' : ''}">${s.disponible}</div>
               </div>`).join('')}
           </div>
         </div>` : ''}
       </div>
 
-      <!-- Columna derecha: panel AM -->
+      <!-- ── Panel derecho ── -->
       <div class="pv-panel">
 
-        <!-- Cabecera -->
         <div class="pv-panel-head">
           <div class="pv-panel-marca">${p.marca || 'CVA'}</div>
           <div class="pv-panel-nombre">${p.descripcion}</div>
-          <div class="pv-panel-grupo">${p.grupo || ''}</div>
+          ${p.grupo ? `<div class="pv-panel-grupo">${p.grupo}</div>` : ''}
         </div>
 
-        <!-- Precio principal -->
         <div class="pv-price-block">
           <div class="pv-price">${fmt(p.precio, p.moneda)}</div>
-          <div class="pv-price-moneda">${p.moneda === 'Dolares' ? 'USD' : 'MXN'}</div>
-          ${promo ? `<div class="pv-price-promo">Promo disponible ↓</div>` : ''}
+          <div class="pv-price-moneda">${monedaStr}</div>
+          ${promo ? `<div class="pv-price-promo">Promo activa</div>` : ''}
         </div>
 
-        <!-- Items detalle -->
         <div class="pv-items">
           ${items.map(it => `
             <div class="pv-item">
-              <div class="pv-item-left">
+              <div style="min-width:0">
                 <div class="pv-item-label">${it.label}</div>
                 <div class="pv-item-value">${it.value}</div>
               </div>
               <div class="pv-item-right">
-                ${it.right}
+                ${it.dot}
                 <span class="pv-item-arrow">${arrow}</span>
               </div>
             </div>`).join('')}
         </div>
 
-        <!-- CTA con cantidad — igual al "View your DBX S" -->
-        <div style="display:flex;border-top:1px solid rgba(238,240,240,0.08)">
-          <!-- Input qty -->
-          <div style="display:flex;align-items:center;background:rgba(0,0,0,0.2);border-right:1px solid rgba(238,240,240,0.1);padding:0 4px;gap:0">
-            <button onclick="pvQtyChange(-1)"
-              style="width:36px;height:56px;background:none;border:none;color:rgba(238,240,240,0.5);font-size:20px;cursor:pointer;line-height:1;transition:color .15s"
-              onmouseover="this.style.color='#fff'" onmouseout="this.style.color='rgba(238,240,240,0.5)'">−</button>
-            <input id="pv-qty" type="number" value="1" min="1" max="999"
-              style="width:44px;height:56px;background:none;border:none;color:#fff;font-family:'Barlow Condensed',sans-serif;font-size:20px;font-weight:300;text-align:center;outline:none;-moz-appearance:textfield">
-            <button onclick="pvQtyChange(1)"
-              style="width:36px;height:56px;background:none;border:none;color:rgba(238,240,240,0.5);font-size:20px;cursor:pointer;line-height:1;transition:color .15s"
-              onmouseover="this.style.color='#fff'" onmouseout="this.style.color='rgba(238,240,240,0.5)'">+</button>
+        <!-- CTA -->
+        <div class="pv-cta-bar">
+          <div class="pv-qty-ctrl">
+            <button class="pv-qty-btn" onclick="pvQtyChange(-1)">−</button>
+            <input class="pv-qty-input" id="pv-qty" type="number" value="1" min="1" max="999">
+            <button class="pv-qty-btn" onclick="pvQtyChange(1)">+</button>
           </div>
-          <!-- Botón principal -->
-          <button class="pv-cta" style="flex:1;border-top:none"
+          <button class="pv-cta"
             onclick="agregarClave('${p.clave}', parseInt(document.getElementById('pv-qty').value)||1)">
             Agregar a Orden
           </button>
         </div>
 
-      </div><!-- /pv-panel -->
-    </div><!-- /pv-wrap -->
+      </div>
+    </div>
   `;
 }
 
