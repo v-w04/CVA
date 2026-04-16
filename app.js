@@ -761,10 +761,11 @@ function pvQtyChange(delta) {
   el.value = Math.max(1, Math.min(999, (parseInt(el.value) || 1) + delta));
 }
 function agregarClave(clave, qty = 1) {
-  showPage('orden');
   document.getElementById('cart-clave').value = clave;
   document.getElementById('cart-qty').value = qty;
-  agregarAlCarrito();
+  agregarAlCarrito().then(() => {
+    showPage('orden');
+  });
 }
 
 async function agregarAlCarrito() {
