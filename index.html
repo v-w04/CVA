@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>CVA Dropshipping · Electronics México</title>
 <link href="https://fonts.googleapis.com/css2?family=Barlow:wght@300;400;500;600&family=Barlow+Condensed:wght@300;400;600&display=swap" rel="stylesheet">
 <style>
@@ -878,9 +878,11 @@
     background: #1e2127;
     position: sticky;
     bottom: 0;
+    bottom: env(safe-area-inset-bottom, 0);
     margin-top: auto;
     flex-shrink: 0;
-    z-index: 2;
+    z-index: 10;
+    padding-bottom: env(safe-area-inset-bottom, 0);
   }
   .pv-qty-ctrl {
     display: flex;
