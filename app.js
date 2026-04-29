@@ -891,6 +891,7 @@ async function enviarOrden(test = false) {
     action: 'cva_crear_orden',
     productos: carrito.map(i => ({ clave: i.clave, cantidad: i.qty, precio: i.precio, descripcion: i.desc })),
     num_oc: document.getElementById('num-oc').value,
+    codigo_sucursal: parseInt(document.getElementById('f-sucursal')?.value ?? '1') || 1,
     observaciones: document.getElementById('observaciones').value,
     tipo_flete, direccion, test: test ? 1 : 0,
   };
