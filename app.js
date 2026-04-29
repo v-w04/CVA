@@ -809,17 +809,67 @@ function _poblarSelectSucursales(sel, sucursales) {
 }
 
 /**
- * Al entrar a la página de Orden: carga sucursales y luego sugiere
- * automáticamente la que tiene mayor stock para los productos del carrito.
- * 
- * LÓGICA DE SUGERENCIA:
- * - Consulta cva_producto (con sucursales=true) para cada clave del carrito
- * - La respuesta trae disponibilidad_sucursales: [{ nombre, disponible }]
- *   donde "nombre" puede ser "VENTAS GUADALAJARA", "CEDIS GUADALAJARA", etc.
- * - Se suman los stocks de todas las claves por cada nombre de almacén
- *   (sucursales Y CEDIS por igual — ambos son válidos para levantar pedido)
- * - Se selecciona el almacén con mayor stock total
- * - Se busca ese nombre en el catálogo de sucursales para obtener la clave numérica
+ * Repuebla el select con stock real por sucursal.
+ * Muestra primero las que tienen stock (con cantidad), luego las sin stock en gris.
+ * Preselecciona la de mayor stock automáticamente.
+ *
+ * stockMap: { "GUADALAJARA": 45, "CEDIS GUADALAJARA": 12, ... }
+ *   — claves normalizadas (sin "VENTAS ") mapeadas a su stock total del carrito
+ */
+function _poblarSelectConStock(sel, sucursalesCache, stockMap) {
+  // normalizar nombre del catálogo para buscar en stockMap
+  const norm = s => s.toUpperCase()
+    .replace('VENTAS ', '')
+    .replace('CENTRO DE DISTRIBUCION', 'CEDIS')
+    .trim();
+
+  // Enriquecer cada sucursal con su stock conocido
+  const enriquecidas = sucursalesCache.map(s => {
+    const key  = norm(s.nombre);
+    // buscar en stockMap por coincidencia exacta o parcial
+    let stock  = stockMap[key] || 0;
+    if (!stock) {
+      // intento por coincidencia parcial
+      const match = Object.entries(stockMap).find(([k]) =>
+        k.includes(key) || key.includes(k)
+      );
+      if (match) stock = match[1];
+    }
+    return { ...s, stock };
+  });
+
+  // Ordenar: con stock desc, sin stock al final
+  enriquecidas.sort((a, b) => {
+    if (a.stock > 0 && b.stock === 0) return -1;
+    if (a.stock === 0 && b.stock > 0) return 1;
+    return b.stock - a.stock;
+  });
+
+  sel.innerHTML = '';
+  let primeraConStock = null;
+
+  enriquecidas.forEach(s => {
+    const opt = document.createElement('option');
+    opt.value = s.clave;
+    if (s.stock > 0) {
+      opt.textContent = `${s.nombre}  ·  ${s.stock} uds (${s.clave})`;
+      if (!primeraConStock) primeraConStock = opt;
+    } else {
+      opt.textContent = `${s.nombre} — sin stock (${s.clave})`;
+      opt.style.color = 'rgba(238,240,240,0.25)';
+    }
+    sel.appendChild(opt);
+  });
+
+  // Preseleccionar la de mayor stock
+  if (primeraConStock) primeraConStock.selected = true;
+
+  return primeraConStock ? enriquecidas.find(s => String(s.clave) === String(primeraConStock.value)) : null;
+}
+
+/**
+ * Al entrar a la página de Orden: carga sucursales base y luego
+ * consulta stock real por sucursal para cada producto del carrito.
  */
 async function iniciarPaginaOrden() {
   await cargarSucursalesSelect();
@@ -832,27 +882,33 @@ async function sugerirSucursalPorStock() {
   const sel  = document.getElementById('f-sucursal');
   if (!hint || !sel || carrito.length === 0) return;
 
-  hint.textContent = '⟳ Analizando disponibilidad por almacén…';
+  hint.textContent = '⟳ Consultando stock por almacén…';
 
-  // Acumular: { "VENTAS GUADALAJARA": 12, "CEDIS GUADALAJARA": 45, ... }
-  const stockPorAlmacen = {};
+  // Acumular stock por nombre normalizado
+  // Clave: nombre normalizado (sin "VENTAS ", sin "CEDIS ")
+  // Valor: stock total de todos los productos del carrito en ese almacén
+  const stockMap = {}; // { "GUADALAJARA": 12, "CEDIS GUADALAJARA": 45, ... }
+
+  const norm = s => s.toUpperCase()
+    .replace('VENTAS ', '')
+    .replace('CENTRO DE DISTRIBUCION', 'CEDIS')
+    .trim();
 
   try {
-    // Claves únicas del carrito, en lotes de 4 para no saturar GAS
     const claves = [...new Set(carrito.map(i => i.clave))];
     for (let i = 0; i < claves.length; i += 4) {
       const chunk = claves.slice(i, i + 4);
       await Promise.all(chunk.map(async (clave) => {
         try {
           const data = await api('cva_producto', { clave, sucursales: 'true' });
-          const suc = data.producto?.disponibilidad_sucursales || [];
+          const suc  = data.producto?.disponibilidad_sucursales || [];
           suc.forEach(s => {
-            // Ignorar la fila TOTAL — es suma, no un almacén real
             if (!s.nombre || s.nombre === 'TOTAL') return;
+            const key = norm(s.nombre);
             const qty = parseInt(s.disponible) || 0;
-            stockPorAlmacen[s.nombre] = (stockPorAlmacen[s.nombre] || 0) + qty;
+            stockMap[key] = (stockMap[key] || 0) + qty;
           });
-        } catch(_) { /* producto falla individualmente — continuar */ }
+        } catch(_) {}
       }));
     }
   } catch(e) {
@@ -860,90 +916,33 @@ async function sugerirSucursalPorStock() {
     return;
   }
 
-  // Filtrar solo almacenes con stock > 0
-  const conStock = Object.entries(stockPorAlmacen).filter(([, qty]) => qty > 0);
-
-  if (conStock.length === 0) {
-    // No hay stock en ningún almacén para este carrito
-    hint.innerHTML = '<span style="color:var(--orange)">⚠ Sin stock disponible en ningún almacén para los productos del carrito</span>';
-    return;
-  }
-
-  // Ordenar por stock descendente y tomar el mejor
-  conStock.sort((a, b) => b[1] - a[1]);
-  const [nombreGanador, stockGanador] = conStock[0];
-
-  // Log de los top almacenes para debug
-  addLog('info', 'Stock por almacén (carrito)',
-    conStock.slice(0, 3).map(([n, q]) => `${n.replace('VENTAS ','')}: ${q}`).join(' · ')
-  );
-
-  // Mapear nombre de la respuesta CVA → clave numérica del catálogo de sucursales
-  // La API de sucursales devuelve: { clave: "1", nombre: "GUADALAJARA" }
-  // La API de producto devuelve:   { nombre: "VENTAS GUADALAJARA", disponible: 5 }
-  // También puede ser:             { nombre: "CEDIS GUADALAJARA", disponible: 45 }
-  // Estrategia: normalizar ambos y buscar coincidencia parcial
   if (!_sucursalesCache) { hint.textContent = ''; return; }
 
-  const normalizar = s => s.toUpperCase()
-    .replace('VENTAS ', '')
-    .replace('CENTRO DE DISTRIBUCION', 'CEDIS')
-    .replace('CEDIS ', '')
-    .trim();
+  // Repoblar el select con stock real — devuelve la sucursal preseleccionada
+  const ganadora = _poblarSelectConStock(sel, _sucursalesCache, stockMap);
 
-  const nombreNorm = normalizar(nombreGanador);
-
-  // Buscar la mejor coincidencia en el catálogo de sucursales
-  let sucEncontrada = null;
-
-  // Intento 1: coincidencia exacta normalizada
-  sucEncontrada = _sucursalesCache.find(s => normalizar(s.nombre) === nombreNorm);
-
-  // Intento 2: el nombre del catálogo está contenido en el nombre de la respuesta
-  if (!sucEncontrada) {
-    sucEncontrada = _sucursalesCache.find(s =>
-      nombreGanador.includes(s.nombre) || s.nombre.includes(nombreNorm)
-    );
-  }
-
-  // Intento 3: coincidencia por palabras clave (toma la primera palabra significativa)
-  if (!sucEncontrada) {
-    const palabraClave = nombreNorm.split(' ')[0];
-    sucEncontrada = _sucursalesCache.find(s =>
-      normalizar(s.nombre).startsWith(palabraClave)
-    );
-  }
-
-  if (!sucEncontrada) {
-    hint.textContent = '';
-    return;
-  }
-
-  // Seleccionar en el dropdown
-  const opts = sel.options;
-  for (let i = 0; i < opts.length; i++) {
-    if (String(opts[i].value) === String(sucEncontrada.clave)) {
-      sel.selectedIndex = i;
-      break;
-    }
-  }
-
-  // Highlight temporal verde en el select
+  // Highlight temporal
   sel.classList.add('sucursal-sugerida');
   setTimeout(() => sel.classList.remove('sucursal-sugerida'), 3500);
 
-  // Indicar si es CEDIS o sucursal normal y el stock total
-  const esCedis = nombreGanador.toUpperCase().includes('CEDIS') ||
-                  nombreGanador.toUpperCase().includes('CENTRO DE DIST');
-  const tipoLabel = esCedis
-    ? '<span style="color:var(--orange);font-size:9px;letter-spacing:1px">CEDIS</span>'
-    : '<span style="color:var(--green-lt);font-size:9px;letter-spacing:1px">SUCURSAL</span>';
+  if (!ganadora) {
+    hint.innerHTML = '<span style="color:var(--orange)">⚠ Sin stock en ningún almacén para los productos del carrito</span>';
+    return;
+  }
 
-  hint.innerHTML = `✓ Sugerido: <strong>${sucEncontrada.nombre}</strong> ${tipoLabel} — ${stockGanador} uds disponibles para tu carrito`;
+  const stockGanador = ganadora.stock;
+  const esCedis = ganadora.nombre.toUpperCase().includes('CEDIS') ||
+                  ganadora.nombre.toUpperCase().includes('CENTRO DE DIST');
+  const tipoLabel = esCedis
+    ? '<span style="color:var(--orange);font-size:9px;letter-spacing:1px;margin-left:4px">CEDIS</span>'
+    : '<span style="color:var(--green-lt);font-size:9px;letter-spacing:1px;margin-left:4px">SUCURSAL</span>';
+
+  const conStockCount = Object.values(stockMap).filter(v => v > 0).length;
+  hint.innerHTML = `✓ Mejor opción: <strong>${ganadora.nombre}</strong>${tipoLabel} — ${stockGanador} uds · ${conStockCount} almacenes con stock`;
 
   addLog('ok',
-    `Almacén sugerido: ${sucEncontrada.nombre} (clave ${sucEncontrada.clave})`,
-    `${stockGanador} uds · ${esCedis ? 'CEDIS' : 'Sucursal'}`
+    `Almacén sugerido: ${ganadora.nombre} (clave ${ganadora.clave})`,
+    `${stockGanador} uds · ${esCedis ? 'CEDIS' : 'Sucursal'} · ${conStockCount} con stock`
   );
 }
 
