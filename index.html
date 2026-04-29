@@ -7,23 +7,18 @@
 <link href="https://fonts.googleapis.com/css2?family=Barlow:wght@300;400;500;600&family=Barlow+Condensed:wght@300;400;600&display=swap" rel="stylesheet">
 <style>
   :root {
-    /* Fondo base — azul-gris oscuro AM, no negro puro */
     --bg:        #1e2025;
-    /* Capas con jerarquía de luminosidad */
-    --surface:   rgba(30,32,37,0.85);   /* cards normales */
-    --surface-2: rgba(38,41,48,0.9);    /* cards elevadas */
-    --card:      rgba(42,45,52,0.95);   /* inputs, items */
+    --surface:   rgba(30,32,37,0.85);
+    --surface-2: rgba(38,41,48,0.9);
+    --card:      rgba(42,45,52,0.95);
     --border:    rgba(238,240,240,0.12);
     --border-lt: rgba(238,240,240,0.07);
-    /* Verde AM exacto */
     --green:     #00665e;
     --green-lt:  #67b8af;
     --green-dark:#00403a;
     --green-hi:  #67b8af;
-    /* Acento */
     --orange:    #C8973A;
     --red:       #8B2020;
-    /* Texto con jerarquía */
     --text:      #eef0f0;
     --text-2:    rgba(238,240,240,0.7);
     --text-3:    rgba(238,240,240,0.4);
@@ -43,7 +38,6 @@
     letter-spacing: 0.01em;
   }
 
-  /* ━━ LAYOUT SHELL ━━ */
   .shell {
     display: flex;
     flex-direction: column;
@@ -57,7 +51,6 @@
   }
   .shell.visible { opacity: 1; }
 
-  /* ━━ BREATHING GREEN LINE BAJO HEADER ━━ */
   .header-line {
     flex-shrink: 0;
     height: 2px;
@@ -77,7 +70,6 @@
     100% { background-position: 100% 0; opacity: 0.5; }
   }
 
-  /* ━━ HEADER ━━ */
   .header {
     flex-shrink: 0;
     height: var(--header-h);
@@ -92,7 +84,6 @@
     z-index: 200;
   }
 
-  /* Hamburguesa */
   .ham-btn {
     width: 44px; height: 44px;
     display: flex; flex-direction: column;
@@ -120,7 +111,6 @@
   .ham-btn.open span:nth-child(2) { opacity: 0; width: 0; }
   .ham-btn.open span:nth-child(3) { transform: translateY(-6.5px) rotate(-45deg); }
 
-  /* Logo centrado */
   .header-logo {
     position: absolute;
     left: 50%;
@@ -154,7 +144,6 @@
     font-weight: 400;
   }
 
-  /* Badges derecha */
   .header-right {
     margin-left: auto;
     display: flex;
@@ -173,7 +162,6 @@
   .badge-silver { color: var(--silver);    border-color: rgba(176,176,176,0.25); }
   .badge-red    { color: #CC4444;          border-color: rgba(204,68,68,0.35); }
 
-  /* ━━ SIDEBAR OVERLAY ━━ */
   .sb-overlay {
     display: none;
     position: fixed;
@@ -181,17 +169,13 @@
     background: rgba(0,0,0,0.55);
     z-index: 150;
   }
-  .sb-overlay.open {
-    display: block;
-  }
+  .sb-overlay.open { display: block; }
 
-  /* ━━ SIDEBAR — estilo AM "Your DBX S" summary panel ━━ */
   .sidebar {
     position: fixed;
     top: 0; left: 0;
     width: 340px;
     height: 100%;
-    /* Gris claro-oscuro AM del panel de resumen — no negro */
     background: #3c3f47;
     z-index: 300;
     transform: translateX(-100%);
@@ -203,7 +187,6 @@
   }
   .sidebar.open { transform: translateX(0); }
 
-  /* Cabecera — título grande como "Your DBX S" */
   .sb-head {
     padding: 20px 24px 16px;
     background: #32353c;
@@ -239,7 +222,6 @@
   }
   .sb-close:hover { color: #eef0f0; }
 
-  /* Nav */
   .sb-nav {
     flex: 1;
     overflow-y: auto;
@@ -248,7 +230,6 @@
   .sb-nav::-webkit-scrollbar { width: 2px; }
   .sb-nav::-webkit-scrollbar-thumb { background: rgba(238,240,240,0.15); }
 
-  /* Etiqueta de sección — como "Exterior" / "Interior" */
   .sb-section-label {
     font-size: 11px;
     font-weight: 600;
@@ -260,7 +241,6 @@
   }
   .sb-section-label:first-child { border-top: none; padding-top: 8px; }
 
-  /* Item — estilo "Paint / Buckinghamshire Green ›" de AM */
   .sb-item {
     display: flex;
     align-items: center;
@@ -281,7 +261,6 @@
     background: var(--green-lt);
   }
 
-  /* Ícono — círculo gris como las miniaturas de AM */
   .sb-item-icon {
     width: 36px; height: 36px;
     border-radius: 50%;
@@ -294,7 +273,6 @@
   .sb-item:hover .sb-item-icon { background: rgba(238,240,240,0.16); color: #eef0f0; }
   .sb-item.active .sb-item-icon { background: rgba(0,102,94,0.3); color: var(--green-lt); }
 
-  /* Texto — label + sublabel como "Paint / Buckinghamshire Green" */
   .sb-item-label {
     flex: 1;
     min-width: 0;
@@ -316,7 +294,6 @@
     text-overflow: ellipsis;
   }
 
-  /* Flecha › */
   .sb-item-arrow {
     color: rgba(238,240,240,0.25);
     flex-shrink: 0;
@@ -336,7 +313,6 @@
     flex-shrink: 0;
   }
 
-  /* Trigger button en footer del sidebar */
   .sb-foot {
     padding: 14px 20px 18px;
     background: #2c2f36;
@@ -363,8 +339,6 @@
     line-height: 1.9;
   }
 
-  /* ━━ FONDO ANIMADO ESTILO AM ━━ */
-  /* Capa de gradiente que se mueve lentamente — igual al intro-bg de AM */
   .bg-anim {
     position: fixed;
     inset: 0;
@@ -379,7 +353,6 @@
     border-radius: 50%;
     filter: blur(100px);
   }
-  /* Mancha verde — esquina superior derecha */
   .bg-anim::before {
     width: 70vw; height: 70vw;
     background: radial-gradient(circle, #00665e 0%, transparent 70%);
@@ -387,7 +360,6 @@
     opacity: 0.13;
     animation: bgDrift1 18s ease-in-out infinite alternate;
   }
-  /* Mancha secundaria — esquina inferior izquierda */
   .bg-anim::after {
     width: 55vw; height: 55vw;
     background: radial-gradient(circle, #00998e 0%, transparent 70%);
@@ -406,7 +378,6 @@
     100% { transform: translate(5%,  15%) scale(0.9); }
   }
 
-  /* ━━ SCROLL CONTENT ━━ */
   .scroll-wrap {
     flex: 1;
     min-height: 100%;
@@ -420,10 +391,7 @@
     margin: 0 auto;
   }
 
-  /* ━━ PAGE TITLE ━━ */
-  .page-header {
-    margin-bottom: 28px;
-  }
+  .page-header { margin-bottom: 28px; }
   .page-rule {
     width: 28px; height: 1px;
     background: var(--green);
@@ -445,15 +413,12 @@
     margin-top: 4px;
   }
 
-  /* ━━ PAGES ━━ */
   .page { display: none; }
   .page.active { display: block; }
 
-  /* ━━ GRIDS ━━ */
   .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
   .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px; }
 
-  /* ━━ CARDS ━━ */
   .card {
     background: rgba(38,41,48,0.75);
     border: 1px solid rgba(238,240,240,0.1);
@@ -476,7 +441,6 @@
     text-transform: uppercase;
   }
 
-  /* ━━ SEARCH BAR ━━ */
   .search-bar { display: flex; gap: 10px; margin-bottom: 24px; flex-wrap: wrap; }
   .search-bar input, .search-bar select {
     flex: 1; min-width: 160px;
@@ -496,7 +460,6 @@
   }
   .search-bar select option { background: #2a2d35; }
 
-  /* ━━ BUTTONS ━━ */
   .btn {
     padding: 11px 24px;
     border: none;
@@ -519,16 +482,12 @@
   .btn-ghost:hover { border-color: rgba(238,240,240,0.5); background: rgba(238,240,240,0.09); }
   .btn:disabled { opacity: .25; cursor: not-allowed; }
 
-  /* ━━ TABLE — estilo AM configurador ━━ */
   .table-wrap {
     overflow-x: auto;
     border: 1px solid rgba(238,240,240,0.07);
-    border-radius: 0;
   }
   table { width: 100%; border-collapse: collapse; }
-  thead tr {
-    border-bottom: 1px solid rgba(238,240,240,0.12);
-  }
+  thead tr { border-bottom: 1px solid rgba(238,240,240,0.12); }
   th {
     background: rgba(24,26,32,0.95);
     color: rgba(238,240,240,0.35);
@@ -548,25 +507,17 @@
     font-size: 13px; vertical-align: middle;
     color: rgba(238,240,240,0.88);
   }
-  tbody tr:nth-child(even) td {
-    background: rgba(238,240,240,0.02);
-  }
-  /* Hover: fondo verde muy sutil + borde izquierdo */
+  tbody tr:nth-child(even) td { background: rgba(238,240,240,0.02); }
   tbody tr:hover td { background: rgba(0,102,94,0.1); }
-  tbody tr:hover td:first-child {
-    border-left: 2px solid var(--green);
-    padding-left: 18px;
-  }
+  tbody tr:hover td:first-child { border-left: 2px solid var(--green); padding-left: 18px; }
   td:first-child { border-left: 2px solid transparent; transition: border-color .18s; }
 
   .mono {
     font-family: 'Consolas', monospace;
     font-size: 12px;
-    color: rgba(103,184,175,0.8); /* verde-lt AM */
+    color: rgba(103,184,175,0.8);
     letter-spacing: 0.5px;
   }
-
-  /* Precio en tabla — más prominente */
   .td-price {
     font-family: 'Barlow Condensed', sans-serif;
     font-size: 16px;
@@ -575,37 +526,14 @@
     letter-spacing: 0.3px;
   }
 
-  /* Stock dot+número — como indicador AM */
-  .stock-cell {
-    display: flex;
-    align-items: center;
-    gap: 7px;
-    white-space: nowrap;
-  }
-  .stock-dot {
-    width: 6px; height: 6px;
-    border-radius: 50%;
-    flex-shrink: 0;
-  }
+  .stock-cell { display: flex; align-items: center; gap: 7px; white-space: nowrap; }
+  .stock-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
   .stock-dot.ok   { background: #67b8af; box-shadow: 0 0 6px rgba(103,184,175,0.5); }
   .stock-dot.low  { background: var(--orange); box-shadow: 0 0 6px rgba(200,151,58,0.4); }
   .stock-dot.none { background: rgba(238,240,240,0.15); }
-  .stock-num {
-    font-size: 13px;
-    font-family: 'Barlow Condensed', sans-serif;
-    letter-spacing: 0.5px;
-  }
-  .stock-none-txt {
-    font-size: 9px;
-    letter-spacing: 2px;
-    text-transform: uppercase;
-    color: rgba(238,240,240,0.2);
-  }
+  .stock-num { font-size: 13px; font-family: 'Barlow Condensed', sans-serif; letter-spacing: 0.5px; }
+  .stock-none-txt { font-size: 9px; letter-spacing: 2px; text-transform: uppercase; color: rgba(238,240,240,0.2); }
 
-  /* ━━ PRODUCTO CARD ━━ */
-  /* ━━ PRODUCT VIEW — estilo AM configurador ━━ */
-  /* ━━ PRODUCT VIEW — estilo AM configurador ━━ */
-  /* ━━ VISTA DE PRODUCTO — estilo AM Vanquish summary ━━ */
   .pv-wrap {
     display: grid;
     grid-template-columns: 1fr 440px;
@@ -616,7 +544,6 @@
   }
   @media (max-width: 960px) { .pv-wrap { grid-template-columns: 1fr; } }
 
-  /* Columna izquierda — imagen full con fondo oscuro */
   .pv-left {
     display: flex;
     flex-direction: column;
@@ -624,8 +551,6 @@
     background: #0d0f13;
     overflow: hidden;
   }
-
-  /* Fondo de pantalla de electronics — siempre visible */
   .pv-bg {
     position: absolute;
     inset: 0;
@@ -636,8 +561,6 @@
     z-index: 0;
   }
   .pv-left:hover .pv-bg { filter: brightness(0.22) saturate(0.7); }
-
-  /* Imagen del producto — encima del fondo */
   .pv-hero {
     flex: 1;
     display: flex;
@@ -655,15 +578,12 @@
     filter: drop-shadow(0 24px 48px rgba(0,0,0,0.7));
   }
   .pv-left:hover .pv-hero img { transform: scale(1.04) translateY(-6px); }
-
   .pv-hero-placeholder {
     display: flex; flex-direction: column;
     align-items: center; justify-content: center;
     gap: 16px; color: rgba(238,240,240,0.12);
     width: 100%; min-height: 300px;
   }
-
-  /* Badge de clave — esquina superior izquierda */
   .pv-hero-badge {
     position: absolute;
     top: 22px; left: 22px; z-index: 2;
@@ -677,8 +597,6 @@
     letter-spacing: 2.5px;
     text-transform: uppercase;
   }
-
-  /* Botón volver */
   .pv-back {
     position: absolute;
     top: 22px; right: 22px; z-index: 2;
@@ -693,13 +611,7 @@
     display: flex; align-items: center; gap: 6px;
     font-family: 'Barlow', sans-serif;
   }
-  .pv-back:hover {
-    color: #fff;
-    border-color: rgba(238,240,240,0.35);
-    background: rgba(0,0,0,0.65);
-  }
-
-  /* Marca en la esquina inferior del hero */
+  .pv-back:hover { color: #fff; border-color: rgba(238,240,240,0.35); background: rgba(0,0,0,0.65); }
   .pv-hero-marca {
     position: absolute;
     bottom: 24px; left: 24px; z-index: 2;
@@ -709,8 +621,6 @@
     color: rgba(255,255,255,0.12);
     user-select: none;
   }
-
-  /* Promo banner */
   .pv-promo {
     position: relative; z-index: 1;
     padding: 12px 24px;
@@ -719,8 +629,6 @@
     font-size: 12px; font-family: 'Barlow', sans-serif;
     color: var(--green-lt); line-height: 1.6;
   }
-
-  /* Sucursales — al pie del panel izquierdo */
   .pv-sucursales {
     position: relative; z-index: 1;
     padding: 16px 24px 20px;
@@ -763,7 +671,6 @@
   }
   .pv-suc-qty.zero { color: rgba(238,240,240,0.15); }
 
-  /* ── Panel derecho — AM summary dark ── */
   .pv-panel {
     background: #22252c;
     display: flex;
@@ -771,8 +678,6 @@
     overflow-y: auto;
     border-left: 1px solid rgba(238,240,240,0.07);
   }
-
-  /* Header: nombre del modelo grande */
   .pv-panel-head {
     padding: 28px 28px 22px;
     background: #1e2127;
@@ -796,8 +701,6 @@
     font-size: 12px; color: rgba(238,240,240,0.3);
     margin-top: 8px; letter-spacing: 0.5px;
   }
-
-  /* Bloque de precio */
   .pv-price-block {
     padding: 18px 28px;
     border-bottom: 1px solid rgba(238,240,240,0.08);
@@ -825,8 +728,6 @@
     border: 1px solid rgba(0,102,94,0.35);
     text-transform: uppercase;
   }
-
-  /* Items info — estilo "Paint / Podium Green ›" de AM */
   .pv-items { flex: 1; }
   .pv-item {
     display: flex; align-items: center;
@@ -849,29 +750,13 @@
     font-size: 15px; font-weight: 400;
     color: #d8dadc; letter-spacing: 0.1px;
   }
-  .pv-item-right {
-    display: flex; align-items: center;
-    gap: 10px; flex-shrink: 0;
-  }
-  .pv-item-arrow {
-    color: rgba(238,240,240,0.15);
-    transition: color .15s, transform .15s;
-  }
-  .pv-item:hover .pv-item-arrow {
-    color: rgba(238,240,240,0.4);
-    transform: translateX(2px);
-  }
-
-  /* Stock dot */
-  .pv-stock-dot {
-    width: 8px; height: 8px;
-    border-radius: 50%; flex-shrink: 0;
-  }
+  .pv-item-right { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+  .pv-item-arrow { color: rgba(238,240,240,0.15); transition: color .15s, transform .15s; }
+  .pv-item:hover .pv-item-arrow { color: rgba(238,240,240,0.4); transform: translateX(2px); }
+  .pv-stock-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
   .pv-stock-dot.ok   { background: #67b8af; box-shadow: 0 0 6px rgba(103,184,175,0.5); }
   .pv-stock-dot.low  { background: var(--orange); box-shadow: 0 0 6px rgba(200,151,58,0.4); }
   .pv-stock-dot.none { background: rgba(238,240,240,0.12); }
-
-  /* CTA — "Review & Proceed" de AM */
   .pv-cta-bar {
     border-top: 1px solid rgba(238,240,240,0.08);
     display: flex;
@@ -884,18 +769,13 @@
     z-index: 10;
     padding-bottom: env(safe-area-inset-bottom, 0);
   }
-  .pv-qty-ctrl {
-    display: flex;
-    align-items: center;
-    border-right: 1px solid rgba(238,240,240,0.08);
-  }
+  .pv-qty-ctrl { display: flex; align-items: center; border-right: 1px solid rgba(238,240,240,0.08); }
   .pv-qty-btn {
     width: 44px; height: 60px;
     background: none; border: none;
     color: rgba(238,240,240,0.4);
     font-size: 20px; line-height: 1;
-    cursor: pointer;
-    transition: color .15s;
+    cursor: pointer; transition: color .15s;
     font-family: 'Barlow', sans-serif;
   }
   .pv-qty-btn:hover { color: #eef0f0; }
@@ -911,53 +791,32 @@
   .pv-qty-input::-webkit-outer-spin-button,
   .pv-qty-input::-webkit-inner-spin-button { -webkit-appearance: none; }
   .pv-cta {
-    flex: 1;
-    height: 60px;
-    background: var(--green);
-    color: #fff;
-    border: none;
-    cursor: pointer;
+    flex: 1; height: 60px;
+    background: var(--green); color: #fff;
+    border: none; cursor: pointer;
     font-family: 'Barlow', sans-serif;
-    font-size: 13px;
-    font-weight: 500;
-    letter-spacing: 2px;
-    text-transform: uppercase;
+    font-size: 13px; font-weight: 500;
+    letter-spacing: 2px; text-transform: uppercase;
     transition: background .2s;
   }
   .pv-cta:hover { background: #005048; }
 
-  /* Tags (se mantienen para otros usos) */
-  .tag {
-    padding: 3px 10px;
-    font-size: 9px; font-weight: 500;
-    letter-spacing: 1.5px; text-transform: uppercase;
-    border: 1px solid;
-  }
+  .tag { padding: 3px 10px; font-size: 9px; font-weight: 500; letter-spacing: 1.5px; text-transform: uppercase; border: 1px solid; }
   .tag-blue   { color: var(--silver);   border-color: rgba(176,176,176,0.3); }
   .tag-green  { color: var(--green-hi); border-color: rgba(0,176,106,0.3); }
   .tag-red    { color: #CC4444;         border-color: rgba(204,68,68,0.3); }
   .tag-orange { color: var(--orange);   border-color: rgba(200,151,58,0.4); }
   .tag-gray   { color: var(--muted);    border-color: rgba(255,255,255,0.12); }
-  .price-big  {
-    font-size: 28px; font-weight: 300;
-    color: var(--text);
-    font-family: 'Barlow Condensed', sans-serif;
-  }
+  .price-big  { font-size: 28px; font-weight: 300; color: var(--text); font-family: 'Barlow Condensed', sans-serif; }
   .price-orig { font-size: 12px; color: var(--muted); text-decoration: line-through; margin-left: 10px; }
-  .prod-meta { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 14px; }
+  .prod-meta  { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 14px; }
 
-  /* ━━ ALERTS ━━ */
-  .alert {
-    padding: 14px 18px;
-    font-size: 13px; margin-bottom: 16px;
-    letter-spacing: 0.2px; line-height: 1.6;
-  }
+  .alert { padding: 14px 18px; font-size: 13px; margin-bottom: 16px; letter-spacing: 0.2px; line-height: 1.6; }
   .alert-info    { background: rgba(0,102,94,0.12);  border-left: 2px solid var(--green-lt); color: #67b8af; }
   .alert-success { background: rgba(103,184,175,0.1);border-left: 2px solid var(--green-lt); color: var(--green-lt); }
   .alert-warn    { background: rgba(200,151,58,0.1); border-left: 2px solid var(--orange);   color: var(--orange); }
   .alert-error   { background: rgba(139,32,32,0.12); border-left: 2px solid #CC4444;         color: #CC4444; }
 
-  /* ━━ SPINNER ━━ */
   .spin {
     display: inline-block; width: 14px; height: 14px;
     border: 1px solid rgba(255,255,255,0.1);
@@ -968,7 +827,6 @@
   }
   @keyframes spin { to { transform: rotate(360deg); } }
 
-  /* ━━ FORM ━━ */
   .form-group { margin-bottom: 16px; }
   .form-group label {
     display: block;
@@ -992,8 +850,20 @@
   }
   .form-group select option { background: #2a2d35; }
 
-  /* ━━ CART ━━ */
-  /* ━━ CARRITO ESTILO AMAZON ━━ */
+  /* Sucursal sugerida — highlight verde suave */
+  .sucursal-sugerida {
+    border-bottom-color: var(--green-lt) !important;
+    background: rgba(0,102,94,0.08) !important;
+  }
+  #sucursal-hint {
+    font-size: 10px;
+    color: var(--green-lt);
+    margin-top: 5px;
+    letter-spacing: 0.5px;
+    min-height: 16px;
+    transition: opacity .3s;
+  }
+
   .cart-item {
     display: grid;
     grid-template-columns: 80px 1fr auto auto;
@@ -1004,7 +874,6 @@
   }
   .cart-item:last-of-type { border-bottom: 1px solid rgba(238,240,240,0.1); }
   .cart-item:hover { background: rgba(36,39,47,0.98); }
-
   .cart-item-thumb {
     align-self: stretch;
     background: rgba(255,255,255,0.04);
@@ -1012,40 +881,15 @@
     display: flex; align-items: center; justify-content: center;
     padding: 14px 10px;
   }
-  .cart-item-thumb img {
-    width: 60px; max-height: 60px;
-    object-fit: contain;
-  }
-  .cart-item-thumb-ph {
-    display: flex; align-items: center; justify-content: center;
-    width: 60px; height: 60px;
-  }
-
-  .cart-item-info {
-    padding: 18px 20px;
-    min-width: 0;
-    display: flex; flex-direction: column;
-    justify-content: center; gap: 5px;
-  }
-  .cart-item-name {
-    font-size: 13px; font-weight: 500;
-    color: var(--text); line-height: 1.45;
-    display: -webkit-box;
-    -webkit-line-clamp: 2;
-    -webkit-box-orient: vertical;
-    overflow: hidden;
-  }
+  .cart-item-thumb img { width: 60px; max-height: 60px; object-fit: contain; }
+  .cart-item-thumb-ph { display: flex; align-items: center; justify-content: center; width: 60px; height: 60px; }
+  .cart-item-info { padding: 18px 20px; min-width: 0; display: flex; flex-direction: column; justify-content: center; gap: 5px; }
+  .cart-item-name { font-size: 13px; font-weight: 500; color: var(--text); line-height: 1.45; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
   .cart-item-meta { display: flex; gap: 10px; align-items: center; }
   .cart-item-clave { font-size: 11px; color: var(--green-lt); font-family: monospace; }
   .cart-item-marca { font-size: 9px; color: var(--muted); text-transform: uppercase; letter-spacing: 1.5px; }
   .cart-item-price-unit { font-size: 12px; color: var(--muted); }
-
-  /* Controles qty */
-  .cart-item-qty {
-    display: flex; align-items: center;
-    padding: 0 24px;
-    border-left: 1px solid rgba(238,240,240,0.07);
-  }
+  .cart-item-qty { display: flex; align-items: center; padding: 0 24px; border-left: 1px solid rgba(238,240,240,0.07); }
   .qty-ctrl { display: flex; align-items: center; }
   .qty-btn {
     width: 34px; height: 36px;
@@ -1071,8 +915,6 @@
   }
   .qty-num::-webkit-outer-spin-button,
   .qty-num::-webkit-inner-spin-button { -webkit-appearance: none; }
-
-  /* Precio + eliminar */
   .cart-item-total {
     display: flex; flex-direction: column;
     align-items: flex-end; justify-content: center;
@@ -1080,11 +922,7 @@
     border-left: 1px solid rgba(238,240,240,0.07);
     min-width: 140px;
   }
-  .cart-item-total-price {
-    font-family: 'Barlow Condensed', sans-serif;
-    font-size: 22px; font-weight: 400;
-    color: var(--text); white-space: nowrap;
-  }
+  .cart-item-total-price { font-family: 'Barlow Condensed', sans-serif; font-size: 22px; font-weight: 400; color: var(--text); white-space: nowrap; }
   .cart-item-remove {
     display: flex; align-items: center; gap: 6px;
     background: none; border: none; cursor: pointer;
@@ -1094,8 +932,6 @@
   }
   .cart-item-remove:hover { color: #e05555; }
 
-
-  /* ━━ CARRUSEL DE MARCAS ━━ */
   .marcas-carousel-wrap {
     margin: -8px -48px 28px;
     position: relative;
@@ -1106,7 +942,6 @@
     user-select: none;
   }
   .marcas-carousel-wrap:active { cursor: grabbing; }
-  /* Degradado en los bordes */
   .marcas-carousel-wrap::before,
   .marcas-carousel-wrap::after {
     content: '';
@@ -1116,147 +951,59 @@
     z-index: 2;
     pointer-events: none;
   }
-  .marcas-carousel-wrap::before {
-    left: 0;
-    background: linear-gradient(to right, var(--bg), transparent);
-  }
-  .marcas-carousel-wrap::after {
-    right: 0;
-    background: linear-gradient(to left, var(--bg), transparent);
-  }
+  .marcas-carousel-wrap::before { left: 0; background: linear-gradient(to right, var(--bg), transparent); }
+  .marcas-carousel-wrap::after  { right: 0; background: linear-gradient(to left, var(--bg), transparent); }
   .marcas-carousel-track {
     display: flex;
     gap: 14px;
     width: max-content;
     animation: marquee 500s linear infinite;
   }
-  /* hover pause desactivado — se maneja por JS para compatibilidad móvil */
   .marcas-carousel-wrap.dragging .marcas-carousel-track { animation-play-state: paused; }
-  @keyframes marquee {
-    from { transform: translateX(0); }
-    to   { transform: translateX(-50%); }
-  }
+  @keyframes marquee { from { transform: translateX(0); } to { transform: translateX(-50%); } }
   .marca-chip {
-    display: flex;
-    align-items: center;
-    gap: 12px;
+    display: flex; align-items: center; gap: 12px;
     padding: 14px 28px 14px 18px;
     background: rgba(238,240,240,0.04);
     border: 1px solid rgba(238,240,240,0.08);
-    cursor: pointer;
-    white-space: nowrap;
+    cursor: pointer; white-space: nowrap;
     transition: background .15s, border-color .15s;
     flex-shrink: 0;
   }
-  .marca-chip:hover {
-    background: rgba(0,102,94,0.12);
-    border-color: rgba(0,102,94,0.3);
-  }
-  /* Grupos: borde punteado sutil para diferenciarlos */
-  .marca-chip-grupo {
-    border-style: dashed;
-    opacity: 0.85;
-  }
-  .marca-chip-grupo .marca-chip-name {
-    color: rgba(238,240,240,0.55);
-    font-weight: 400;
-    letter-spacing: 2px;
-  }
-  .marca-chip img {
-    height: 34px; max-width: 90px;
-    object-fit: contain;
-    filter: brightness(0) invert(1);
-    opacity: 0.65;
-  }
-  .marca-chip-name {
-    font-family: 'Barlow', sans-serif;
-    font-size: 17px; font-weight: 600;
-    letter-spacing: 2.5px;
-    text-transform: uppercase;
-    color: rgba(238,240,240,0.7);
-  }
+  .marca-chip:hover { background: rgba(0,102,94,0.12); border-color: rgba(0,102,94,0.3); }
+  .marca-chip-grupo { border-style: dashed; opacity: 0.85; }
+  .marca-chip-grupo .marca-chip-name { color: rgba(238,240,240,0.55); font-weight: 400; letter-spacing: 2px; }
+  .marca-chip img { height: 34px; max-width: 90px; object-fit: contain; filter: brightness(0) invert(1); opacity: 0.65; }
+  .marca-chip-name { font-family: 'Barlow', sans-serif; font-size: 17px; font-weight: 600; letter-spacing: 2.5px; text-transform: uppercase; color: rgba(238,240,240,0.7); }
 
-
-  /* ━━ MERCADOLIBRE PRICE BLOCK ━━ */
   .pv-meli-block {
-    margin: 0 24px 4px;
-    padding: 14px 16px;
+    margin: 0 24px 4px; padding: 14px 16px;
     background: rgba(255,230,0,0.04);
     border: 1px solid rgba(255,230,0,0.10);
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 12px;
-    min-height: 52px;
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 12px; min-height: 52px;
   }
-  .pv-meli-logo {
-    font-family: 'Barlow', sans-serif;
-    font-size: 9px; font-weight: 700;
-    letter-spacing: 2px;
-    text-transform: uppercase;
-    color: rgba(255,230,0,0.5);
-    white-space: nowrap;
-    flex-shrink: 0;
-  }
+  .pv-meli-logo { font-family: 'Barlow', sans-serif; font-size: 9px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; color: rgba(255,230,0,0.5); white-space: nowrap; flex-shrink: 0; }
   .pv-meli-content { flex: 1; min-width: 0; }
-  .pv-meli-loading {
-    font-size: 10px; letter-spacing: 1.5px;
-    color: rgba(238,240,240,0.2);
-    text-transform: uppercase;
-  }
-  .pv-meli-price {
-    font-family: 'Barlow Condensed', sans-serif;
-    font-size: 22px; font-weight: 300;
-    color: rgba(255,230,0,0.75);
-    line-height: 1;
-  }
-  .pv-meli-sub {
-    font-size: 9px; letter-spacing: 1px;
-    color: rgba(238,240,240,0.25);
-    text-transform: uppercase;
-    margin-top: 3px;
-  }
-  .pv-meli-link {
-    font-size: 9px; font-weight: 600;
-    letter-spacing: 1.5px;
-    text-transform: uppercase;
-    color: rgba(255,230,0,0.4);
-    text-decoration: none;
-    white-space: nowrap;
-    flex-shrink: 0;
-    transition: color .15s;
-  }
+  .pv-meli-loading { font-size: 10px; letter-spacing: 1.5px; color: rgba(238,240,240,0.2); text-transform: uppercase; }
+  .pv-meli-price { font-family: 'Barlow Condensed', sans-serif; font-size: 22px; font-weight: 300; color: rgba(255,230,0,0.75); line-height: 1; }
+  .pv-meli-sub { font-size: 9px; letter-spacing: 1px; color: rgba(238,240,240,0.25); text-transform: uppercase; margin-top: 3px; }
+  .pv-meli-link { font-size: 9px; font-weight: 600; letter-spacing: 1.5px; text-transform: uppercase; color: rgba(255,230,0,0.4); text-decoration: none; white-space: nowrap; flex-shrink: 0; transition: color .15s; }
   .pv-meli-link:hover { color: rgba(255,230,0,0.8); }
-  .pv-meli-error {
-    font-size: 10px; letter-spacing: 1px;
-    color: rgba(238,240,240,0.15);
-    text-transform: uppercase;
-  }
+  .pv-meli-error { font-size: 10px; letter-spacing: 1px; color: rgba(238,240,240,0.15); text-transform: uppercase; }
 
-  /* ━━ SUCURSALES ━━ */
   .suc-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 6px; }
-  .suc-item {
-    background: var(--card);
-    border: 1px solid rgba(255,255,255,0.04);
-    border-left: 1px solid rgba(0,81,58,0.3);
-    padding: 10px 14px; font-size: 12px;
-  }
+  .suc-item { background: var(--card); border: 1px solid rgba(255,255,255,0.04); border-left: 1px solid rgba(0,81,58,0.3); padding: 10px 14px; font-size: 12px; }
   .suc-nombre { color: var(--muted); font-size: 9px; text-transform: uppercase; letter-spacing: 1.5px; }
   .suc-qty { font-weight: 300; font-size: 22px; font-family: 'Barlow Condensed', sans-serif; margin-top: 2px; }
 
-  /* ━━ MISC ━━ */
   .divider { height: 1px; background: rgba(255,255,255,0.05); margin: 20px 0; }
-  .section-title {
-    font-size: 9px; text-transform: uppercase;
-    letter-spacing: 3px; color: var(--muted);
-    margin-bottom: 16px; font-weight: 500;
-  }
+  .section-title { font-size: 9px; text-transform: uppercase; letter-spacing: 3px; color: var(--muted); margin-bottom: 16px; font-weight: 500; }
   .status-pendiente { color: var(--orange); letter-spacing: 1.5px; text-transform: uppercase; font-size: 10px; font-weight: 500; }
   .status-facturado { color: var(--green-hi); letter-spacing: 1.5px; text-transform: uppercase; font-size: 10px; font-weight: 500; }
   .status-cancelado { color: #CC4444; letter-spacing: 1.5px; text-transform: uppercase; font-size: 10px; font-weight: 500; }
   .stock { display: flex; align-items: center; gap: 6px; }
 
-  /* ━━ MODAL ━━ */
   .modal-overlay {
     display: none; position: fixed; inset: 0;
     background: rgba(0,0,0,0.88);
@@ -1273,337 +1020,200 @@
     max-height: 90vh; overflow-y: auto;
   }
 
-  /* ━━ SCROLLBAR ━━ */
   ::-webkit-scrollbar { width: 3px; height: 3px; }
   ::-webkit-scrollbar-track { background: #0A0A0A; }
   ::-webkit-scrollbar-thumb { background: #2A2A2A; }
   ::-webkit-scrollbar-thumb:hover { background: var(--green); }
 
-  /* ━━ RESPONSIVE ━━ */
   @media (max-width: 768px) {
-    /* Layout */
     .main { padding: 16px 14px 40px; }
     .grid-2, .grid-3 { grid-template-columns: 1fr; }
-
-    /* Header */
     .header { padding: 0 14px; }
     .header-logo img { height: 28px; }
     .header-logo-sub { display: none; }
     .header-right { gap: 5px; }
     .badge { font-size: 8px; padding: 2px 7px; letter-spacing: 1px; }
-
-    /* Sidebar más angosto */
     .sidebar { width: 280px; }
-
-    /* Búsqueda: inputs apilados */
     .search-bar { flex-direction: column; gap: 8px; }
     .search-bar input, .search-bar select { min-width: unset; width: 100%; }
     .search-bar .btn { width: 100%; }
-
-    /* Tabla: ocultar columnas menos importantes */
     .table-wrap { font-size: 12px; }
     th, td { padding: 10px 10px; }
-
-    /* Panel producto: columna única */
     .pv-wrap { grid-template-columns: 1fr; }
     .pv-hero { max-height: 200px; }
     .pv-panel-nombre { font-size: 16px; }
     .pv-price { font-size: 28px; }
-
-    /* Carrito: apilar en móvil */
     .cart-item { grid-template-columns: 64px 1fr; grid-template-rows: auto auto; }
     .cart-item-thumb { width: 64px; grid-row: 1 / 3; }
     .cart-item-qty { border-left: none; border-top: 1px solid rgba(238,240,240,0.07); padding: 10px 14px; grid-column: 2; }
     .cart-item-total { border-left: none; border-top: 1px solid rgba(238,240,240,0.07); padding: 10px 14px; grid-column: 2; flex-direction: row; justify-content: space-between; align-items: center; min-width: unset; }
     .cart-item-info { padding: 14px 14px 8px; }
-
-    /* Nueva orden: formulario */
     .grid-2 > div:first-child { order: 1; }
     .grid-2 > div:last-child  { order: 2; }
-
-    /* Botones del carrito */
     .pv-cta { padding: 14px; font-size: 13px; }
-
-    /* KPIs sync */
     .grid-3 { grid-template-columns: 1fr 1fr; }
-
-    /* Debug: apilar */
-    .grid-2 .form-group { margin-bottom: 12px; }
-
-    /* Página título más pequeño */
     .page-title { font-size: 18px; letter-spacing: 2px; }
-
-    /* Scroll horizontal en tablas */
     .table-wrap { -webkit-overflow-scrolling: touch; }
+    .marcas-carousel-wrap { margin: -8px -14px 20px; }
   }
-
   @media (max-width: 480px) {
     .main { padding: 12px 10px 32px; }
     .header-logo img { height: 24px; }
     .badge { display: none; }
-    #badge-cva { display: inline !important; } /* Solo CVA en pantallas muy pequeñas */
+    #badge-cva { display: inline !important; }
     .page-title { font-size: 16px; }
     .pv-panel-nombre { font-size: 14px; }
     .grid-3 { grid-template-columns: 1fr; }
   }
 
-  /* ━━ SPLASH SCREEN ESTILO ASTON MARTIN ━━ */
-  /* ━━ SPLASH — fiel al video de Aston Martin ━━ */
-
+  /* ━━ SPLASH ━━ */
   #splash {
-    position: fixed;
-    inset: 0;
-    z-index: 9999;
-    background: #00665e;        /* Verde desde el inicio */
-    display: flex;
-    align-items: center;
-    justify-content: center;
+    position: fixed; inset: 0; z-index: 9999;
+    background: #00665e;
+    display: flex; align-items: center; justify-content: center;
     transition: opacity 0.6s ease;
   }
-
-  /* Logo: fade in suave — sin escala ni movimiento al entrar */
   #splash-logo {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 20px;
-    opacity: 0;
-    position: relative;
-    z-index: 2;
-    transition: opacity 1.0s cubic-bezier(.22,1,.36,1),
-                transform 0.65s cubic-bezier(.4,0,.2,1);
+    display: flex; flex-direction: column; align-items: center; gap: 20px;
+    opacity: 0; position: relative; z-index: 2;
+    transition: opacity 1.0s cubic-bezier(.22,1,.36,1), transform 0.65s cubic-bezier(.4,0,.2,1);
   }
-
-  #splash-logo img {
-    height: 136px;
-    filter: brightness(0) invert(1);
-    opacity: 0.85;
-  }
-
+  #splash-logo img { height: 136px; filter: brightness(0) invert(1); opacity: 0.85; }
   #splash-logo .splash-wordmark {
     font-family: 'Barlow Condensed', sans-serif;
-    font-size: 36px;
-    font-weight: 400;
-    letter-spacing: 6px;
-    text-transform: uppercase;
+    font-size: 36px; font-weight: 400;
+    letter-spacing: 6px; text-transform: uppercase;
     color: rgba(255,255,255,0.55);
   }
   .splash-by {
-    display: flex;
-    align-items: center;
-    justify-content: center;
+    display: flex; align-items: center; justify-content: center;
     margin-top: 0px;
     font-family: 'Barlow', sans-serif;
-    font-size: 11px;
-    font-weight: 400;
-    letter-spacing: 1px;
-    color: rgba(255,255,255,0.35);
+    font-size: 11px; font-weight: 400;
+    letter-spacing: 1px; color: rgba(255,255,255,0.35);
   }
-
-
-  /* ━━ SPLASH WORD CLOUD ━━ */
   #splash-cloud {
-    position: absolute;
-    inset: 0;
-    z-index: 1;
-    overflow: hidden;
-    opacity: 0;
-    transition: opacity 0.4s ease;
-    pointer-events: none;
+    position: absolute; inset: 0; z-index: 1;
+    overflow: hidden; opacity: 0;
+    transition: opacity 0.4s ease; pointer-events: none;
   }
   #splash-cloud.visible { opacity: 1; }
-  #splash-cloud.fadeout { opacity: 0; transition: opacity 0.8s ease; }
   .splash-word {
     position: absolute;
     font-family: 'Barlow Condensed', sans-serif;
-    font-weight: 400;
-    text-transform: uppercase;
-    letter-spacing: 1px;
-    color: rgba(255,255,255,0);
-    white-space: nowrap;
-    transition: color 0.3s ease;
-    user-select: none;
+    font-weight: 400; text-transform: uppercase;
+    letter-spacing: 1px; color: rgba(255,255,255,0);
+    white-space: nowrap; transition: color 0.3s ease; user-select: none;
   }
   .splash-word.show { color: var(--splash-word-color, rgba(255,255,255,0.12)); }
-
-  /* Fase 1: logo aparece suavemente */
-  #splash.phase-1 #splash-logo {
-    opacity: 1;
-  }
-
-  /* Fase 2: todo sube y desaparece */
-  #splash.phase-2 {
-    opacity: 0;
-    pointer-events: none;
-    transition: opacity 0.75s ease;
-  }
-  #splash.phase-2 #splash-logo {
-    opacity: 0;
-    transform: translateY(-40vh);
-    transition: opacity 0.65s ease,
-                transform 0.75s cubic-bezier(.4,0,.2,1);
-  }
-  /* Cloud también sube con los logos */
-  #splash.phase-2 #splash-cloud {
-    opacity: 0 !important;
-    transform: translateY(-20vh);
-    transition: opacity 0.75s ease, transform 0.75s cubic-bezier(.4,0,.2,1);
-  }
-
-  /* Shell oculto hasta que splash termina */
-
+  #splash.phase-1 #splash-logo { opacity: 1; }
+  #splash.phase-2 { opacity: 0; pointer-events: none; transition: opacity 0.75s ease; }
+  #splash.phase-2 #splash-logo { opacity: 0; transform: translateY(-40vh); transition: opacity 0.65s ease, transform 0.75s cubic-bezier(.4,0,.2,1); }
+  #splash.phase-2 #splash-cloud { opacity: 0 !important; transform: translateY(-20vh); transition: opacity 0.75s ease, transform 0.75s cubic-bezier(.4,0,.2,1); }
 </style>
 </head>
 <body>
 
-<!-- ══ SPLASH SCREEN AM ══ -->
+<!-- ══ SPLASH ══ -->
 <div id="splash">
   <div id="splash-cloud"></div>
   <div id="splash-logo">
-    <!-- Logo CVA principal -->
-    <img
-      src="https://apicvaservices.grupocva.com/documentation/images/logo-fcd06fb4.png"
-      alt="CVA"
-      onerror="this.style.display='none'"
-    >
-    <!-- Electronics México — logo debajo del CVA -->
+    <img src="https://apicvaservices.grupocva.com/documentation/images/logo-fcd06fb4.png" alt="CVA" onerror="this.style.display='none'">
     <div class="splash-by" id="splash-by" style="opacity:0;transition:opacity 0.8s ease">
       <span style="margin-right:8px">by</span>
-      <img
-        src="https://acdn-us.mitiendanube.com/stores/006/131/081/themes/common/logo-257925442-1748975905-ea5b79b9b6bd00d801280c0aee35d5251748975905-320-0.webp"
-        alt="Electronics México"
-        onerror="this.style.display='none'"
-        style="height:51px;filter:brightness(0) invert(1);opacity:0.65"
-      >
+      <img src="https://acdn-us.mitiendanube.com/stores/006/131/081/themes/common/logo-257925442-1748975905-ea5b79b9b6bd00d801280c0aee35d5251748975905-320-0.webp"
+        alt="Electronics México" onerror="this.style.display='none'"
+        style="height:51px;filter:brightness(0) invert(1);opacity:0.65">
     </div>
   </div>
 </div>
 
 <!-- ══ SIDEBAR OVERLAY ══ -->
-  <div class="sb-overlay" id="sb-overlay" onclick="closeSidebar()"></div>
+<div class="sb-overlay" id="sb-overlay" onclick="closeSidebar()"></div>
 
-  <!-- ══ SIDEBAR ══ -->
-  <nav class="sidebar" id="sidebar">
-    <div class="sb-head">
-      <div class="sb-head-title">CVA Dropship</div>
-
-      <button class="sb-close" onclick="closeSidebar()">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-      </button>
+<!-- ══ SIDEBAR ══ -->
+<nav class="sidebar" id="sidebar">
+  <div class="sb-head">
+    <div class="sb-head-title">CVA Dropship</div>
+    <button class="sb-close" onclick="closeSidebar()">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+    </button>
+  </div>
+  <div class="sb-nav">
+    <div class="sb-section-label">CVA</div>
+    <div class="sb-item active" id="nav-buscar" onclick="showPage('buscar')">
+      <div class="sb-item-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><line x1="16.5" y1="16.5" x2="22" y2="22"/></svg></div>
+      <div class="sb-item-label"><div class="sb-item-name">Buscar Productos</div><div class="sb-item-sub">Catálogo en tiempo real</div></div>
+      <div class="sb-item-arrow"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg></div>
     </div>
-    <div class="sb-nav">
-
-      <div class="sb-section-label">CVA</div>
-
-      <div class="sb-item active" id="nav-buscar" onclick="showPage('buscar')">
-        <div class="sb-item-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><line x1="16.5" y1="16.5" x2="22" y2="22"/></svg></div>
-        <div class="sb-item-label">
-          <div class="sb-item-name">Buscar Productos</div>
-          <div class="sb-item-sub">Catálogo en tiempo real</div>
-        </div>
-        <div class="sb-item-arrow"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg></div>
-      </div>
-
-      <div class="sb-item" id="nav-orden" onclick="showPage('orden')">
-        <div class="sb-item-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 01-8 0"/></svg></div>
-        <div class="sb-item-label">
-          <div class="sb-item-name">Nueva Orden</div>
-          <div class="sb-item-sub">Carrito de compra CVA</div>
-        </div>
-        <span class="sb-item-badge" id="cart-sb-badge" style="display:none">0</span>
-        <div class="sb-item-arrow"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg></div>
-      </div>
-
-      <div class="sb-item" id="nav-pedidos" onclick="showPage('pedidos')">
-        <div class="sb-item-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><rect x="3" y="3" width="18" height="18" rx="1"/><line x1="7" y1="8" x2="17" y2="8"/><line x1="7" y1="12" x2="14" y2="12"/><line x1="7" y1="16" x2="11" y2="16"/></svg></div>
-        <div class="sb-item-label">
-          <div class="sb-item-name">Pedidos CVA</div>
-          <div class="sb-item-sub">Historial y guías</div>
-        </div>
-        <div class="sb-item-arrow"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg></div>
-      </div>
-
-      <div class="sb-section-label">Sistema</div>
-
-      <div class="sb-item" id="nav-sync" onclick="showPage('sync')">
-        <div class="sb-item-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/></svg></div>
-        <div class="sb-item-label">
-          <div class="sb-item-name">Sincronización</div>
-          <div class="sb-item-sub">Sync catálogo CVA</div>
-        </div>
-        <div class="sb-item-arrow"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg></div>
-      </div>
-
-      <div class="sb-item" id="nav-odoo" onclick="showPage('odoo')">
-        <div class="sb-item-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg></div>
-        <div class="sb-item-label">
-          <div class="sb-item-name">Odoo</div>
-          <div class="sb-item-sub">Ventas y stock</div>
-        </div>
-        <div class="sb-item-arrow"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg></div>
-      </div>
-
-      <div class="sb-item" id="nav-log" onclick="showPage('log')">
-        <div class="sb-item-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg></div>
-        <div class="sb-item-label">
-          <div class="sb-item-name">Log de actividad</div>
-          <div class="sb-item-sub" id="log-sb-sub">Sin eventos</div>
-        </div>
-        <div class="sb-item-arrow"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg></div>
-      </div>
-
-      <div class="sb-section-label">Dev</div>
-
-      <div class="sb-item" id="nav-debug" onclick="showPage('debug')">
-        <div class="sb-item-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg></div>
-        <div class="sb-item-label">
-          <div class="sb-item-name">Debug Console</div>
-          <div class="sb-item-sub">Endpoints directos</div>
-        </div>
-        <div class="sb-item-arrow"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg></div>
-      </div>
-
+    <div class="sb-item" id="nav-orden" onclick="showPage('orden')">
+      <div class="sb-item-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 01-8 0"/></svg></div>
+      <div class="sb-item-label"><div class="sb-item-name">Nueva Orden</div><div class="sb-item-sub">Carrito de compra CVA</div></div>
+      <span class="sb-item-badge" id="cart-sb-badge" style="display:none">0</span>
+      <div class="sb-item-arrow"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg></div>
     </div>
-    <div class="sb-foot">
-      <div style="display:flex;flex-direction:column;align-items:center;gap:5px;padding:6px 0 10px">
-        <span style="font-size:9px;letter-spacing:1px;color:rgba(238,240,240,0.2)">by</span>
-        <img
-          src="https://acdn-us.mitiendanube.com/stores/006/131/081/themes/common/logo-257925442-1748975905-ea5b79b9b6bd00d801280c0aee35d5251748975905-320-0.webp"
-          alt="Electronics México"
-          onerror="this.style.display='none'"
-          style="height:36px;filter:brightness(0) invert(1);opacity:0.4"
-        >
-      </div>
+    <div class="sb-item" id="nav-pedidos" onclick="showPage('pedidos')">
+      <div class="sb-item-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><rect x="3" y="3" width="18" height="18" rx="1"/><line x1="7" y1="8" x2="17" y2="8"/><line x1="7" y1="12" x2="14" y2="12"/><line x1="7" y1="16" x2="11" y2="16"/></svg></div>
+      <div class="sb-item-label"><div class="sb-item-name">Pedidos CVA</div><div class="sb-item-sub">Historial y guías</div></div>
+      <div class="sb-item-arrow"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg></div>
     </div>
-  </nav>
+    <div class="sb-section-label">Sistema</div>
+    <div class="sb-item" id="nav-sync" onclick="showPage('sync')">
+      <div class="sb-item-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/></svg></div>
+      <div class="sb-item-label"><div class="sb-item-name">Sincronización</div><div class="sb-item-sub">Sync catálogo CVA</div></div>
+      <div class="sb-item-arrow"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg></div>
+    </div>
+    <div class="sb-item" id="nav-odoo" onclick="showPage('odoo')">
+      <div class="sb-item-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg></div>
+      <div class="sb-item-label"><div class="sb-item-name">Odoo</div><div class="sb-item-sub">Ventas y stock</div></div>
+      <div class="sb-item-arrow"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg></div>
+    </div>
+    <div class="sb-item" id="nav-log" onclick="showPage('log')">
+      <div class="sb-item-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg></div>
+      <div class="sb-item-label"><div class="sb-item-name">Log de actividad</div><div class="sb-item-sub" id="log-sb-sub">Sin eventos</div></div>
+      <div class="sb-item-arrow"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg></div>
+    </div>
+    <div class="sb-section-label">Dev</div>
+    <div class="sb-item" id="nav-debug" onclick="showPage('debug')">
+      <div class="sb-item-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg></div>
+      <div class="sb-item-label"><div class="sb-item-name">Debug Console</div><div class="sb-item-sub">Endpoints directos</div></div>
+      <div class="sb-item-arrow"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg></div>
+    </div>
+  </div>
+  <div class="sb-foot">
+    <div style="display:flex;flex-direction:column;align-items:center;gap:5px;padding:6px 0 10px">
+      <span style="font-size:9px;letter-spacing:1px;color:rgba(238,240,240,0.2)">by</span>
+      <img src="https://acdn-us.mitiendanube.com/stores/006/131/081/themes/common/logo-257925442-1748975905-ea5b79b9b6bd00d801280c0aee35d5251748975905-320-0.webp"
+        alt="Electronics México" onerror="this.style.display='none'"
+        style="height:36px;filter:brightness(0) invert(1);opacity:0.4">
+    </div>
+  </div>
+</nav>
 
 <div class="shell">
-
-  <!-- Fondo animado AM -->
   <div class="bg-anim" aria-hidden="true"></div>
 
   <!-- ══ HEADER ══ -->
   <header class="header">
-    <button class="ham-btn" id="ham-btn" onclick="toggleSidebar()" aria-label="Menú" style="position:relative;width:44px;height:44px;cursor:pointer;background:none;border:none;flex-shrink:0;z-index:201">
-      <svg id="ham-svg-menu" width="22" height="15" viewBox="0 0 22 15" fill="none" style="display:block;position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);transition:opacity .3s">
-        <rect y="0"  width="22" height="1.5" rx="0.75" fill="#eef0f0"/>
+    <button class="ham-btn" id="ham-btn" onclick="toggleSidebar()" aria-label="Menú"
+      style="position:relative;width:44px;height:44px;cursor:pointer;background:none;border:none;flex-shrink:0;z-index:201">
+      <svg id="ham-svg-menu" width="22" height="15" viewBox="0 0 22 15" fill="none"
+        style="display:block;position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);transition:opacity .3s">
+        <rect y="0"   width="22" height="1.5" rx="0.75" fill="#eef0f0"/>
         <rect y="6.5" width="22" height="1.5" rx="0.75" fill="#eef0f0"/>
-        <rect y="13" width="22" height="1.5" rx="0.75" fill="#eef0f0"/>
+        <rect y="13"  width="22" height="1.5" rx="0.75" fill="#eef0f0"/>
       </svg>
-      <svg id="ham-svg-close" width="18" height="18" viewBox="0 0 18 18" fill="none" style="display:none;position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);transition:opacity .3s">
+      <svg id="ham-svg-close" width="18" height="18" viewBox="0 0 18 18" fill="none"
+        style="display:none;position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);transition:opacity .3s">
         <line x1="1" y1="1" x2="17" y2="17" stroke="#eef0f0" stroke-width="1.5" stroke-linecap="round"/>
         <line x1="17" y1="1" x2="1" y2="17" stroke="#eef0f0" stroke-width="1.5" stroke-linecap="round"/>
       </svg>
     </button>
 
-    <div class="header-logo" onclick="showPage('buscar')" style="cursor:pointer" title="Ir a Buscar Productos">
-      <img
-        src="https://apicvaservices.grupocva.com/documentation/images/logo-fcd06fb4.png"
-        alt="CVA"
-        onerror="this.style.display='none'; this.nextElementSibling.style.display='block';"
-        style="display:block">
+    <div class="header-logo" onclick="showPage('buscar')" title="Ir a Buscar Productos">
+      <img src="https://apicvaservices.grupocva.com/documentation/images/logo-fcd06fb4.png"
+        alt="CVA" onerror="this.style.display='none'; this.nextElementSibling.style.display='block';" style="display:block">
       <div class="header-logo-fallback" style="display:none">CVA Dropship</div>
-
     </div>
 
     <div class="header-right">
@@ -1614,7 +1224,6 @@
     </div>
   </header>
   <div class="header-line"></div>
-
 
   <!-- ══ SCROLL CONTENT ══ -->
   <div class="scroll-wrap">
@@ -1627,16 +1236,14 @@
           <div class="page-title">Buscar Productos</div>
           <div class="page-sub">Catálogo CVA — búsqueda en tiempo real</div>
         </div>
-        <!-- Carrusel de marcas con stock -->
         <div class="marcas-carousel-wrap" id="marcas-carousel-wrap">
           <div class="marcas-carousel-track" id="marcas-carousel-track"></div>
         </div>
-
         <div class="search-bar">
-          <input id="s-clave"  type="text" placeholder="Clave CVA — ej: PR-2586" onkeydown="if(event.key==='Enter') buscarCVA()">
-          <input id="s-marca"  type="text" placeholder="Marca — ej: HP, Lenovo"  onkeydown="if(event.key==='Enter') buscarCVA()">
-          <input id="s-grupo"  type="text" placeholder="Grupo — ej: Impresoras"  onkeydown="if(event.key==='Enter') buscarCVA()">
-          <input id="s-desc"   type="text" placeholder="Descripción"             onkeydown="if(event.key==='Enter') buscarCVA()">
+          <input id="s-clave"  type="text" placeholder="Clave CVA — ej: PR-2586"  onkeydown="if(event.key==='Enter') buscarCVA()">
+          <input id="s-marca"  type="text" placeholder="Marca — ej: HP, Lenovo"   onkeydown="if(event.key==='Enter') buscarCVA()">
+          <input id="s-grupo"  type="text" placeholder="Grupo — ej: Impresoras"   onkeydown="if(event.key==='Enter') buscarCVA()">
+          <input id="s-desc"   type="text" placeholder="Descripción"              onkeydown="if(event.key==='Enter') buscarCVA()">
           <select id="s-exist">
             <option value="">Todos (sin filtro)</option>
             <option value="2">Con stock CEDIS</option>
@@ -1673,22 +1280,17 @@
                 <span class="section-title" style="margin:0">Total Estimado CVA</span>
                 <span id="carrito-total" class="price-big"></span>
               </div>
-              <!-- Exports del carrito -->
               <div style="display:flex;gap:6px;margin-bottom:12px">
-                <button class="btn btn-ghost" style="flex:1;font-size:10px;display:flex;align-items:center;justify-content:center;gap:5px"
-                  onclick="exportCarritoCSV()">
+                <button class="btn btn-ghost" style="flex:1;font-size:10px;display:flex;align-items:center;justify-content:center;gap:5px" onclick="exportCarritoCSV()">
                   <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
                   Descargar CSV
                 </button>
-                <button class="btn btn-ghost" style="flex:1;font-size:10px;display:flex;align-items:center;justify-content:center;gap:5px"
-                  onclick="exportCarritoPDF()">
+                <button class="btn btn-ghost" style="flex:1;font-size:10px;display:flex;align-items:center;justify-content:center;gap:5px" onclick="exportCarritoPDF()">
                   <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
                   Imprimir PDF
                 </button>
               </div>
-              <button class="btn btn-primary" style="width:100%" onclick="showPage('orden')">
-                Confirmar Orden
-              </button>
+              <button class="btn btn-primary" style="width:100%" onclick="showPage('orden')">Confirmar Orden</button>
             </div>
           </div>
           <div>
@@ -1702,26 +1304,21 @@
                   <option value="SF">SF — Sin flete (recoger en CVA)</option>
                 </select>
               </div>
+
+              <!-- ── SELECTOR DE SUCURSAL — se llena dinámicamente ── -->
               <div class="form-group">
                 <label>Almacén / Sucursal CVA</label>
                 <select id="f-sucursal">
-                  <option value="1">Sucursal (1) — por defecto</option>
-                  <option value="0">CEDIS Central (0)</option>
-                  <option value="2">Sucursal 2</option>
-                  <option value="3">Sucursal 3</option>
-                  <option value="4">Sucursal 4</option>
-                  <option value="5">Sucursal 5</option>
-                  <option value="6">Sucursal 6</option>
-                  <option value="7">Sucursal 7</option>
-                  <option value="8">Sucursal 8</option>
-                  <option value="9">Sucursal 9</option>
-                  <option value="10">Sucursal 10</option>
+                  <option value="">Cargando sucursales…</option>
                 </select>
+                <!-- hint dinámico: muestra la sucursal sugerida por stock -->
+                <div id="sucursal-hint"></div>
                 <div style="font-size:10px;color:var(--muted);margin-top:4px;letter-spacing:.5px">
-                  Si un producto no tiene stock en la sucursal seleccionada, CVA rechaza la orden (error 409). 
-                  Usa el almacén donde el producto tiene existencias.
+                  Si un producto no tiene stock en la sucursal seleccionada, CVA puede rechazar la orden.
+                  La sucursal sugerida es la que tiene mayor stock agregado de los productos en el carrito.
                 </div>
               </div>
+
               <div class="form-group">
                 <label>Número OC / Referencia Odoo</label>
                 <input id="num-oc" type="text" placeholder="ODO-12345 o folio SO" onkeydown="if(event.key==='Enter') enviarOrden()">
@@ -1782,8 +1379,8 @@
               </div>
               <div class="divider"></div>
               <div style="display:flex;gap:10px">
-                <button class="btn btn-ghost" onclick="enviarOrdenTest()" style="flex:1">Test</button>
-                <button class="btn btn-primary" onclick="enviarOrden()" style="flex:1">Enviar Orden Real</button>
+                <button class="btn btn-ghost"   onclick="enviarOrdenTest()" style="flex:1">Test</button>
+                <button class="btn btn-primary" onclick="enviarOrden()"     style="flex:1">Enviar Orden Real</button>
               </div>
               <div id="orden-result" style="margin-top:14px"></div>
             </div>
@@ -1816,32 +1413,14 @@
           <div class="page-title">Sincronización</div>
           <div class="page-sub">Catálogo CVA → Sheets · Historial de stock</div>
         </div>
-
-        <!-- Estado actual del sync -->
         <div id="sync-status-box" style="margin-bottom:20px">
           <div style="color:var(--muted);font-size:11px;letter-spacing:1px">Carga la página para ver el estado...</div>
         </div>
-
-        <!-- KPIs del último run manual -->
         <div class="grid-3" style="margin-bottom:20px">
-          <div class="card">
-            <div class="card-title">Último Run — Artículos</div>
-            <div class="kpi" id="sync-art">—</div>
-            <div class="kpi-sub">procesados</div>
-          </div>
-          <div class="card">
-            <div class="card-title">Checkpoint actual</div>
-            <div class="kpi" id="sync-page">—</div>
-            <div class="kpi-sub">próxima página</div>
-          </div>
-          <div class="card">
-            <div class="card-title">Total Páginas CVA</div>
-            <div class="kpi" id="sync-total">—</div>
-            <div class="kpi-sub">catálogo completo</div>
-          </div>
+          <div class="card"><div class="card-title">Último Run — Artículos</div><div class="kpi" id="sync-art">—</div><div class="kpi-sub">procesados</div></div>
+          <div class="card"><div class="card-title">Checkpoint actual</div><div class="kpi" id="sync-page">—</div><div class="kpi-sub">próxima página</div></div>
+          <div class="card"><div class="card-title">Total Páginas CVA</div><div class="kpi" id="sync-total">—</div><div class="kpi-sub">catálogo completo</div></div>
         </div>
-
-        <!-- Configuración -->
         <div class="card">
           <div class="section-title">Configuración Sync manual</div>
           <div class="grid-2">
@@ -1874,8 +1453,6 @@
           </div>
           <div id="sync-result" style="margin-top:14px"></div>
         </div>
-
-        <!-- Reset -->
         <div class="card" style="margin-top:16px;border-color:rgba(200,151,58,0.2)">
           <div class="section-title" style="color:var(--orange)">Resetear Sync</div>
           <p style="color:var(--muted);font-size:13px;line-height:1.7;margin-bottom:14px">
@@ -1883,10 +1460,8 @@
             Si además quieres <strong style="color:var(--text)">borrar SYNC_CVA</strong> y descargar todo desde cero (el HISTORIAL_STOCK no se borra), usa el segundo botón.
           </p>
           <div style="display:flex;gap:10px;flex-wrap:wrap">
-            <button class="btn btn-ghost" style="border-color:rgba(200,151,58,0.3);color:var(--orange);flex:1;min-width:160px"
-              onclick="resetearSync(false)">Resetear checkpoint (pág 1)</button>
-            <button class="btn btn-ghost" style="border-color:rgba(204,68,68,0.3);color:#e05555;flex:1;min-width:160px"
-              onclick="resetearSync(true)">Resetear + limpiar SYNC_CVA</button>
+            <button class="btn btn-ghost" style="border-color:rgba(200,151,58,0.3);color:var(--orange);flex:1;min-width:160px" onclick="resetearSync(false)">Resetear checkpoint (pág 1)</button>
+            <button class="btn btn-ghost" style="border-color:rgba(204,68,68,0.3);color:#e05555;flex:1;min-width:160px" onclick="resetearSync(true)">Resetear + limpiar SYNC_CVA</button>
           </div>
         </div>
       </div>
@@ -1948,7 +1523,9 @@
             </div>
             <div>
               <div class="section-title">Respuesta</div>
-              <div id="d-result" style="min-height:80px"><div style="padding:20px;color:var(--muted);font-size:11px;letter-spacing:2px;text-transform:uppercase;text-align:center;opacity:0.5">El resultado aparecerá aquí</div></div>
+              <div id="d-result" style="min-height:80px">
+                <div style="padding:20px;color:var(--muted);font-size:11px;letter-spacing:2px;text-transform:uppercase;text-align:center;opacity:0.5">El resultado aparecerá aquí</div>
+              </div>
             </div>
           </div>
         </div>
@@ -2041,8 +1618,8 @@
       <label style="margin:0;font-size:10px;letter-spacing:2px;color:var(--muted)">Guía enviada a CVA</label>
     </div>
     <div style="display:flex;gap:10px;margin-top:24px">
-      <button class="btn btn-ghost"   onclick="cerrarModal()" style="flex:1">Cerrar</button>
-      <button class="btn btn-orange"  onclick="enviarGuiaCVA()" style="flex:1">Enviar Guía</button>
+      <button class="btn btn-ghost"   onclick="cerrarModal()"    style="flex:1">Cerrar</button>
+      <button class="btn btn-orange"  onclick="enviarGuiaCVA()"  style="flex:1">Enviar Guía</button>
       <button class="btn btn-primary" onclick="registrarPedido()" style="flex:1">Registrar</button>
     </div>
     <div id="modal-result" style="margin-top:14px"></div>
