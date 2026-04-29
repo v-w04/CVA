@@ -755,11 +755,25 @@ async function enviarOrden(test = false) {
     tipo_flete, direccion, test: test ? 1 : 0,
   };
   const data = await apiPost('cva_crear_orden', body);
+  // Debug: loguear respuesta completa para ver qué campos devuelve CVA
+  addLog('info', 'Respuesta CVA crear_orden', JSON.stringify(data).substring(0, 400));
+
   if (!data.ok) { alert_(el, '✖ ' + data.error, 'error'); return; }
+
+  // CVA puede devolver distintos nombres de campo según versión de API
+  const numPedido = data.pedido || data.Pedido || data.numero_pedido || data.numeroPedido || '(ver log)';
+  const totalVal  = data.total  || data.Total  || data.subtotal      || 0;
+  const monedaVal = data.moneda || data.Moneda || 'MXN';
+  const fleteData = data.flete  || data.Flete  || null;
+
   el.innerHTML = `<div class="alert alert-success">
-    ${test?'Test — ':''}Pedido creado: <strong>${data.pedido}</strong><br>
-    Total: ${fmt(data.total,data.moneda)}
-    ${data.flete?` · Flete: ${fmt(data.flete.montoTotal,'Pesos')} MXN`:''}
+    ${test ? 'Test — ' : ''}Pedido creado: <strong>${numPedido}</strong><br>
+    Total: ${fmt(totalVal, monedaVal)}
+    ${fleteData ? ` · Flete: ${fmt(fleteData.montoTotal || fleteData.total || 0, 'Pesos')} MXN` : ''}
+    <details style="margin-top:10px;font-size:10px;color:rgba(238,240,240,0.4);cursor:pointer">
+      <summary>Ver respuesta completa de CVA</summary>
+      <pre style="margin-top:6px;white-space:pre-wrap;word-break:break-all;font-size:10px">${JSON.stringify(data, null, 2)}</pre>
+    </details>
   </div>`;
   if (!test) { carrito=[]; guardarCarrito(); renderCarrito(); }
 }
