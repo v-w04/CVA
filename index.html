@@ -1703,6 +1703,26 @@
                 </select>
               </div>
               <div class="form-group">
+                <label>Almacén / Sucursal CVA</label>
+                <select id="f-sucursal">
+                  <option value="1">Sucursal (1) — por defecto</option>
+                  <option value="0">CEDIS Central (0)</option>
+                  <option value="2">Sucursal 2</option>
+                  <option value="3">Sucursal 3</option>
+                  <option value="4">Sucursal 4</option>
+                  <option value="5">Sucursal 5</option>
+                  <option value="6">Sucursal 6</option>
+                  <option value="7">Sucursal 7</option>
+                  <option value="8">Sucursal 8</option>
+                  <option value="9">Sucursal 9</option>
+                  <option value="10">Sucursal 10</option>
+                </select>
+                <div style="font-size:10px;color:var(--muted);margin-top:4px;letter-spacing:.5px">
+                  Si un producto no tiene stock en la sucursal seleccionada, CVA rechaza la orden (error 409). 
+                  Usa el almacén donde el producto tiene existencias.
+                </div>
+              </div>
+              <div class="form-group">
                 <label>Número OC / Referencia Odoo</label>
                 <input id="num-oc" type="text" placeholder="ODO-12345 o folio SO" onkeydown="if(event.key==='Enter') enviarOrden()">
               </div>
