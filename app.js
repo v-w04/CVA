@@ -733,9 +733,20 @@ function quitarItem(idx){ carrito.splice(idx,1); guardarCarrito(); renderCarrito
 
 async function enviarOrden(test = false) {
   if (carrito.length === 0) { alert('El carrito está vacío'); return; }
+
+  // Validar guía si es SF (guía propia)
+  const tipo_flete = document.getElementById('tipo-flete').value;
+  if (tipo_flete === 'SF' && !test) {
+    const noGuia = document.getElementById('guia-numero').value.trim();
+    if (!noGuia) {
+      alert('⚠️ Ingresa el número de guía antes de crear el pedido. Es necesario para que CVA despache el paquete.');
+      document.getElementById('guia-numero').focus();
+      return;
+    }
+  }
+
   const el = document.getElementById('orden-result');
   loading(el);
-  const tipo_flete = document.getElementById('tipo-flete').value;
   const direccion  = {
     calle: document.getElementById('f-calle').value,
     numero: document.getElementById('f-numero').value,
@@ -827,13 +838,66 @@ async function enviarOrden(test = false) {
         </div>
       </div>
 
-      <div style="padding:14px 20px;font-size:11px;color:var(--muted);border-top:1px solid rgba(238,240,240,0.07)">
-        💬 CVA enviará confirmación a ${data.email_agente || 'tu agente CVA'}
+      <div style="padding:14px 20px;font-size:11px;color:var(--muted);border-top:1px solid rgba(238,240,240,0.07);display:flex;flex-direction:column;gap:6px">
+        <div>💬 CVA: ${data.email_agente || 'agente CVA'} · ${data.email_almacen || ''}</div>
+        <div class="guia-status" style="font-size:11px">
+          ${tipo_flete === 'SF' && document.getElementById('guia-numero')?.value.trim()
+            ? (_tieneTokenGuias()
+                ? `<span style="color:var(--green-lt)">✓ Guía enviando a CVA…</span>`
+                : `<span style="color:var(--orange)">⏳ Guía registrada localmente — pendiente token CVA para despacho automático</span>`)
+            : ''}
+        </div>
       </div>
     </div>`;
 
   addLog('ok', `Pedido CVA: ${data.pedido}`,
     `${fmt(totMXN,'Pesos')} + flete ${fmt(fleteTot,'Pesos')} = ${fmt(grandTotal,'Pesos')} MXN`);
+
+  // ── Enviar guía a CVA si es SF y hay datos de guía ──────────
+  if (!test && tipo_flete === 'SF') {
+    const noGuia  = document.getElementById('guia-numero')?.value.trim() || '';
+    const carrier = document.getElementById('guia-carrier')?.value || 'DHL';
+
+    if (noGuia) {
+      if (_tieneTokenGuias()) {
+        // Token activo → enviar a CVA inmediatamente
+        try {
+          const guiaRes = await apiPost('cva_enviar_guia', {
+            order_number: data.pedido,
+            waybills    : noGuia,
+            carrier     : carrier,
+            pdf_base64  : _guiaPdfBase64 || '',
+          });
+          if (guiaRes.ok) {
+            addLog('ok', `Guía enviada a CVA: ${data.pedido}`, `${carrier} · ${noGuia}`);
+            // Agregar al desglose visual
+            const guiaStatus = el.querySelector('.guia-status');
+            if (guiaStatus) guiaStatus.innerHTML =
+              `<span style="color:var(--green-lt)">✓ Guía enviada a CVA — ${carrier} ${noGuia}</span>`;
+          } else {
+            addLog('warn', 'Guía registrada localmente (error CVA)', guiaRes.error || '');
+          }
+        } catch(ge) {
+          addLog('warn', 'Guía no enviada a CVA', ge.message);
+        }
+      } else {
+        // Sin token → guardar localmente como pendiente
+        addLog('warn', 'Guía pendiente de envío a CVA', `${carrier} · ${noGuia} — activa el token CVA`);
+      }
+
+      // Siempre registrar localmente en PEDIDOS_GUIAS
+      apiPost('registrar_pedido', {
+        orden_cva    : data.pedido,
+        carrier      : carrier,
+        no_guia      : noGuia,
+        guia_enviada : _tieneTokenGuias(),
+        pdf_base64   : _guiaPdfBase64 || null,
+        pdf_nombre   : _guiaPdfNombre || null,
+        observaciones: document.getElementById('observaciones')?.value || '',
+        fecha        : new Date().toLocaleDateString('es-MX'),
+      }).catch(() => {});
+    }
+  }
 
   // Enviar email de confirmación (solo en pedidos reales)
   if (!test) {
@@ -860,6 +924,14 @@ async function enviarOrden(test = false) {
     }).catch(e => console.warn('Email confirmación:', e.message));
 
     carrito=[]; guardarCarrito(); renderCarrito();
+    // Limpiar campos de guía para próxima orden
+    _guiaPdfBase64 = null; _guiaPdfNombre = null;
+    const gnEl = document.getElementById('guia-numero');
+    if (gnEl) gnEl.value = '';
+    const gpLabel = document.getElementById('guia-pdf-label');
+    if (gpLabel) gpLabel.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" style="vertical-align:middle;margin-right:6px"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>Subir PDF — o arrastra aquí';
+    const gpInfo = document.getElementById('guia-pdf-info');
+    if (gpInfo) gpInfo.textContent = '';
   }
 }
 function enviarOrdenTest() { enviarOrden(true); }
@@ -1075,8 +1147,50 @@ function onEstadoChange() {
 }
 
 function toggleFleteFields() {
-  document.getElementById('flete-fields').style.display =
-    document.getElementById('tipo-flete').value === 'SF' ? 'none' : 'block';
+  const tipo = document.getElementById('tipo-flete').value;
+  // SF = guía propia → no se necesita dirección CVA
+  document.getElementById('flete-fields').style.display = tipo === 'SF' ? 'none' : 'block';
+  // Mostrar aviso de token si aplica
+  const aviso = document.getElementById('guia-token-aviso');
+  if (aviso) aviso.style.display = _tieneTokenGuias() ? 'none' : 'flex';
+}
+
+// ── GUÍA EN CHECKOUT ─────────────────────────────────────────
+// Estado del PDF de guía en el checkout
+let _guiaPdfBase64 = null;
+let _guiaPdfNombre = null;
+
+// ¿Tenemos token de guías CVA? (se activa cuando CVA lo proporcione)
+// Para habilitar: setear CFG_GUIAS_TOKEN en Code.gs o cambiar aquí a true
+function _tieneTokenGuias() {
+  // Por ahora siempre false hasta que CVA active el token
+  // Cuando esté listo: return true;
+  return false;
+}
+
+function handleGuiaFileSelect(e) {
+  const file = e.target.files[0];
+  if (file) _procesarGuiaPDF(file);
+}
+function handleGuiaDrop(e) {
+  e.preventDefault();
+  document.getElementById('guia-dropzone').style.borderColor = 'rgba(103,184,175,0.3)';
+  const file = e.dataTransfer.files[0];
+  if (file) _procesarGuiaPDF(file);
+}
+function _procesarGuiaPDF(file) {
+  if (!file.name.toLowerCase().endsWith('.pdf')) {
+    alert('Solo se aceptan archivos PDF');
+    return;
+  }
+  _guiaPdfNombre = file.name;
+  document.getElementById('guia-pdf-label').innerHTML =
+    `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="vertical-align:middle;margin-right:5px;color:var(--green-lt)"><polyline points="20 6 9 17 4 12"/></svg>` +
+    file.name + ` <span style="opacity:0.5">(${(file.size/1024).toFixed(1)} KB)</span>`;
+  document.getElementById('guia-pdf-info').textContent = '✓ PDF listo para enviar';
+  const reader = new FileReader();
+  reader.onload = ev => { _guiaPdfBase64 = ev.target.result.split(',')[1]; };
+  reader.readAsDataURL(file);
 }
 
 // ── PEDIDOS ───────────────────────────────────────────────
@@ -1807,7 +1921,7 @@ Object.assign(window, {
   cambiarQty, quitarItem, renderCarrito,
   enviarOrden, enviarOrdenTest, toggleFleteFields, onEstadoChange, poblarSelectEstados,
   cargarPedidos, filtrarPedidos, abrirModalPedido, cerrarModal,
-  handleFileSelect, handleDrop, registrarPedido, enviarGuiaCVA,
+  handleFileSelect, handleDrop, handleGuiaFileSelect, handleGuiaDrop, registrarPedido, enviarGuiaCVA,
   ejecutarSync, resetearSync, cargarEstadoSync, instalarTriggers, instalarTriggersUI,
   cargarVentasOdoo, buscarEnOdoo, ejecutarDebug,
   exportBuscarCSV, exportBuscarPDF, exportProductoCSV, exportProductoPDF,
