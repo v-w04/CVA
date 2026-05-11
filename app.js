@@ -755,27 +755,112 @@ async function enviarOrden(test = false) {
     tipo_flete, direccion, test: test ? 1 : 0,
   };
   const data = await apiPost('cva_crear_orden', body);
-  // Debug: loguear respuesta completa para ver qué campos devuelve CVA
-  addLog('info', 'Respuesta CVA crear_orden', JSON.stringify(data).substring(0, 400));
 
-  if (!data.ok) { alert_(el, '✖ ' + data.error, 'error'); return; }
+  // CVA puede devolver ok:true pero con message de error de negocio (ej: sin crédito)
+  if (!data.ok || !data.pedido) {
+    const msg = data.message || data.error || 'Error desconocido';
+    const action = data.action ? `<br><small style="opacity:0.7">${data.action}</small>` : '';
+    alert_(el, `✖ ${msg}${action}`, 'error');
+    addLog('error', 'Error crear orden CVA', msg);
+    return;
+  }
 
-  // CVA puede devolver distintos nombres de campo según versión de API
-  const numPedido = data.pedido || data.Pedido || data.numero_pedido || data.numeroPedido || '(ver log)';
-  const totalVal  = data.total  || data.Total  || data.subtotal      || 0;
-  const monedaVal = data.moneda || data.Moneda || 'MXN';
-  const fleteData = data.flete  || data.Flete  || null;
+  // ── Calcular totales en MXN para desglose ──
+  const tc         = data.tipo_cambio || carrito[0]?.tipo_cambio || 0;
+  const monedaProd = data.moneda || 'USD';
+  const subtotalCV = parseFloat(data.subtotal) || 0;
+  const ivaCV      = parseFloat(data.iva)      || 0;
+  const totalCV    = parseFloat(data.total)    || 0;
+  const flete      = data.flete || null;
+  const fleteTot   = flete ? parseFloat(flete.montoTotal || 0) : 0;
+  const fleteIva   = flete ? parseFloat(flete.iva || 0) : 0;
+  const fleteSub   = flete ? parseFloat(flete.subtotal || 0) : 0;
+  const cajas      = flete ? (flete.cajas || 1) : 0;
 
-  el.innerHTML = `<div class="alert alert-success">
-    ${test ? 'Test — ' : ''}Pedido creado: <strong>${numPedido}</strong><br>
-    Total: ${fmt(totalVal, monedaVal)}
-    ${fleteData ? ` · Flete: ${fmt(fleteData.montoTotal || fleteData.total || 0, 'Pesos')} MXN` : ''}
-    <details style="margin-top:10px;font-size:10px;color:rgba(238,240,240,0.4);cursor:pointer">
-      <summary>Ver respuesta completa de CVA</summary>
-      <pre style="margin-top:6px;white-space:pre-wrap;word-break:break-all;font-size:10px">${JSON.stringify(data, null, 2)}</pre>
-    </details>
-  </div>`;
-  if (!test) { carrito=[]; guardarCarrito(); renderCarrito(); }
+  // Convertir productos a MXN si vienen en USD
+  const tcVal = tc || 17.5;
+  const toMXN = (val, mon) => mon === 'Dolares' || mon === 'USD' ? val * tcVal : val;
+  const subMXN  = toMXN(subtotalCV, monedaProd);
+  const ivaMXN  = toMXN(ivaCV,      monedaProd);
+  const totMXN  = toMXN(totalCV,    monedaProd);
+  const grandTotal = totMXN + fleteTot;
+
+  el.innerHTML = `
+    <div class="orden-confirmacion">
+      <div class="orden-conf-header">
+        ${test ? '<div class="orden-conf-test">MODO TEST — No se generó pedido real</div>' : ''}
+        <div class="orden-conf-numero">
+          <span style="font-size:10px;letter-spacing:3px;text-transform:uppercase;color:var(--green-lt)">Pedido confirmado</span>
+          <div style="font-family:'Barlow Condensed',sans-serif;font-size:36px;font-weight:300;color:#fff;letter-spacing:1px;line-height:1">${data.pedido}</div>
+        </div>
+        <div style="font-size:11px;color:var(--muted);margin-top:6px">
+          ${data.email_agente ? `Agente: ${data.email_agente}` : ''}
+          ${data.email_almacen ? ` · Almacén: ${data.email_almacen}` : ''}
+        </div>
+      </div>
+
+      <div class="orden-conf-desglose">
+        <div class="orden-conf-row">
+          <span>Subtotal productos</span>
+          <span>${fmt(subMXN, 'Pesos')} MXN${monedaProd !== 'Pesos' ? ` <small style="opacity:0.5">(${fmt(subtotalCV, monedaProd)})</small>` : ''}</span>
+        </div>
+        <div class="orden-conf-row">
+          <span>IVA (16%)</span>
+          <span>${fmt(ivaMXN, 'Pesos')} MXN</span>
+        </div>
+        <div class="orden-conf-row orden-conf-subtotal">
+          <span>Subtotal con IVA</span>
+          <span>${fmt(totMXN, 'Pesos')} MXN</span>
+        </div>
+        ${flete ? `
+        <div class="orden-conf-row" style="margin-top:8px">
+          <span>Flete (${cajas} caja${cajas !== 1 ? 's' : ''}) — Paquetexpress</span>
+          <span>${fmt(fleteSub, 'Pesos')} MXN</span>
+        </div>
+        <div class="orden-conf-row">
+          <span>IVA flete</span>
+          <span>${fmt(fleteIva, 'Pesos')} MXN</span>
+        </div>` : ''}
+        <div class="orden-conf-row orden-conf-total">
+          <span>TOTAL A PAGAR</span>
+          <span>${fmt(grandTotal, 'Pesos')} MXN${tc ? ` <small style="opacity:0.45;font-size:10px">TC $${tc}</small>` : ''}</span>
+        </div>
+      </div>
+
+      <div style="padding:14px 20px;font-size:11px;color:var(--muted);border-top:1px solid rgba(238,240,240,0.07)">
+        💬 CVA enviará confirmación a ${data.email_agente || 'tu agente CVA'}
+      </div>
+    </div>`;
+
+  addLog('ok', `Pedido CVA: ${data.pedido}`,
+    `${fmt(totMXN,'Pesos')} + flete ${fmt(fleteTot,'Pesos')} = ${fmt(grandTotal,'Pesos')} MXN`);
+
+  // Enviar email de confirmación (solo en pedidos reales)
+  if (!test) {
+    const correosInput = document.getElementById('correos-confirmacion')?.value || '';
+    const correosArr = correosInput.split(',').map(c => c.trim()).filter(Boolean);
+    apiPost('enviar_confirmacion_pedido', {
+      pedido     : data.pedido,
+      subtotal   : subMXN,
+      iva        : ivaMXN,
+      total_prod : totMXN,
+      flete_sub  : fleteSub,
+      flete_iva  : fleteIva,
+      flete_total: fleteTot,
+      cajas      : cajas,
+      grand_total: grandTotal,
+      moneda     : 'Pesos',
+      tc         : tcVal,
+      email_agente : data.email_agente  || '',
+      email_almacen: data.email_almacen || '',
+      correos    : correosArr,
+      productos  : carrito.map(i => ({ clave: i.clave, desc: i.desc, qty: i.qty, precio: i.precio, moneda: i.moneda })),
+      num_oc     : document.getElementById('num-oc')?.value || '',
+      sucursal   : document.getElementById('f-sucursal')?.options[document.getElementById('f-sucursal')?.selectedIndex]?.text || '',
+    }).catch(e => console.warn('Email confirmación:', e.message));
+
+    carrito=[]; guardarCarrito(); renderCarrito();
+  }
 }
 function enviarOrdenTest() { enviarOrden(true); }
 
