@@ -1277,9 +1277,9 @@
               <div class="form-group">
                 <label>Tipo de Flete</label>
                 <select id="tipo-flete" onchange="toggleFleteFields()">
-                  <option value="FF">FF — Flete en factura CVA</option>
-                  <option value="FS">FS — Flete asegurado</option>
-                  <option value="SF">SF — Sin flete (recoger en CVA)</option>
+                  <option value="SF" selected>SF — Guía propia (recomendado)</option>
+                  <option value="FF">FF — Flete en factura CVA (Paquetexpress)</option>
+                  <option value="FS">FS — Flete asegurado CVA</option>
                 </select>
               </div>
 
@@ -1366,10 +1366,56 @@
                   <input id="f-atencion" type="text" placeholder="Nombre de quien recibe">
                 </div>
               </div>
+              <!-- ── SECCIÓN GUÍA DE ENVÍO ── -->
+              <div class="divider"></div>
+              <div class="section-title" style="color:var(--green-lt)">
+                Guía de Envío
+                <span style="font-size:9px;color:var(--muted);letter-spacing:1px;font-weight:400;text-transform:none;margin-left:8px">— adjunta antes de crear el pedido</span>
+              </div>
+
+              <div class="grid-2">
+                <div class="form-group">
+                  <label>Paquetería / Carrier</label>
+                  <select id="guia-carrier">
+                    <option value="DHL">DHL</option>
+                    <option value="Estafeta">Estafeta</option>
+                    <option value="FedEx">FedEx</option>
+                    <option value="Paquetexpress">Paquetexpress</option>
+                    <option value="J&T">J&T</option>
+                    <option value="Redpack">Redpack</option>
+                    <option value="Otro">Otro</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label>Número de Guía</label>
+                  <input id="guia-numero" type="text" placeholder="Ej: 1234567890">
+                </div>
+              </div>
+
+              <div class="form-group">
+                <label>PDF de Guía <span style="color:var(--muted);font-weight:400;letter-spacing:0;text-transform:none;font-size:9px">— opcional pero recomendado</span></label>
+                <div id="guia-dropzone" style="border:1px dashed rgba(103,184,175,0.3);padding:16px;text-align:center;cursor:pointer;transition:border-color .2s;background:rgba(0,102,94,0.04)"
+                     onclick="document.getElementById('guia-pdf-input').click()"
+                     ondragover="event.preventDefault();this.style.borderColor='var(--green-lt)'"
+                     ondragleave="this.style.borderColor='rgba(103,184,175,0.3)'"
+                     ondrop="handleGuiaDrop(event)">
+                  <div id="guia-pdf-label" style="color:var(--muted);font-size:11px;letter-spacing:1px">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" style="vertical-align:middle;margin-right:6px"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                    Subir PDF — o arrastra aquí
+                  </div>
+                  <input id="guia-pdf-input" type="file" accept=".pdf" style="display:none" onchange="handleGuiaFileSelect(event)">
+                </div>
+                <div id="guia-pdf-info" style="font-size:10px;color:var(--green-lt);margin-top:5px;letter-spacing:.5px"></div>
+              </div>
+
+              <div id="guia-token-aviso" style="display:none;padding:10px 14px;background:rgba(200,151,58,0.08);border:1px solid rgba(200,151,58,0.25);font-size:11px;color:var(--orange);margin-bottom:12px;line-height:1.6">
+                ⚠️ <strong>Token de guías pendiente</strong> — La guía se registrará localmente y se enviará a CVA en cuanto tengas el token activado. CVA no despachará automáticamente hasta entonces.
+              </div>
+
               <div class="divider"></div>
               <div style="display:flex;gap:10px">
                 <button class="btn btn-ghost"   onclick="enviarOrdenTest()" style="flex:1">Test</button>
-                <button class="btn btn-primary" onclick="enviarOrden()"     style="flex:1">Enviar Orden Real</button>
+                <button class="btn btn-primary" onclick="enviarOrden()"     style="flex:1">Crear Pedido + Enviar Guía</button>
               </div>
               <div id="orden-result" style="margin-top:14px"></div>
             </div>
