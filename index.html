@@ -976,6 +976,118 @@
   #splash.phase-2 { opacity: 0; pointer-events: none; transition: opacity 0.75s ease; }
   #splash.phase-2 #splash-logo { opacity: 0; transform: translateY(-40vh); transition: opacity 0.65s ease, transform 0.75s cubic-bezier(.4,0,.2,1); }
   #splash.phase-2 #splash-cloud { opacity: 0 !important; transform: translateY(-20vh); transition: opacity 0.75s ease, transform 0.75s cubic-bezier(.4,0,.2,1); }
+
+  /* ━━ CARRUSEL DE MARCAS ━━ */
+  .marcas-carousel-wrap {
+    margin: -8px -48px 28px;
+    position: relative;
+    overflow: hidden;
+    padding: 22px 0;
+    border-bottom: 1px solid rgba(238,240,240,0.06);
+    cursor: grab;
+    user-select: none;
+  }
+  .marcas-carousel-wrap:active { cursor: grabbing; }
+  .marcas-carousel-wrap::before,
+  .marcas-carousel-wrap::after {
+    content: '';
+    position: absolute;
+    top: 0; bottom: 0;
+    width: 80px;
+    z-index: 2;
+    pointer-events: none;
+  }
+  .marcas-carousel-wrap::before { left: 0; background: linear-gradient(to right, var(--bg), transparent); }
+  .marcas-carousel-wrap::after  { right: 0; background: linear-gradient(to left, var(--bg), transparent); }
+  .marcas-carousel-track {
+    display: flex;
+    gap: 14px;
+    width: max-content;
+    animation: marquee 500s linear infinite;
+  }
+  .marcas-carousel-wrap.dragging .marcas-carousel-track { animation-play-state: paused; }
+  @keyframes marquee { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+  .marca-chip {
+    display: flex; align-items: center; gap: 12px;
+    padding: 14px 28px 14px 18px;
+    background: rgba(238,240,240,0.04);
+    border: 1px solid rgba(238,240,240,0.08);
+    cursor: pointer; white-space: nowrap;
+    transition: background .15s, border-color .15s;
+    flex-shrink: 0;
+  }
+  .marca-chip:hover { background: rgba(0,102,94,0.12); border-color: rgba(0,102,94,0.3); }
+  .marca-chip-grupo { border-style: dashed; opacity: 0.85; }
+  .marca-chip-grupo .marca-chip-name { color: rgba(238,240,240,0.55); font-weight: 400; letter-spacing: 2px; }
+  .marca-chip img { height: 34px; max-width: 90px; object-fit: contain; filter: brightness(0) invert(1); opacity: 0.65; }
+  .marca-chip-name {
+    font-family: 'Barlow', sans-serif;
+    font-size: 17px; font-weight: 600;
+    letter-spacing: 2.5px; text-transform: uppercase;
+    color: rgba(238,240,240,0.7);
+  }
+  @media (max-width: 768px) { .marcas-carousel-wrap { margin: -8px -14px 20px; } }
+
+  /* ━━ MERCADOLIBRE PRICE BLOCK ━━ */
+  .pv-meli-block {
+    margin: 0 24px 4px; padding: 14px 16px;
+    background: rgba(255,230,0,0.04);
+    border: 1px solid rgba(255,230,0,0.10);
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 12px; min-height: 52px;
+  }
+  .pv-meli-logo { font-family:'Barlow',sans-serif; font-size:9px; font-weight:700; letter-spacing:2px; text-transform:uppercase; color:rgba(255,230,0,0.5); white-space:nowrap; flex-shrink:0; }
+  .pv-meli-content { flex: 1; min-width: 0; }
+  .pv-meli-loading { font-size:10px; letter-spacing:1.5px; color:rgba(238,240,240,0.2); text-transform:uppercase; }
+  .pv-meli-price { font-family:'Barlow Condensed',sans-serif; font-size:22px; font-weight:300; color:rgba(255,230,0,0.75); line-height:1; }
+  .pv-meli-sub { font-size:9px; letter-spacing:1px; color:rgba(238,240,240,0.25); text-transform:uppercase; margin-top:3px; }
+  .pv-meli-link { font-size:9px; font-weight:600; letter-spacing:1.5px; text-transform:uppercase; color:rgba(255,230,0,0.4); text-decoration:none; white-space:nowrap; flex-shrink:0; transition:color .15s; }
+  .pv-meli-link:hover { color:rgba(255,230,0,0.8); }
+  .pv-meli-error { font-size:10px; letter-spacing:1px; color:rgba(238,240,240,0.15); text-transform:uppercase; }
+
+  /* ━━ SUCURSAL HINT ━━ */
+  .sucursal-sugerida {
+    border-bottom-color: var(--green-lt) !important;
+    background: rgba(0,102,94,0.08) !important;
+  }
+  #sucursal-hint {
+    font-size: 10px; color: var(--green-lt);
+    margin-top: 5px; letter-spacing: 0.5px;
+    min-height: 16px; transition: opacity .3s;
+  }
+
+  /* ━━ MISC ━━ */
+  .suc-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 6px; }
+  .suc-item { background: var(--card); border: 1px solid rgba(255,255,255,0.04); border-left: 1px solid rgba(0,81,58,0.3); padding: 10px 14px; font-size: 12px; }
+  .suc-nombre { color: var(--muted); font-size: 9px; text-transform: uppercase; letter-spacing: 1.5px; }
+  .suc-qty { font-weight: 300; font-size: 22px; font-family: 'Barlow Condensed', sans-serif; margin-top: 2px; }
+  .divider { height: 1px; background: rgba(255,255,255,0.05); margin: 20px 0; }
+  .section-title { font-size: 9px; text-transform: uppercase; letter-spacing: 3px; color: var(--muted); margin-bottom: 16px; font-weight: 500; }
+  .status-pendiente { color: var(--orange); letter-spacing: 1.5px; text-transform: uppercase; font-size: 10px; font-weight: 500; }
+  .status-facturado { color: var(--green-hi); letter-spacing: 1.5px; text-transform: uppercase; font-size: 10px; font-weight: 500; }
+  .status-cancelado { color: #CC4444; letter-spacing: 1.5px; text-transform: uppercase; font-size: 10px; font-weight: 500; }
+
+  /* ━━ MODAL ━━ */
+  .modal-overlay {
+    display: none; position: fixed; inset: 0;
+    background: rgba(0,0,0,0.88); z-index: 400;
+    align-items: center; justify-content: center;
+    backdrop-filter: blur(4px);
+  }
+  .modal-box {
+    background: var(--surface);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-top: 2px solid var(--green);
+    padding: 32px; width: 520px; max-width: 95vw;
+    max-height: 90vh; overflow-y: auto;
+  }
+
+  /* ━━ SCROLLBAR ━━ */
+  ::-webkit-scrollbar { width: 3px; height: 3px; }
+  ::-webkit-scrollbar-track { background: #0A0A0A; }
+  ::-webkit-scrollbar-thumb { background: #2A2A2A; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--green); }
+
 </style>
 </head>
 <body>
