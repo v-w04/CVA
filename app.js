@@ -1258,6 +1258,16 @@ function _poblarSelectConStock(sel, sucursalesCache, stockMap) {
   return primeraConStock ? enriquecidas.find(s => String(s.clave) === String(primeraConStock.value)) : null;
 }
 
+// Botón ↻ Recargar — limpia cache y vuelve a cargar sucursales con sugerencia
+async function recargarSucursales() {
+  _sucursalesCache = null; // forzar re-fetch
+  const hint = document.getElementById('sucursal-hint');
+  if (hint) hint.textContent = '⟳ Recargando...';
+  const sel = document.getElementById('f-sucursal');
+  if (sel) sel.innerHTML = '<option value="">Cargando...</option>';
+  await iniciarPaginaOrden();
+}
+
 /**
  * Al entrar a la página de Orden: carga sucursales base y luego
  * consulta stock real por sucursal para cada producto del carrito.
@@ -2258,6 +2268,6 @@ Object.assign(window, {
   cargarVentasOdoo, buscarEnOdoo, ejecutarDebug,
   exportBuscarCSV, exportBuscarPDF, exportProductoCSV, exportProductoPDF,
   exportarTodoCSV, exportarTodoPDF, exportCarritoCSV, exportCarritoPDF,
-  limpiarLog, cargarSucursalesSelect, iniciarPaginaOrden, sugerirSucursalPorStock, cargarAnalisis,
+  limpiarLog, cargarSucursalesSelect, iniciarPaginaOrden, sugerirSucursalPorStock, recargarSucursales, cargarAnalisis,
   iniciarCarruselMarcas, _renderCarruselMarcas,
 });
