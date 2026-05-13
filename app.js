@@ -1618,6 +1618,112 @@ function renderDebugResult(action, data) {
 // ── LOG ───────────────────────────────────────────────────
 let _logEntries = [];
 
+// ── ANÁLISIS DE MOVIMIENTO DE STOCK ──────────────────────────
+async function cargarAnalisis() {
+  ['analisis-top-movidos','analisis-agotados','analisis-marcas','analisis-grupos'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.innerHTML = '<div style="padding:20px;text-align:center;color:var(--muted);font-size:11px"><span class="spin"></span>Calculando...</div>';
+  });
+
+  const data = await api('analisis_movimiento');
+
+  if (!data.ok) {
+    ['analisis-top-movidos','analisis-agotados','analisis-marcas','analisis-grupos'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) alert_(el, '✖ ' + (data.error || 'Error'), 'error');
+    });
+    return;
+  }
+
+  const aviso = document.getElementById('analisis-aviso');
+  if (data.sin_datos) {
+    if (aviso) aviso.style.display = 'block';
+    ['ak-con-stock','ak-agotados','ak-movimiento'].forEach(id => {
+      const el = document.getElementById(id); if (el) el.textContent = '—';
+    });
+    ['analisis-top-movidos','analisis-agotados','analisis-marcas','analisis-grupos'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) alert_(el, data.mensaje || 'Ejecuta triggerSyncDiario() en GAS para generar el primer snapshot', 'warn');
+    });
+    return;
+  }
+  if (aviso) aviso.style.display = 'none';
+
+  const k = data.kpis || {};
+  const setKpi = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
+  setKpi('ak-con-stock',  (k.total_con_stock  || 0).toLocaleString('es-MX'));
+  setKpi('ak-agotados',   (k.total_agotados   || 0).toLocaleString('es-MX'));
+  setKpi('ak-movimiento', (k.total_movimiento || 0).toLocaleString('es-MX'));
+  const periodoEl = document.getElementById('ak-periodo');
+  if (periodoEl) periodoEl.textContent = data.dias_disponibles > 1
+    ? `${data.dias_disponibles} dias - ${data.periodo_analisis}`
+    : 'necesitas 2+ dias de historial';
+
+  const elTop = document.getElementById('analisis-top-movidos');
+  if (elTop) {
+    if (!data.top_movidos?.length) {
+      alert_(elTop, data.dias_disponibles < 2
+        ? 'Necesitas al menos 2 dias de historial. El trigger diario lo genera a las 2am.'
+        : 'Sin movimiento registrado', 'info');
+    } else {
+      elTop.innerHTML = '<div class="table-wrap"><table><thead><tr><th>Clave</th><th>Descripcion</th><th>Marca</th><th style="text-align:right">Stock hoy</th><th style="text-align:right;color:var(--green-lt)">Movido</th></tr></thead><tbody>' +
+        data.top_movidos.map(p =>
+          '<tr><td class="mono">' + p.clave + '</td>' +
+          '<td style="max-width:200px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:12px">' + p.desc + '</td>' +
+          '<td style="color:var(--muted);font-size:11px">' + (p.marca||'—') + '</td>' +
+          '<td style="text-align:right;font-family:Barlow Condensed,sans-serif;font-size:15px">' + p.total + '</td>' +
+          '<td style="text-align:right"><span style="color:var(--green-lt);font-family:Barlow Condensed,sans-serif;font-size:16px">▼ ' + p.movimiento + '</span></td></tr>'
+        ).join('') +
+        '</tbody></table></div>';
+    }
+  }
+
+  const elAg = document.getElementById('analisis-agotados');
+  if (elAg) {
+    if (!data.agotados?.length) {
+      elAg.innerHTML = '<div class="alert alert-success" style="margin:0">Sin agotados en este periodo</div>';
+    } else {
+      elAg.innerHTML = '<div class="table-wrap"><table><thead><tr><th>Clave</th><th>Descripcion</th><th>Marca</th><th style="text-align:right;color:#e05555">Tenia</th></tr></thead><tbody>' +
+        data.agotados.map(p =>
+          '<tr><td class="mono">' + p.clave + '</td>' +
+          '<td style="max-width:200px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:12px">' + p.desc + '</td>' +
+          '<td style="color:var(--muted);font-size:11px">' + (p.marca||'—') + '</td>' +
+          '<td style="text-align:right;color:#e05555;font-family:Barlow Condensed,sans-serif;font-size:15px">' + p.stock_antes + '</td></tr>'
+        ).join('') +
+        '</tbody></table></div>';
+    }
+  }
+
+  const elMarca = document.getElementById('analisis-marcas');
+  if (elMarca && data.top_marcas?.length) {
+    const maxM = data.top_marcas[0].movimiento || 1;
+    elMarca.innerHTML = '<div style="display:flex;flex-direction:column;gap:8px;padding:4px 0">' +
+      data.top_marcas.map(m =>
+        '<div style="display:flex;align-items:center;gap:10px">' +
+        '<div style="width:110px;font-size:11px;color:var(--text-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex-shrink:0">' + m.marca + '</div>' +
+        '<div style="flex:1;height:16px;background:rgba(238,240,240,0.06);border-radius:2px;overflow:hidden">' +
+        '<div style="height:100%;background:var(--green);opacity:0.7;width:' + Math.round(m.movimiento/maxM*100) + '%"></div></div>' +
+        '<div style="font-family:Barlow Condensed,sans-serif;font-size:14px;color:var(--green-lt);width:36px;text-align:right;flex-shrink:0">' + m.movimiento + '</div></div>'
+      ).join('') + '</div>';
+  } else if (elMarca) { alert_(elMarca, 'Sin datos por marca', 'info'); }
+
+  const elGrupo = document.getElementById('analisis-grupos');
+  if (elGrupo && data.top_grupos?.length) {
+    const maxG = data.top_grupos[0].movimiento || 1;
+    elGrupo.innerHTML = '<div style="display:flex;flex-direction:column;gap:8px;padding:4px 0">' +
+      data.top_grupos.map(g =>
+        '<div style="display:flex;align-items:center;gap:10px">' +
+        '<div style="width:130px;font-size:11px;color:var(--text-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex-shrink:0">' + g.grupo + '</div>' +
+        '<div style="flex:1;height:16px;background:rgba(238,240,240,0.06);border-radius:2px;overflow:hidden">' +
+        '<div style="height:100%;background:#1a5276;opacity:0.8;width:' + Math.round(g.movimiento/maxG*100) + '%"></div></div>' +
+        '<div style="font-family:Barlow Condensed,sans-serif;font-size:14px;color:var(--green-lt);width:36px;text-align:right;flex-shrink:0">' + g.movimiento + '</div></div>'
+      ).join('') + '</div>';
+  } else if (elGrupo) { alert_(elGrupo, 'Sin datos por grupo', 'info'); }
+
+  addLog('ok', 'Analisis cargado', (k.total_con_stock||0) + ' productos, ' + (k.total_agotados||0) + ' agotados');
+}
+
+
 function addLog(tipo, msg, detalle) {
   const ts = new Date().toLocaleTimeString('es-MX');
   _logEntries.unshift({ ts, tipo, msg, detalle: detalle || '' });
