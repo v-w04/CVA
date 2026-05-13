@@ -35,7 +35,8 @@ function showPage(id) {
   const sw = document.querySelector('.scroll-wrap');
   if (sw) sw.scrollTop = 0;
   if (id === 'sync')  setTimeout(() => { try { cargarEstadoSync();   } catch(e) {} }, 100);
-  if (id === 'orden') setTimeout(() => { try { iniciarPaginaOrden(); } catch(e) {} }, 100);
+  if (id === 'orden')   setTimeout(() => { try { iniciarPaginaOrden(); } catch(e) {} }, 100);
+  if (id === 'analisis') setTimeout(() => { try { cargarAnalisis();    } catch(e) {} }, 100);
 }
 
 window.addEventListener('popstate', e => {
@@ -1932,6 +1933,6 @@ Object.assign(window, {
   cargarVentasOdoo, buscarEnOdoo, ejecutarDebug,
   exportBuscarCSV, exportBuscarPDF, exportProductoCSV, exportProductoPDF,
   exportarTodoCSV, exportarTodoPDF, exportCarritoCSV, exportCarritoPDF,
-  limpiarLog, cargarSucursalesSelect, iniciarPaginaOrden, sugerirSucursalPorStock,
+  limpiarLog, cargarSucursalesSelect, iniciarPaginaOrden, sugerirSucursalPorStock, cargarAnalisis,
   iniciarCarruselMarcas, _renderCarruselMarcas,
 });
