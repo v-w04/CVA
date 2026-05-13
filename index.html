@@ -1457,34 +1457,14 @@
           <div class="card"><div class="card-title">Total Páginas CVA</div><div class="kpi" id="sync-total">—</div><div class="kpi-sub">catálogo completo</div></div>
         </div>
         <div class="card">
-          <div class="section-title">Configuración Sync manual</div>
-          <div class="grid-2">
-            <div class="form-group">
-              <label>Batch Size</label>
-              <select id="sync-batch">
-                <option value="SM">SM — 50 art/página</option>
-                <option value="MD" selected>MD — 150 art/página</option>
-                <option value="LG">LG — 500 art/página</option>
-                <option value="XL">XL — 1500 art/página</option>
-              </select>
-            </div>
-            <div class="form-group">
-              <label>Páginas por Ejecución</label>
-              <input id="sync-paginas" type="number" value="3" min="1" max="20">
-            </div>
+          <div class="section-title">Sync Automático — CVA → Historial</div>
+          <div style="color:var(--muted);font-size:13px;line-height:1.7;margin-bottom:16px">
+            El sync corre <strong style="color:var(--text)">automáticamente cada día a las 2am</strong> directo en GAS.<br>
+            Descarga todo el catálogo CVA con stock y guarda el historial diario.<br>
+            <span style="font-size:11px">Para forzarlo manualmente: abre GAS → ejecuta <code style="color:var(--green-lt)">triggerSyncDiario()</code></span>
           </div>
-          <div class="form-group" style="margin-top:14px">
-            <label>Filtro de Stock</label>
-            <select id="sync-exist">
-              <option value="3" selected>Solo con stock (Sucursal + CEDIS)</option>
-              <option value="2">Solo con stock CEDIS</option>
-              <option value="1">Solo con stock Sucursal</option>
-              <option value="">Todo el catálogo (sin filtro)</option>
-            </select>
-          </div>
-          <div style="display:flex;gap:10px;margin-top:14px;flex-wrap:wrap">
-            <button class="btn btn-primary" onclick="ejecutarSync()" style="flex:1;min-width:140px">▶ Ejecutar Sync</button>
-            <button class="btn btn-ghost"   onclick="cargarEstadoSync()" style="flex:1;min-width:120px">↻ Actualizar Estado</button>
+          <div style="display:flex;gap:10px;flex-wrap:wrap">
+            <button class="btn btn-ghost" onclick="cargarEstadoSync()" style="flex:1;min-width:140px">↻ Actualizar Estado</button>
           </div>
           <div id="sync-result" style="margin-top:14px"></div>
         </div>
