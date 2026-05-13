@@ -1441,6 +1441,66 @@
         </div>
       </div>
 
+      <!-- ══ PAGE: ANÁLISIS ══ -->
+      <div class="page" id="page-analisis">
+        <div class="page-header">
+          <div class="page-rule"></div>
+          <div class="page-title">Análisis de Movimiento</div>
+          <div class="page-sub">Rotación de stock CVA — qué productos se venden más</div>
+        </div>
+
+        <!-- Aviso sin historial -->
+        <div id="analisis-aviso" style="display:none" class="alert alert-warn">
+          ⚠️ Sin historial de stock aún. Ejecuta <code>triggerSyncDiario()</code> en GAS para generar el primer snapshot. El análisis comparará días consecutivos.
+        </div>
+
+        <!-- KPIs -->
+        <div class="grid-3" id="analisis-kpis" style="margin-bottom:20px">
+          <div class="card"><div class="card-title">Productos con stock</div><div class="kpi" id="ak-con-stock">—</div><div class="kpi-sub">en catálogo CVA</div></div>
+          <div class="card"><div class="card-title">Se agotaron hoy</div><div class="kpi" id="ak-agotados" style="color:#e05555">—</div><div class="kpi-sub">llegaron a 0</div></div>
+          <div class="card"><div class="card-title">Unidades movidas</div><div class="kpi" id="ak-movimiento" style="color:var(--green-lt)">—</div><div class="kpi-sub" id="ak-periodo">sin historial</div></div>
+        </div>
+
+        <div class="grid-2" style="margin-bottom:20px">
+          <!-- Top productos movidos -->
+          <div>
+            <div class="section-title">🏆 Top productos — mayor bajada de stock</div>
+            <div id="analisis-top-movidos">
+              <div style="padding:20px;text-align:center;color:var(--muted);font-size:11px"><span class="spin"></span>Cargando...</div>
+            </div>
+          </div>
+          <!-- Agotados -->
+          <div>
+            <div class="section-title" style="color:#e05555">🚨 Productos agotados</div>
+            <div id="analisis-agotados">
+              <div style="padding:20px;text-align:center;color:var(--muted);font-size:11px"><span class="spin"></span>Cargando...</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="grid-2">
+          <!-- Por marca -->
+          <div>
+            <div class="section-title">🏷 Rotación por marca</div>
+            <div id="analisis-marcas">
+              <div style="padding:20px;text-align:center;color:var(--muted);font-size:11px"><span class="spin"></span>Cargando...</div>
+            </div>
+          </div>
+          <!-- Por grupo -->
+          <div>
+            <div class="section-title">📦 Rotación por grupo</div>
+            <div id="analisis-grupos">
+              <div style="padding:20px;text-align:center;color:var(--muted);font-size:11px"><span class="spin"></span>Cargando...</div>
+            </div>
+          </div>
+        </div>
+
+        <div style="display:flex;gap:10px;margin-top:20px">
+          <button class="btn btn-ghost" onclick="cargarAnalisis()" style="font-size:11px">↻ Actualizar</button>
+          <span style="color:var(--muted);font-size:11px;align-self:center">Los datos se actualizan cada día con el sync automático</span>
+        </div>
+      </div>
+
       <!-- ══ PAGE: SYNC ══ -->
       <div class="page" id="page-sync">
         <div class="page-header">
