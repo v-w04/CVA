@@ -70,6 +70,144 @@ window.addEventListener('popstate', e => {
 // ── API ───────────────────────────────────────────────────
 const GAS_URL = 'https://script.google.com/macros/s/AKfycby9biqEbiv4syc3St3TuPKXkG9rI5A4YsmtNta3OEJ4mD0i8sg0PPg9OhfrPDZJuO_L/exec';
 
+// ── MODO DIRECTO CVA (cuando GAS agota su cuota) ──────────────
+// Llama a CVA directamente desde el browser via proxy CORS
+const CVA_DIRECT = {
+  BASE  : 'https://apicvaservices.grupocva.com/api/v2',
+  USER  : 'admin78308',
+  PASS  : 'r7j6nh47',
+  PROXY : 'https://corsproxy.io/?', // proxy CORS público
+  token : null,
+  tokenExp: 0,
+};
+
+// Obtener/renovar token CVA directo
+async function _cvaToken() {
+  if (CVA_DIRECT.token && Date.now() < CVA_DIRECT.tokenExp) return CVA_DIRECT.token;
+  const url = CVA_DIRECT.PROXY + encodeURIComponent(CVA_DIRECT.BASE + '/user/login');
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ user: CVA_DIRECT.USER, password: CVA_DIRECT.PASS }),
+  });
+  const data = await res.json();
+  if (!data.token) throw new Error('CVA login falló: ' + JSON.stringify(data));
+  CVA_DIRECT.token    = data.token;
+  CVA_DIRECT.tokenExp = Date.now() + 11 * 3600 * 1000;
+  return data.token;
+}
+
+// GET a CVA directo (para búsquedas)
+async function cvaDirectGet(path, params = {}) {
+  const token = await _cvaToken();
+  const qs = Object.entries(params)
+    .filter(([,v]) => v !== '' && v !== null && v !== undefined)
+    .map(([k,v]) => encodeURIComponent(k) + '=' + encodeURIComponent(v))
+    .join('&');
+  const url = CVA_DIRECT.PROXY + encodeURIComponent(CVA_DIRECT.BASE + path + (qs ? '?' + qs : ''));
+  const res = await fetch(url, { headers: { Authorization: 'Bearer ' + token } });
+  if (!res.ok) throw new Error('CVA ' + res.status);
+  return res.json();
+}
+
+// POST a CVA directo (para crear órdenes)
+async function cvaDirectPost(path, body) {
+  const token = await _cvaToken();
+  const url = CVA_DIRECT.PROXY + encodeURIComponent(CVA_DIRECT.BASE + path);
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw new Error('CVA ' + res.status);
+  return res.json();
+}
+
+// Flag: ¿usar modo directo? Se activa automáticamente si GAS falla
+let _gasOk = true; // asume GAS ok al inicio, se detecta en el primer error
+
+// Wrapper: intenta GAS primero, si falla usa CVA directo
+async function apiConFallback(action, params = {}) {
+  if (_gasOk) {
+    try {
+      const data = await api(action, params);
+      // Si GAS responde con error de cuota, activar modo directo
+      if (data?.error && (data.error.includes('demasiadas veces') || data.error.includes('urlfetch') || data.error.includes('quota'))) {
+        console.warn('GAS cuota agotada — activando modo CVA directo');
+        _gasOk = false;
+        addLog('warn', 'GAS sin cuota — modo directo CVA activado', 'Las búsquedas van directo a CVA');
+      } else {
+        return data;
+      }
+    } catch(e) {
+      if (e.message && (e.message.includes('503') || e.message.includes('quota') || e.message.includes('CORS'))) {
+        _gasOk = false;
+      } else {
+        throw e;
+      }
+    }
+  }
+  // Modo directo
+  return cvaDirectAction(action, params);
+}
+
+// Ejecutar acción CVA en modo directo
+async function cvaDirectAction(action, params) {
+  switch(action) {
+    case 'cva_buscar': {
+      const p = { ...params };
+      delete p.action;
+      // Parámetros mínimos para búsqueda rápida
+      const fetchParams = {
+        MonedaPesos: 'true',
+        porcentaje : 16,
+        tc         : 'true',
+        batch      : p.batch || 'SM',
+        page       : p.page  || 1,
+      };
+      if (p.clave) fetchParams.clave = p.clave;
+      if (p.marca) fetchParams.marca = p.marca;
+      if (p.grupo) fetchParams.grupo = p.grupo;
+      if (p.desc)  fetchParams.desc  = p.desc;
+      if (p.exist && p.exist !== 'any') fetchParams.exist = p.exist;
+      const data = await cvaDirectGet('/catalogo_clientes/lista_precios', fetchParams);
+      // Filtro local exist=any
+      if (p.exist === 'any' && data.articulos) {
+        data.articulos = data.articulos.filter(a =>
+          (parseFloat(a.disponible)||0) > 0 || (parseFloat(a.disponibleCD)||0) > 0
+        );
+      }
+      return { ok: true, ...data };
+    }
+    case 'cva_producto': {
+      const fetchParams = {
+        clave: params.clave,
+        MonedaPesos: 'true', porcentaje: 16, tc: 'true',
+        promos: 'true', sucursales: 'true', images: 'true',
+      };
+      const data = await cvaDirectGet('/catalogo_clientes/lista_precios', fetchParams);
+      return { ok: true, producto: data };
+    }
+    case 'cva_precio_stock': {
+      const data = await cvaDirectGet('/catalogo_clientes/precios_stock_ofertas', {
+        clave: params.clave, MonedaPesos: 'true', porcentaje: 16,
+      });
+      return { ok: true, ...data };
+    }
+    case 'cva_sucursales': {
+      const res = await fetch(CVA_DIRECT.PROXY + encodeURIComponent(CVA_DIRECT.BASE + '/catalogo_clientes/sucursales'));
+      const data = await res.json();
+      return { ok: true, ...data };
+    }
+    case 'ping':
+      return { ok: true, ts: new Date().toISOString(), modo: 'directo' };
+    default:
+      // Para acciones que solo GAS puede hacer (sync, odoo, etc.)
+      throw new Error('Acción ' + action + ' requiere GAS — disponible cuando se resetee la cuota (medianoche)');
+  }
+}
+
+
 async function api(action, params = {}) {
   const qs = new URLSearchParams({ action, ...params }).toString();
   let res;
@@ -166,7 +304,7 @@ async function buscarCVA(pagina) {
     page : _buscarPage,
   };
   const action = params.clave ? 'cva_producto' : 'cva_buscar';
-  const data = await api(action, params);
+  const data = await apiConFallback(action, params);
   if (data.ok) addLog('ok', 'Búsqueda: ' + (params.clave||params.marca||params.grupo||params.desc||'—'), (data.articulos?.length||1) + ' resultados');
   else addLog('error', 'Error búsqueda', data.error);
   if (!data.ok) {
@@ -264,7 +402,7 @@ async function verProducto(clave) {
   }
   try { history.pushState({ page: 'buscar', sub: 'producto', clave }, '', ''); } catch(e) {}
   loading(el);
-  const data = await api('cva_producto', { clave });
+  const data = await apiConFallback('cva_producto', { clave });
   if (!data.ok) { alert_(el, '✖ ' + data.error, 'error'); return; }
   el.innerHTML = renderProducto(data.producto);
   buscarMeli(data.producto);
@@ -643,6 +781,35 @@ function pvQtyChange(delta) {
 function agregarClave(clave, qty = 1) {
   document.getElementById('cart-clave').value = clave;
   document.getElementById('cart-qty').value = qty;
+  // Si viene del producto actual, pre-cachear sus datos para no hacer fetch extra
+  if (_productoActual && _productoActual.clave === clave) {
+    const p = _productoActual;
+    const exist = carrito.findIndex(i => i.clave === clave);
+    if (exist >= 0) {
+      carrito[exist].qty += qty;
+      document.getElementById('cart-clave').value = '';
+      addLog('ok', 'Agregado al carrito: ' + clave, 'Qty: ' + qty);
+      guardarCarrito(); renderCarrito();
+      showPage('orden');
+      return;
+    }
+    carrito.push({
+      clave      : p.clave,
+      desc       : p.descripcion || clave,
+      precio     : parseFloat(p.precio) || 0,
+      moneda     : p.moneda || 'Pesos',
+      marca      : p.marca || '',
+      qty,
+      imagen     : p.imagen || null,
+      tipo_cambio: parseFloat(p.tipo_cambio) || 0,
+      stock_cedis: parseFloat(p.disponibleCD) || 0,
+    });
+    document.getElementById('cart-clave').value = '';
+    addLog('ok', 'Agregado al carrito: ' + clave, 'Qty: ' + qty);
+    guardarCarrito(); renderCarrito();
+    showPage('orden');
+    return;
+  }
   agregarAlCarrito().then(() => showPage('orden'));
 }
 
@@ -650,26 +817,41 @@ async function agregarAlCarrito() {
   const clave = document.getElementById('cart-clave').value.trim();
   const qty   = parseInt(document.getElementById('cart-qty').value) || 1;
   if (!clave) return;
-  const data = await api('cva_precio_stock', { clave });
-  const art  = data.articulos ? data.articulos[0] : data;
+  // Intentar precio_stock — si falla usar el producto de la búsqueda actual
+  let art = null;
+  try {
+    const data = await apiConFallback('cva_precio_stock', { clave });
+    art = data.articulos ? data.articulos[0] : (data.clave ? data : null);
+  } catch(_) {}
+
+  // Fallback: buscar en los resultados actuales de la tabla
+  if (!art || !art.clave) {
+    const enTabla = _buscarArts.find(a => a.clave === clave);
+    if (enTabla) art = enTabla;
+  }
+
   if (!art || !art.clave) { alert('Producto no encontrado: ' + clave); return; }
+
   const exist = carrito.findIndex(i => i.clave === clave);
   if (exist >= 0) { carrito[exist].qty += qty; }
   else {
-    let imagen = null;
-    try {
-      const pd = await api('cva_producto', { clave: art.clave });
-      imagen = pd.producto?.imagen || null;
-    } catch(_) {}
-    // Intentar obtener TC del producto directamente
+    // Obtener imagen — usar la del producto actual si ya la tenemos
+    let imagen = art.imagen || null;
     let tcProducto = parseFloat(art.tipo_cambio) || 0;
-    if (!tcProducto && pd?.producto?.tipo_cambio) tcProducto = parseFloat(pd.producto.tipo_cambio) || 0;
+
+    if (!imagen) {
+      try {
+        const pd = await apiConFallback('cva_producto', { clave: art.clave });
+        imagen = pd.producto?.imagen || null;
+        if (!tcProducto && pd.producto?.tipo_cambio) tcProducto = parseFloat(pd.producto.tipo_cambio) || 0;
+      } catch(_) {}
+    }
 
     carrito.push({
       clave      : art.clave,
       desc       : art.descripcion || art.codigo || clave,
       precio     : parseFloat(art.precio) || 0,
-      moneda     : art.moneda,
+      moneda     : art.moneda || 'Pesos',
       marca      : art.marca || '',
       qty,
       imagen,
@@ -771,7 +953,33 @@ async function enviarOrden(test = false) {
     observaciones: document.getElementById('observaciones').value,
     tipo_flete, direccion, test: test ? 1 : 0,
   };
-  const data = await apiPost('cva_crear_orden', body);
+  // Crear orden — intenta GAS, si no disponible usa CVA directo
+  let data;
+  if (_gasOk) {
+    try {
+      data = await apiPost('cva_crear_orden', body);
+    } catch(e) {
+      if (e.message && (e.message.includes('503') || e.message.includes('quota'))) {
+        _gasOk = false;
+      } else { throw e; }
+    }
+  }
+  if (!_gasOk || !data) {
+    // Modo directo — crear orden CVA sin pasar por GAS
+    const orderBody = {
+      num_oc          : body.num_oc || '',
+      codigo_sucursal : parseInt(body.codigo_sucursal) || 1,
+      tipo_flete      : body.tipo_flete || 'SF',
+      observaciones   : body.observaciones || 'Dropship Electronics Mexico',
+      cotiza_flete    : 1,
+      MonedaPesos     : true,
+      moneda          : 'MXN',
+      productos       : (body.productos || []).map(p => ({ clave: p.clave, cantidad: parseInt(p.cantidad)||1 })),
+    };
+    if (body.test) orderBody.test = 1;
+    const raw = await cvaDirectPost('/pedidos_web/crear_orden?MonedaPesos=true', orderBody);
+    data = { ok: true, ...raw };
+  }
 
   // CVA puede devolver ok:true pero con message de error de negocio (ej: sin crédito)
   if (!data.ok || !data.pedido) {
@@ -966,7 +1174,7 @@ async function cargarSucursalesSelect() {
   }
 
   try {
-    const data = await api('cva_sucursales');
+    const data = await apiConFallback('cva_sucursales');
     if (!data.ok || !data.sucursales?.length) {
       sel.innerHTML = '<option value="1">GUADALAJARA (1) — default</option>';
       return;
@@ -1829,7 +2037,7 @@ async function iniciarCarruselMarcas() {
   _renderCarruselItems(fb, track);
 
   try {
-    const [rM, rG] = await Promise.allSettled([api('cva_marcas'), api('cva_grupos')]);
+    const [rM, rG] = await Promise.allSettled([apiConFallback('cva_marcas'), apiConFallback('cva_grupos')]);
     const marcas = (rM.status==='fulfilled' && rM.value?.ok) ? rM.value.marcas : [];
     const grupos = (rG.status==='fulfilled' && rG.value?.ok) ? rG.value.grupos : [];
     if (!marcas.length && !grupos.length) return;
@@ -2022,7 +2230,18 @@ window.onload = () => {
   // Pre-cargar sucursales en background para que ya estén listas al entrar a Orden
   try { cargarSucursalesSelect(); } catch(e) {}
 
-  api('ping').then(d=>{ if(d.ok){const b=document.getElementById('badge-cva');if(b) b.textContent='CVA ✓';} }).catch(()=>{});
+  api('ping').then(d=>{
+    const b = document.getElementById('badge-cva');
+    if (d.ok) {
+      if (b) b.textContent = 'CVA ✓';
+    }
+  }).catch(()=>{
+    // GAS no responde — activar modo directo y mostrar badge
+    _gasOk = false;
+    const b = document.getElementById('badge-cva');
+    if (b) { b.textContent = 'CVA ✓ (directo)'; b.style.color = 'var(--orange)'; b.style.borderColor = 'rgba(200,151,58,0.4)'; }
+    addLog('warn', 'GAS no disponible — modo CVA directo activo', 'Búsquedas y pedidos funcionan. Sync/Odoo no disponibles hasta medianoche.');
+  });
 };
 
 // ── EXPONER AL SCOPE GLOBAL ───────────────────────────────
