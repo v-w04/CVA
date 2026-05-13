@@ -1285,11 +1285,16 @@
 
               <!-- ── SELECTOR DE SUCURSAL — se llena dinámicamente ── -->
               <div class="form-group">
-                <label>Almacén / Sucursal CVA</label>
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:7px">
+                  <label style="margin:0">Almacén / Sucursal CVA</label>
+                  <button class="btn btn-ghost" style="padding:3px 10px;font-size:9px;letter-spacing:1px"
+                    onclick="recargarSucursales()" title="Recargar sucursales y sugerir la mejor">
+                    ↻ Recargar
+                  </button>
+                </div>
                 <select id="f-sucursal">
                   <option value="">Cargando sucursales…</option>
                 </select>
-                <!-- hint dinámico: muestra la sucursal sugerida por stock -->
                 <div id="sucursal-hint"></div>
                 <div style="font-size:10px;color:var(--muted);margin-top:4px;letter-spacing:.5px">
                   Si un producto no tiene stock en la sucursal seleccionada, CVA puede rechazar la orden.
