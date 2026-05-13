@@ -879,21 +879,27 @@ function renderCarrito() {
     return;
   }
   const totalMXN = carrito.reduce((s,i) => s + i.precio * i.qty, 0);
-  el.innerHTML = carrito.map((item, idx) => `
-    <div class="cart-item">
+  const totalItems = carrito.reduce((s,i) => s + i.qty, 0);
+
+  el.innerHTML = carrito.map((item, idx) => {
+    const subtotal = item.precio * item.qty;
+    const thumbHTML = item.imagen
+      ? `<img src="${item.imagen}" alt="${item.clave}" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">`
+      : '';
+    return `<div class="cart-item">
       <div class="cart-item-thumb">
-        ${item.imagen?`<img src="${item.imagen}" alt="${item.clave}" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">` : ''}
-        <div class="cart-item-thumb-ph" style="${item.imagen?'display:none':''}">
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" opacity="0.2"><rect x="3" y="3" width="18" height="18"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+        ${thumbHTML}
+        <div class="cart-item-thumb-ph" style="${item.imagen ? 'display:none' : ''}">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" opacity="0.15"><rect x="3" y="3" width="18" height="18"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
         </div>
       </div>
       <div class="cart-item-info">
         <div class="cart-item-name">${item.desc}</div>
         <div class="cart-item-meta">
           <span class="cart-item-clave">${item.clave}</span>
-          ${item.marca?`<span class="cart-item-marca">${item.marca}</span>`:''}
+          ${item.marca ? `<span class="cart-item-marca">${item.marca}</span>` : ''}
         </div>
-        <div class="cart-item-price-unit">${fmt(item.precio,item.moneda)} por unidad</div>
+        <div class="cart-item-price-unit">${fmt(item.precio, item.moneda)} por unidad</div>
       </div>
       <div class="cart-item-qty">
         <div class="qty-ctrl">
@@ -904,13 +910,16 @@ function renderCarrito() {
         </div>
       </div>
       <div class="cart-item-total">
-        <div class="cart-item-total-price">${fmt(item.precio*item.qty,item.moneda)}</div>
+        <div class="cart-item-total-price">${fmt(subtotal, item.moneda)}</div>
         <button class="cart-item-remove" onclick="quitarItem(${idx})">
           <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/></svg>
           Eliminar
         </button>
       </div>
-    </div>`).join('');
+    </div>`;
+  }).join('');
+
+  // Resumen debajo del carrito
   tot.style.display = 'block';
   document.getElementById('carrito-total').textContent = fmt(totalMXN, 'Pesos');
 }
