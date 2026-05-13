@@ -660,14 +660,19 @@ async function agregarAlCarrito() {
       const pd = await api('cva_producto', { clave: art.clave });
       imagen = pd.producto?.imagen || null;
     } catch(_) {}
+    // Intentar obtener TC del producto directamente
+    let tcProducto = parseFloat(art.tipo_cambio) || 0;
+    if (!tcProducto && pd?.producto?.tipo_cambio) tcProducto = parseFloat(pd.producto.tipo_cambio) || 0;
+
     carrito.push({
-      clave: art.clave,
-      desc: art.descripcion || art.codigo || clave,
-      precio: parseFloat(art.precio) || 0,
-      moneda: art.moneda,
-      marca: art.marca || '',
+      clave      : art.clave,
+      desc       : art.descripcion || art.codigo || clave,
+      precio     : parseFloat(art.precio) || 0,
+      moneda     : art.moneda,
+      marca      : art.marca || '',
       qty,
       imagen,
+      tipo_cambio: tcProducto,
       stock_cedis: (art.inventario || []).find(x => x.nombre==='TOTAL')?.disponible || 0,
     });
   }
@@ -777,7 +782,12 @@ async function enviarOrden(test = false) {
   }
 
   // ── Calcular totales en MXN para desglose ──
-  const tc         = data.tipo_cambio || carrito[0]?.tipo_cambio || 0;
+  // Buscar TC más confiable: del carrito (vino del catálogo en tiempo real)
+  const tcDelCarrito = carrito.reduce((best, item) => {
+    const t = parseFloat(item.tipo_cambio || 0);
+    return t > 0 ? t : best;
+  }, 0);
+  const tc         = parseFloat(data.tipo_cambio) || tcDelCarrito || 0;
   const monedaProd = data.moneda || 'USD';
   const subtotalCV = parseFloat(data.subtotal) || 0;
   const ivaCV      = parseFloat(data.iva)      || 0;
@@ -788,8 +798,9 @@ async function enviarOrden(test = false) {
   const fleteSub   = flete ? parseFloat(flete.subtotal || 0) : 0;
   const cajas      = flete ? (flete.cajas || 1) : 0;
 
-  // Convertir productos a MXN si vienen en USD
-  const tcVal = tc || 17.5;
+  // Convertir productos a MXN — usar TC del catálogo (más preciso que fallback)
+  // Si no hay TC disponible, forzar consulta al TC actual de CVA
+  const tcVal = tc || 17.5; // fallback mínimo solo si no hay TC de ningún lado
   const toMXN = (val, mon) => mon === 'Dolares' || mon === 'USD' ? val * tcVal : val;
   const subMXN  = toMXN(subtotalCV, monedaProd);
   const ivaMXN  = toMXN(ivaCV,      monedaProd);
@@ -1336,18 +1347,13 @@ async function cargarEstadoSync() {
 
 async function ejecutarSync() {
   const el = document.getElementById('sync-result');
-  loading(el);
-  const data = await apiPost('sync_precios', {
-    batch  : document.getElementById('sync-batch').value,
-    paginas: parseInt(document.getElementById('sync-paginas').value) || 3,
-    exist  : document.getElementById('sync-exist')?.value ?? '3',
-  });
-  if (!data.ok) { alert_(el, '✖ ' + data.error, 'error'); return; }
-  document.getElementById('sync-art').textContent   = data.articulos_procesados;
-  document.getElementById('sync-page').textContent  = data.next_page;
-  document.getElementById('sync-total').textContent = data.total_paginas || '—';
-  alert_(el, `✓ Sync · ${data.articulos_procesados} artículos · Siguiente: pág ${data.next_page} de ${data.total_paginas||'?'}`, 'success');
-  addLog('ok', 'Sync ejecutado', `${data.articulos_procesados} artículos · pág ${data.next_page}`);
+  // El sync completo corre como trigger directo en GAS (cada día a las 2am).
+  // Desde la app solo podemos ver el estado — no ejecutar el sync completo
+  // porque el browser tiene límite de 30s y el catálogo CVA tiene 700+ páginas.
+  alert_(el,
+    '⚠️ El sync completo corre automáticamente cada día a las 2am directo en GAS.<br><br>' +
+    'Si necesitas forzarlo ahora, ve al editor de GAS y ejecuta la función <code>triggerSyncDiario()</code> manualmente.',
+    'warn');
   cargarEstadoSync();
 }
 
