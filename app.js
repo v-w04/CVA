@@ -301,6 +301,7 @@ async function buscarCVA(pagina) {
     grupo: document.getElementById('s-grupo').value.trim(),
     desc : document.getElementById('s-desc').value.trim(),
     exist: document.getElementById('s-exist').value,
+    batch: document.getElementById('s-batch')?.value || 'MD',
     page : _buscarPage,
   };
   const action = params.clave ? 'cva_producto' : 'cva_buscar';
@@ -322,6 +323,47 @@ async function buscarCVA(pagina) {
   const pag = data.paginacion || {};
   window._buscarPag = { totalPags: pag.total_paginas || 1, pagActual: pag.pagina || _buscarPage };
   renderTablaBusqueda(arts);
+}
+
+// Carga todas las páginas de resultados de una vez
+async function buscarTodo() {
+  const el = document.getElementById('buscar-result');
+  const batch = document.getElementById('s-batch')?.value || 'LG';
+  const params = {
+    clave: document.getElementById('s-clave').value.trim(),
+    marca: document.getElementById('s-marca').value.trim(),
+    grupo: document.getElementById('s-grupo').value.trim(),
+    desc : document.getElementById('s-desc').value.trim(),
+    exist: document.getElementById('s-exist').value,
+    batch,
+    page : 1,
+  };
+
+  // Primera página — obtiene el total
+  el.innerHTML = '<div style="padding:32px;text-align:center;color:var(--muted);font-size:11px;letter-spacing:2px;text-transform:uppercase"><span class="spin"></span>Cargando página 1…</div>';
+  const action = params.clave ? 'cva_producto' : 'cva_buscar';
+  const primera = await apiConFallback(action, params);
+  if (!primera.ok) { alert_(el, '✖ ' + primera.error, 'error'); return; }
+  if (params.clave && primera.producto) { el.innerHTML = renderProducto(primera.producto); buscarMeli(primera.producto); return; }
+
+  const todosArts = [...(primera.articulos || [])];
+  const totalPags = primera.paginacion?.total_paginas || 1;
+
+  // Resto de páginas
+  for (let pag = 2; pag <= totalPags; pag++) {
+    el.innerHTML = `<div style="padding:32px;text-align:center;color:var(--muted);font-size:11px;letter-spacing:2px;text-transform:uppercase"><span class="spin"></span>Cargando página ${pag} de ${totalPags}… (${todosArts.length} artículos)</div>`;
+    try {
+      const data = await apiConFallback('cva_buscar', { ...params, page: pag });
+      if (data.ok && data.articulos?.length) todosArts.push(...data.articulos);
+    } catch(_) {}
+    await new Promise(r => setTimeout(r, 200));
+  }
+
+  if (todosArts.length === 0) { alert_(el, 'Sin resultados', 'warn'); return; }
+  _buscarArts = todosArts;
+  window._buscarPag = { totalPags: 1, pagActual: 1 }; // todo en una sola vista
+  addLog('ok', `Ver todo: ${todosArts.length} artículos`, `${totalPags} páginas cargadas`);
+  renderTablaBusqueda(todosArts);
 }
 
 function renderTablaBusqueda(arts) {
@@ -2266,7 +2308,7 @@ window.onload = () => {
 // ── EXPONER AL SCOPE GLOBAL ───────────────────────────────
 Object.assign(window, {
   toggleSidebar, openSidebar, closeSidebar, showPage,
-  buscarCVA, verProducto, volverATabla, limpiarBusqueda, buscarMeli, buscarMeliFila,
+  buscarCVA, buscarTodo, verProducto, volverATabla, limpiarBusqueda, buscarMeli, buscarMeliFila,
   filtrarPorMarca, filtrarPorGrupo, sortBuscar,
   agregarClave, agregarAlCarrito, pvQtyChange, setQty,
   cambiarQty, quitarItem, renderCarrito,

@@ -1315,7 +1315,14 @@
             <option value="3">Con stock Ambos</option>
             <option value="any" selected>Con stock (suc O cedis)</option>
           </select>
+          <select id="s-batch" title="Resultados por página" style="flex:0 0 auto;min-width:90px">
+            <option value="SM">50 / pág</option>
+            <option value="MD" selected>150 / pág</option>
+            <option value="LG">500 / pág</option>
+            <option value="XL">1500 / pág</option>
+          </select>
           <button class="btn btn-primary" onclick="buscarCVA()">Buscar</button>
+          <button class="btn btn-ghost"   onclick="buscarTodo()" title="Carga todas las páginas de resultados">Ver todo</button>
           <button class="btn btn-ghost"   onclick="limpiarBusqueda()">Limpiar</button>
         </div>
         <div id="buscar-result"></div>
