@@ -274,14 +274,14 @@ let _sortDir    = 1;
 function sortBuscar(col) {
   if (_sortCol === col) _sortDir *= -1;
   else { _sortCol = col; _sortDir = 1; }
-  const sorted = [..._buscarArts].sort((a, b) => {
+  _buscarArts = [..._buscarArts].sort((a, b) => {
     let va = a[col], vb = b[col];
     if (col === 'precio') { va = parseFloat(va)||0; vb = parseFloat(vb)||0; }
     else if (col === 'disponible' || col === 'disponibleCD') { va = parseInt(va)||0; vb = parseInt(vb)||0; }
     else { va = String(va||'').toLowerCase(); vb = String(vb||'').toLowerCase(); }
     return va < vb ? -_sortDir : va > vb ? _sortDir : 0;
   });
-  renderTablaBusqueda(sorted);
+  renderTablaBusqueda(_buscarArts);
 }
 
 function sortIcon(col) {
