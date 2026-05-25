@@ -970,19 +970,10 @@ function cambiarQty(idx,delta){ carrito[idx].qty=Math.max(1,carrito[idx].qty+del
 function setQty(idx,val){ const q=parseInt(val); if(q>0){ carrito[idx].qty=q; guardarCarrito(); renderCarrito(); } }
 function quitarItem(idx){ carrito.splice(idx,1); guardarCarrito(); renderCarrito(); }
 
-async function enviarOrden(test = false) {
+async function enviarOrden(test = false, sinGuia = false) {
   if (carrito.length === 0) { alert('El carrito está vacío'); return; }
 
-  // Validar guía si es SF (guía propia)
   const tipo_flete = document.getElementById('tipo-flete').value;
-  if (tipo_flete === 'SF' && !test) {
-    const noGuia = document.getElementById('guia-numero').value.trim();
-    if (!noGuia) {
-      alert('⚠️ Ingresa el número de guía antes de crear el pedido. Es necesario para que CVA despache el paquete.');
-      document.getElementById('guia-numero').focus();
-      return;
-    }
-  }
 
   const el = document.getElementById('orden-result');
   loading(el);
@@ -1128,6 +1119,7 @@ async function enviarOrden(test = false) {
   if (!test && tipo_flete === 'SF') {
     const noGuia  = document.getElementById('guia-numero')?.value.trim() || '';
     const carrier = document.getElementById('guia-carrier')?.value || 'DHL';
+    const sinGuia = !noGuia; // ← pedido creado pero sin guía todavía
 
     if (noGuia) {
       if (_tieneTokenGuias()) {
@@ -1167,6 +1159,28 @@ async function enviarOrden(test = false) {
         observaciones: document.getElementById('observaciones')?.value || '',
         fecha        : new Date().toLocaleDateString('es-MX'),
       }).catch(() => {});
+    } else {
+      // Sin guía — registrar igualmente como "esperando guía"
+      addLog('warn', `Pedido ${data.pedido} creado sin guía`, 'Pendiente de guía para despacho');
+      apiPost('registrar_pedido', {
+        orden_cva    : data.pedido,
+        carrier      : '',
+        no_guia      : '',
+        guia_enviada : false,
+        sin_guia     : true,
+        pdf_base64   : null,
+        pdf_nombre   : null,
+        observaciones: document.getElementById('observaciones')?.value || '',
+        fecha        : new Date().toLocaleDateString('es-MX'),
+      }).catch(() => {});
+      // Mostrar aviso en la confirmación
+      const ordenResult = document.getElementById('orden-result');
+      const aviso = ordenResult?.querySelector('.guia-status');
+      if (aviso) aviso.innerHTML = `
+        <div style="margin-top:10px;padding:10px 14px;background:rgba(200,151,58,0.1);border:1px solid rgba(200,151,58,0.3);border-radius:2px">
+          <span style="color:var(--orange);font-size:11px;font-weight:600;letter-spacing:1px">⏳ ESPERANDO GUÍA</span>
+          <div style="color:var(--muted);font-size:11px;margin-top:4px">El pedido está en CVA. Ve a <strong style="color:var(--text)">Pedidos CVA</strong> cuando tengas la guía para agregarla y despachar.</div>
+        </div>`;
     }
   }
 
@@ -1481,13 +1495,43 @@ let pdfBase64 = null, pdfNombre = null, editandoIdx = null;
 async function cargarPedidos() {
   const el = document.getElementById('pedidos-result');
   loading(el);
-  const data = await api('cva_pedidos');
-  if (!data.ok) { alert_(el, '✖ ' + data.error, 'error'); return; }
-  const cvaList = data.pedidos || [];
+
+  // Cargar locales siempre — son la fuente primaria
   const locales = await api('pedidos_locales');
-  const locMap  = {};
-  (locales.pedidos || []).forEach(p => { locMap[p.orden_cva] = p; });
-  pedidosData = cvaList.map(p => ({ ...p, ...(locMap[p.Numero] || {}), _cva: p }));
+  const locList = (locales.pedidos || []);
+
+  // Intentar enriquecer con datos de CVA (puede fallar sin crédito activo)
+  let cvaList = [];
+  try {
+    const data = await api('cva_pedidos');
+    if (data.ok) cvaList = data.pedidos || [];
+  } catch(_) {}
+
+  // Merge: locales como base, CVA enriquece si hay match
+  const cvaMap = {};
+  cvaList.forEach(p => { cvaMap[p.Numero] = p; });
+
+  // Pedidos locales con datos CVA si existen
+  const locMerged = locList.map(p => ({
+    ...( cvaMap[p.orden_cva] || {} ),
+    ...p,
+    Numero: p.orden_cva || p.Numero,
+    _local: true,
+  }));
+
+  // Pedidos CVA que no están en locales (creados por otro medio)
+  const locClaves = new Set(locList.map(p => p.orden_cva).filter(Boolean));
+  const soloEnCVA = cvaList
+    .filter(p => !locClaves.has(p.Numero))
+    .map(p => ({ ...p, _cva: true }));
+
+  pedidosData = [...locMerged, ...soloEnCVA]
+    .sort((a, b) => {
+      const fa = a.fecha || a.FechaAsignado || '';
+      const fb = b.fecha || b.FechaAsignado || '';
+      return fb.localeCompare(fa);
+    });
+
   renderTablaPedidos();
 }
 
@@ -1499,17 +1543,25 @@ function renderTablaPedidos() {
   el.innerHTML = `
     <div class="table-wrap"><table>
       <tr><th>Nuestra Orden</th><th>No Orden CVA</th><th>Tienda</th><th>Carrier</th><th>No Guía</th><th>Guía Enviada</th><th>Fecha</th><th>Estatus</th><th></th></tr>
-      ${lista.map((p,i) => `<tr>
-        <td class="mono" style="font-size:11px">${p.nuestra_orden||'—'}</td>
-        <td class="mono">${p.Numero||p.orden_cva||'—'}</td>
-        <td style="color:var(--muted);font-size:12px">${p.tienda||'—'}</td>
-        <td style="color:var(--muted);font-size:12px">${p.carrier||'—'}</td>
-        <td class="mono" style="font-size:11px">${p.no_guia||'—'}</td>
-        <td style="text-align:center;font-size:16px">${p.guia_enviada?'✓':'○'}</td>
-        <td style="font-size:11px;color:var(--muted)">${p.FechaAsignado||p.fecha||'—'}</td>
-        <td><span class="status-${(p.Asignado||'pendiente').toLowerCase()}">${p.Asignado||'—'}</span></td>
-        <td><button class="btn btn-ghost" style="padding:4px 12px;font-size:10px" onclick="abrirModalPedido(${i})">Editar</button></td>
-      </tr>`).join('')}
+      ${lista.map((p,i) => {
+        const sinGuia = !p.no_guia;
+        const rowBg = sinGuia ? ' style="background:rgba(200,151,58,0.04);border-left:2px solid rgba(200,151,58,0.4)"' : '';
+        const guiaCell = p.no_guia || '<span style="color:#C8973A;font-size:10px;letter-spacing:1px;font-weight:600">⏳ PENDIENTE</span>';
+        const btnClass = sinGuia ? 'btn-primary' : 'btn-ghost';
+        const btnStyle = sinGuia ? 'padding:4px 12px;font-size:10px;background:rgba(200,151,58,0.15);border-color:rgba(200,151,58,0.4);color:#C8973A' : 'padding:4px 12px;font-size:10px';
+        const btnLabel = sinGuia ? '+ Agregar Guía' : 'Editar';
+        return '<tr' + rowBg + '>'
+          + '<td class="mono" style="font-size:11px">' + (p.nuestra_orden||'—') + '</td>'
+          + '<td class="mono">' + (p.Numero||p.orden_cva||'—') + '</td>'
+          + '<td style="color:var(--muted);font-size:12px">' + (p.tienda||'—') + '</td>'
+          + '<td style="color:var(--muted);font-size:12px">' + (p.carrier||'—') + '</td>'
+          + '<td class="mono" style="font-size:11px">' + guiaCell + '</td>'
+          + '<td style="text-align:center;font-size:16px">' + (p.guia_enviada?'✓':'○') + '</td>'
+          + '<td style="font-size:11px;color:var(--muted)">' + (p.FechaAsignado||p.fecha||'—') + '</td>'
+          + '<td><span class="status-' + (p.Asignado||'pendiente').toLowerCase() + '">' + (p.Asignado||'—') + '</span></td>'
+          + '<td><button class="btn ' + btnClass + '" style="' + btnStyle + '" onclick="abrirModalPedido(' + i + ')">' + btnLabel + '</button></td>'
+          + '</tr>';
+      }).join('')}
     </table></div>`;
 }
 
@@ -1529,6 +1581,14 @@ function abrirModalPedido(idx) {
   document.getElementById('m-pdf-info').textContent  = p.pdf_nombre ? '✓ ' + p.pdf_nombre : '';
   document.getElementById('modal-result').innerHTML  = '';
   document.getElementById('modal-overlay').style.display = 'flex';
+  // Si no tiene guía, ir directo al campo y mostrar aviso
+  if (!p.no_guia) {
+    setTimeout(() => {
+      document.getElementById('m-guia').focus();
+      document.getElementById('modal-result').innerHTML =
+        '<div style="padding:8px 12px;background:rgba(200,151,58,0.1);border:1px solid rgba(200,151,58,0.3);font-size:11px;color:var(--orange);margin-bottom:8px">⏳ Este pedido está en CVA esperando guía. Ingresa el número y guarda.</div>';
+    }, 100);
+  }
 }
 function cerrarModal() { document.getElementById('modal-overlay').style.display = 'none'; }
 function handleFileSelect(e) { const file = e.target.files[0]; if (file) procesarPDF(file); }

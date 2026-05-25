@@ -1511,9 +1511,14 @@
               </div>
 
               <div class="divider"></div>
-              <div style="display:flex;gap:10px">
-                <button class="btn btn-ghost"   onclick="enviarOrdenTest()" style="flex:1">Test</button>
-                <button class="btn btn-primary" onclick="enviarOrden()"     style="flex:1">Crear Pedido + Enviar Guía</button>
+              <div style="display:flex;gap:10px;flex-wrap:wrap">
+                <button class="btn btn-ghost"   onclick="enviarOrdenTest()" style="flex:1;min-width:120px">Test</button>
+                <button class="btn btn-ghost" onclick="enviarOrden(false,true)" style="flex:1;min-width:140px;border-color:rgba(200,151,58,0.4);color:var(--orange)"
+                  title="Crea el pedido en CVA ahora. Agrega la guía después desde Pedidos CVA.">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="margin-right:5px;vertical-align:middle"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                  Crear · Guía después
+                </button>
+                <button class="btn btn-primary" onclick="enviarOrden()"     style="flex:2;min-width:160px">Crear Pedido + Enviar Guía</button>
               </div>
               <div id="orden-result" style="margin-top:14px"></div>
             </div>
