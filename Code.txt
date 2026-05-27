@@ -195,12 +195,24 @@ function routeGet_(action, p) {
         const lastRow = shL.getRange(shL.getLastRow(), 1, 1, shL.getLastColumn()).getValues()[0];
         ultimoSync = lastRow.join(" | ");
       }
+      const fechaInicioH = shH && shH.getLastRow() > 1 ? String(shH.getRange(2,1).getValue()).substring(0,10) : null;
+      let diasHistorial = 0;
+      if (shH && shH.getLastRow() > 1) {
+        const fechas = new Set();
+        const hRows = Math.min(shH.getLastRow() - 1, 5000);
+        shH.getRange(2, 1, hRows, 1).getValues().forEach(r => {
+          const f = r[0] ? String(r[0]).substring(0,10) : null;
+          if (f) fechas.add(f);
+        });
+        diasHistorial = fechas.size;
+      }
       return {
         ok: true,
         pagina_actual: page,
         registros_sync_cva: shS ? shS.getLastRow() - 1 : 0,
         registros_historial: shH ? shH.getLastRow() - 1 : 0,
-        fecha_inicio_historial: shH && shH.getLastRow() > 1 ? String(shH.getRange(2,1).getValue()).substring(0,10) : null,
+        fecha_inicio_historial: fechaInicioH,
+        dias_historial: diasHistorial,
         ultimo_sync_log: ultimoSync,
       };
     }

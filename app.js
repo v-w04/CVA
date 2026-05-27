@@ -1741,7 +1741,12 @@ async function cargarEstadoSync() {
     </div>
     ${data.ultimo_sync_log?`<div style="font-size:11px;color:var(--muted);padding:8px 12px;background:rgba(238,240,240,0.03);border-left:2px solid rgba(238,240,240,0.1)">Último sync: ${data.ultimo_sync_log}</div>`:''}`;
   document.getElementById('sync-page').textContent  = data.pagina_actual;
-  document.getElementById('sync-total').textContent = '—';
+  const syncTotalEl = document.getElementById('sync-total');
+  if (syncTotalEl) syncTotalEl.textContent = data.registros_sync_cva ? data.registros_sync_cva.toLocaleString() : '—';
+  const histDiasEl = document.getElementById('sync-hist-dias');
+  if (histDiasEl) histDiasEl.textContent = data.dias_historial || (data.registros_historial > 0 ? '✓' : '0');
+  const histDesdeEl = document.getElementById('sync-hist-desde');
+  if (histDesdeEl) histDesdeEl.textContent = data.fecha_inicio_historial ? 'desde ' + data.fecha_inicio_historial : 'sin snapshots aún';
 }
 
 async function ejecutarSync() {
