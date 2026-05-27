@@ -1639,7 +1639,7 @@ function abrirModalPedido(idx) {
   document.getElementById('m-tienda').value          = p.tienda   || 'ML SV';
   document.getElementById('m-carrier').value         = p.carrier  || 'DHL';
   document.getElementById('m-guia').value            = p.no_guia  || '';
-  document.getElementById('m-obs').value             = p.observaciones || 'CVA CEDIS GDL';
+  document.getElementById('m-obs').value             = p.observaciones || '';
   document.getElementById('m-guia-enviada').checked  = !!p.guia_enviada;
   document.getElementById('m-pdf-label').textContent = 'Browse — Or drop PDF here';
   document.getElementById('m-pdf-info').textContent  = p.pdf_nombre ? '✓ ' + p.pdf_nombre : '';

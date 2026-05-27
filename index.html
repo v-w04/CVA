@@ -1752,7 +1752,7 @@
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:24px">
       <div>
         <div style="width:24px;height:1px;background:var(--green);margin-bottom:10px"></div>
-        <span style="font-size:11px;font-weight:500;letter-spacing:3px;text-transform:uppercase">Registrar Pedido</span>
+        <span style="font-size:11px;font-weight:500;letter-spacing:3px;text-transform:uppercase">Agregar Guía</span>
       </div>
       <button onclick="cerrarModal()" style="background:none;border:none;color:var(--muted);font-size:18px;cursor:pointer;opacity:0.6">✕</button>
     </div>
@@ -1814,7 +1814,7 @@
     </div>
     <div class="form-group">
       <label>Observaciones</label>
-      <input id="m-obs" type="text" placeholder="CVA CEDIS GDL">
+      <input id="m-obs" type="text" placeholder="Observaciones (opcional)">
     </div>
     <div class="form-group" style="display:flex;align-items:center;gap:10px">
       <input type="checkbox" id="m-guia-enviada" style="width:14px;height:14px;accent-color:var(--green)">
@@ -1822,8 +1822,7 @@
     </div>
     <div style="display:flex;gap:10px;margin-top:24px">
       <button class="btn btn-ghost"   onclick="cerrarModal()"    style="flex:1">Cerrar</button>
-      <button class="btn btn-orange"  onclick="enviarGuiaCVA()"  style="flex:1">Enviar Guía</button>
-      <button class="btn btn-primary" onclick="registrarPedido()" style="flex:1">Registrar</button>
+      <button class="btn btn-primary" onclick="enviarGuiaCVA()"  style="flex:2">Enviar Guía a CVA</button>
     </div>
     <div id="modal-result" style="margin-top:14px"></div>
   </div>
