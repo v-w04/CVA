@@ -985,6 +985,25 @@ async function enviarOrden(test = false, sinGuia = false) {
 
   const tipo_flete = document.getElementById('tipo-flete').value;
 
+  // Validar guía completa cuando es SF y no es "sin guía" ni test
+  if (tipo_flete === 'SF' && !sinGuia && !test) {
+    const noGuia = document.getElementById('guia-numero').value.trim();
+    if (!noGuia) {
+      alert('⚠️ Ingresa el número de rastreo antes de crear el pedido.');
+      document.getElementById('guia-numero').focus();
+      return;
+    }
+    if (!_guiaPdfBase64) {
+      const dz = document.getElementById('guia-dropzone');
+      if (dz) { dz.style.borderColor = '#e05555'; dz.style.background = 'rgba(229,68,68,0.06)'; }
+      document.getElementById('guia-pdf-info').innerHTML =
+        '<span style="color:#e05555">⚠️ El PDF es obligatorio — CVA no puede despachar sin la etiqueta</span>';
+      dz && dz.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      return;
+    }
+  }
+
+
   const el = document.getElementById('orden-result');
   loading(el);
   const direccion  = {
@@ -1477,7 +1496,8 @@ function handleGuiaFileSelect(e) {
 }
 function handleGuiaDrop(e) {
   e.preventDefault();
-  document.getElementById('guia-dropzone').style.borderColor = 'rgba(103,184,175,0.3)';
+  const dz = document.getElementById('guia-dropzone');
+  if (dz) { dz.style.borderColor = 'var(--green-lt)'; dz.style.background = 'rgba(0,102,94,0.08)'; }
   const file = e.dataTransfer.files[0];
   if (file) _procesarGuiaPDF(file);
 }
@@ -1487,10 +1507,13 @@ function _procesarGuiaPDF(file) {
     return;
   }
   _guiaPdfNombre = file.name;
+  const dz = document.getElementById('guia-dropzone');
+  if (dz) { dz.style.borderColor = 'var(--green-lt)'; dz.style.background = 'rgba(0,102,94,0.06)'; }
   document.getElementById('guia-pdf-label').innerHTML =
-    `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="vertical-align:middle;margin-right:5px;color:var(--green-lt)"><polyline points="20 6 9 17 4 12"/></svg>` +
-    file.name + ` <span style="opacity:0.5">(${(file.size/1024).toFixed(1)} KB)</span>`;
-  document.getElementById('guia-pdf-info').textContent = '✓ PDF listo para enviar';
+    `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" style="vertical-align:middle;margin-right:6px;color:var(--green-lt)"><polyline points="20 6 9 17 4 12"/></svg>` +
+    `<span style="color:var(--green-lt)">${file.name}</span> <span style="opacity:0.4">(${(file.size/1024).toFixed(0)} KB)</span>`;
+  document.getElementById('guia-pdf-info').innerHTML =
+    '<span style="color:var(--green-lt)">✓ PDF adjunto — CVA podrá imprimir la etiqueta</span>';
   const reader = new FileReader();
   reader.onload = ev => { _guiaPdfBase64 = ev.target.result.split(',')[1]; };
   reader.readAsDataURL(file);
@@ -1639,8 +1662,13 @@ function handleDrop(e) {
 }
 function procesarPDF(file) {
   pdfNombre = file.name;
-  document.getElementById('m-pdf-label').textContent = file.name;
-  document.getElementById('m-pdf-info').textContent  = (file.size/1024).toFixed(1) + ' KB — Cargado';
+  const dz = document.getElementById('m-pdf-dropzone');
+  if (dz) { dz.style.borderColor = 'var(--green-lt)'; dz.style.background = 'rgba(0,102,94,0.06)'; }
+  document.getElementById('m-pdf-label').innerHTML =
+    `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" style="vertical-align:middle;margin-right:6px;color:var(--green-lt)"><polyline points="20 6 9 17 4 12"/></svg>` +
+    `<span style="color:var(--green-lt)">${file.name}</span> <span style="opacity:0.4">(${(file.size/1024).toFixed(0)} KB)</span>`;
+  document.getElementById('m-pdf-info').innerHTML =
+    '<span style="color:var(--green-lt)">✓ PDF adjunto — CVA podrá imprimir la etiqueta</span>';
   const reader = new FileReader();
   reader.onload = e => { pdfBase64 = e.target.result.split(',')[1]; };
   reader.readAsDataURL(file);

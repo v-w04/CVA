@@ -1469,7 +1469,13 @@
               <div class="divider"></div>
               <div class="section-title" style="color:var(--green-lt)">
                 Guía de Envío
-                <span style="font-size:9px;color:var(--muted);letter-spacing:1px;font-weight:400;text-transform:none;margin-left:8px">— adjunta antes de crear el pedido</span>
+                <span style="font-size:9px;color:var(--muted);letter-spacing:1px;font-weight:400;text-transform:none;margin-left:8px">— CVA imprime y despacha al recibirla</span>
+              </div>
+
+              <div style="padding:10px 14px;background:rgba(0,102,94,0.06);border-left:2px solid var(--green);font-size:11px;color:var(--muted);line-height:1.7;margin-bottom:14px">
+                MercadoLibre y Walmart generan la guía en tu panel al confirmar el envío.<br>
+                <strong style="color:var(--text)">Descarga el PDF de la guía y súbelo aquí.</strong>
+                CVA lo necesita para imprimir la etiqueta y pegar al paquete — sin él no puede despachar.
               </div>
 
               <div class="grid-2">
@@ -1486,30 +1492,32 @@
                   </select>
                 </div>
                 <div class="form-group">
-                  <label>Número de Guía</label>
+                  <label>Número de Rastreo <span style="color:#e05555;font-size:10px">*</span></label>
                   <input id="guia-numero" type="text" placeholder="Ej: 1234567890">
                 </div>
               </div>
 
               <div class="form-group">
-                <label>PDF de Guía <span style="color:var(--muted);font-weight:400;letter-spacing:0;text-transform:none;font-size:9px">— opcional pero recomendado</span></label>
-                <div id="guia-dropzone" style="border:1px dashed rgba(103,184,175,0.3);padding:16px;text-align:center;cursor:pointer;transition:border-color .2s;background:rgba(0,102,94,0.04)"
+                <label style="display:flex;justify-content:space-between;align-items:center">
+                  <span>PDF de la Guía <span style="color:#e05555;font-size:10px">* obligatorio</span></span>
+                  <span id="guia-pdf-future" style="color:rgba(103,184,175,0.4);font-weight:400;letter-spacing:0;text-transform:none;font-size:9px">futuro: auto desde Odoo</span>
+                </label>
+                <div id="guia-dropzone"
                      onclick="document.getElementById('guia-pdf-input').click()"
-                     ondragover="event.preventDefault();this.style.borderColor='var(--green-lt)'"
-                     ondragleave="this.style.borderColor='rgba(103,184,175,0.3)'"
-                     ondrop="handleGuiaDrop(event)">
+                     ondragover="event.preventDefault();this.style.borderColor='var(--green-lt)';this.style.background='rgba(0,102,94,0.08)'"
+                     ondragleave="this.style.borderColor='rgba(229,68,68,0.4)';this.style.background='rgba(229,68,68,0.03)'"
+                     ondrop="handleGuiaDrop(event)"
+                     style="border:1px dashed rgba(229,68,68,0.4);padding:18px;text-align:center;cursor:pointer;transition:all .2s;background:rgba(229,68,68,0.03)">
                   <div id="guia-pdf-label" style="color:var(--muted);font-size:11px;letter-spacing:1px">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" style="vertical-align:middle;margin-right:6px"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-                    Subir PDF — o arrastra aquí
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" style="vertical-align:middle;margin-right:8px;color:#e05555"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                    <span style="color:#e05555">Sube el PDF de la guía</span> — arrastra aquí o haz clic
                   </div>
                   <input id="guia-pdf-input" type="file" accept=".pdf" style="display:none" onchange="handleGuiaFileSelect(event)">
                 </div>
                 <div id="guia-pdf-info" style="font-size:10px;color:var(--green-lt);margin-top:5px;letter-spacing:.5px"></div>
               </div>
 
-              <div id="guia-token-aviso" style="display:none;padding:10px 14px;background:rgba(200,151,58,0.08);border:1px solid rgba(200,151,58,0.25);font-size:11px;color:var(--orange);margin-bottom:12px;line-height:1.6">
-                ⚠️ <strong>Token de guías pendiente</strong> — La guía se registrará localmente y se enviará a CVA en cuanto tengas el token activado. CVA no despachará automáticamente hasta entonces.
-              </div>
+              <div id="guia-token-aviso" style="display:none"></div>
 
               <div class="divider"></div>
               <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
@@ -1520,7 +1528,7 @@
                   ⏳ Crear sin guía
                 </button>
                 <button class="btn btn-primary" onclick="enviarOrden()" style="grid-column:1/-1">
-                  Crear Pedido + Enviar Guía
+                  Crear Pedido + Enviar Guía a CVA
                 </button>
               </div>
               <div id="orden-result" style="margin-top:14px"></div>
@@ -1775,20 +1783,27 @@
       </select>
     </div>
     <div class="form-group">
-      <label>No Guía</label>
-      <input id="m-guia" type="text" placeholder="3163668060">
+      <label>Número de Rastreo <span style="color:#e05555;font-size:10px">*requerido para despacho</span></label>
+      <input id="m-guia" type="text" placeholder="Ej: 1234567890" style="font-size:15px">
     </div>
     <div class="form-group">
-      <label>Guía PDF <span style="color:var(--muted);font-size:11px;letter-spacing:0">(opcional)</span></label>
-      <div style="border:1px dashed rgba(255,255,255,0.15);padding:20px;text-align:center;cursor:pointer;transition:border-color .2s"
+      <label style="display:flex;justify-content:space-between">
+        <span>PDF de la Guía <span style="color:#e05555;font-size:10px">* obligatorio para despacho</span></span>
+        <span style="color:rgba(103,184,175,0.4);font-size:9px;font-weight:400;letter-spacing:0;text-transform:none">futuro: auto desde Odoo</span>
+      </label>
+      <div id="m-pdf-dropzone"
+           style="border:1px dashed rgba(229,68,68,0.4);padding:14px;text-align:center;cursor:pointer;transition:all .2s;background:rgba(229,68,68,0.03)"
            onclick="document.getElementById('m-pdf-input').click()"
-           ondragover="event.preventDefault();this.style.borderColor='var(--green)'"
-           ondragleave="this.style.borderColor='rgba(255,255,255,0.15)'"
+           ondragover="event.preventDefault();this.style.borderColor='var(--green-lt)';this.style.background='rgba(0,102,94,0.08)'"
+           ondragleave="this.style.borderColor='rgba(229,68,68,0.4)';this.style.background='rgba(229,68,68,0.03)'"
            ondrop="handleDrop(event)">
-        <div id="m-pdf-label" style="color:var(--muted);font-size:12px;letter-spacing:1px;text-transform:uppercase">Browse — Or drop PDF here</div>
+        <div id="m-pdf-label" style="color:var(--muted);font-size:11px;letter-spacing:1px">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#e05555" stroke-width="1.5" stroke-linecap="round" style="vertical-align:middle;margin-right:6px"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+          <span style="color:#e05555">Sube el PDF de la guía</span> — arrastra aquí o haz clic
+        </div>
         <input id="m-pdf-input" type="file" accept=".pdf" style="display:none" onchange="handleFileSelect(event)">
       </div>
-      <div id="m-pdf-info" style="margin-top:8px;font-size:11px;color:var(--green-hi);letter-spacing:0.5px"></div>
+      <div id="m-pdf-info" style="margin-top:6px;font-size:11px;color:var(--green-hi);letter-spacing:0.5px"></div>
     </div>
     <div class="form-group">
       <label>Observaciones</label>
