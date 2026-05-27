@@ -953,6 +953,15 @@ function getAnalisisMovimiento() {
       .sort((a, b) => b.movimiento - a.movimiento)
       .slice(0, 20);
 
+    // Si no hay movimiento aún (solo 1 snapshot), mostrar top por stock total
+    const topPorStock = topMovidos.length === 0
+      ? movimientos
+          .filter(p => p.total > 0)
+          .sort((a, b) => b.total - a.total)
+          .slice(0, 20)
+          .map(p => ({ ...p, movimiento: null, solo_stock: true }))
+      : [];
+
     // Agotados: stock hoy = 0, tenían stock antes
     const agotados = movimientos
       .filter(p => p.total === 0 && p.stock_antes !== null && p.stock_antes > 0)
@@ -1006,7 +1015,8 @@ function getAnalisisMovimiento() {
         marcas_activas   : Object.keys(porMarca).length,
         grupos_activos   : Object.keys(porGrupo).length,
       },
-      top_movidos  : topMovidos,
+      top_movidos  : topMovidos.length > 0 ? topMovidos : topPorStock,
+      solo_stock   : topMovidos.length === 0,
       agotados     : agotados,
       top_marcas   : topMarcas,
       top_grupos   : topGrupos,

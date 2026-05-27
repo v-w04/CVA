@@ -2032,17 +2032,32 @@ async function cargarAnalisis() {
   const elTop = document.getElementById('analisis-top-movidos');
   if (elTop) {
     if (!data.top_movidos?.length) {
-      alert_(elTop, data.dias_disponibles < 2
-        ? 'Necesitas al menos 2 dias de historial. El trigger diario lo genera a las 2am.'
-        : 'Sin movimiento registrado', 'info');
+      alert_(elTop, 'Sin datos de stock — asegúrate de que SYNC_CVA tiene productos', 'warn');
     } else {
-      elTop.innerHTML = '<div class="table-wrap"><table><thead><tr><th>Clave</th><th>Descripcion</th><th>Marca</th><th style="text-align:right">Stock hoy</th><th style="text-align:right;color:var(--green-lt)">Movido</th></tr></thead><tbody>' +
+      const soloStock = data.solo_stock;
+      const colHeader = soloStock
+        ? '<th style="text-align:right;color:var(--muted)">Stock</th>'
+        : '<th style="text-align:right;color:var(--green-lt)">▼ Movido</th>';
+      const aviso = soloStock
+        ? '<div style="padding:8px 0 12px;font-size:10px;color:var(--orange);letter-spacing:1px">⏳ SOLO UN SNAPSHOT — mañana verás movimiento real. Mostrando top por stock actual.</div>'
+        : '';
+      elTop.innerHTML = aviso +
+        '<div class="table-wrap"><table><thead><tr>' +
+        '<th>Clave</th><th>Descripción</th><th>Marca</th>' +
+        '<th style="text-align:right">Stock</th>' + colHeader +
+        '<th style="text-align:right">Precio</th>' +
+        '</tr></thead><tbody>' +
         data.top_movidos.map(p =>
-          '<tr><td class="mono">' + p.clave + '</td>' +
-          '<td style="max-width:200px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:12px">' + p.desc + '</td>' +
+          '<tr>' +
+          '<td class="mono" style="color:var(--green-lt)">' + p.clave + '</td>' +
+          '<td style="max-width:220px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:12px" title="' + (p.desc||'') + '">' + (p.desc||'—') + '</td>' +
           '<td style="color:var(--muted);font-size:11px">' + (p.marca||'—') + '</td>' +
-          '<td style="text-align:right;font-family:Barlow Condensed,sans-serif;font-size:15px">' + p.total + '</td>' +
-          '<td style="text-align:right"><span style="color:var(--green-lt);font-family:Barlow Condensed,sans-serif;font-size:16px">▼ ' + p.movimiento + '</span></td></tr>'
+          '<td style="text-align:right;font-family:Barlow Condensed,sans-serif;font-size:15px">' + (p.total||0) + '</td>' +
+          (soloStock
+            ? '<td style="text-align:right;color:var(--muted);font-size:13px">—</td>'
+            : '<td style="text-align:right"><span style="color:var(--green-lt);font-family:Barlow Condensed,sans-serif;font-size:16px">▼ ' + p.movimiento + '</span></td>') +
+          '<td style="text-align:right;font-family:Barlow Condensed,sans-serif;font-size:13px;color:var(--muted)">' + fmt(p.precio, p.moneda) + '</td>' +
+          '</tr>'
         ).join('') +
         '</tbody></table></div>';
     }
