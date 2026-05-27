@@ -1456,11 +1456,9 @@ let _guiaPdfBase64 = null;
 let _guiaPdfNombre = null;
 
 // ¿Tenemos token de guías CVA? (se activa cuando CVA lo proporcione)
-// Para habilitar: setear CFG_GUIAS_TOKEN en Code.gs o cambiar aquí a true
+// Token CVA guías activo — f4c9a82170abde56c1ef9287bd4036a91
 function _tieneTokenGuias() {
-  // Por ahora siempre false hasta que CVA active el token
-  // Cuando esté listo: return true;
-  return false;
+  return true;
 }
 
 function handleGuiaFileSelect(e) {
@@ -1491,6 +1489,28 @@ function _procesarGuiaPDF(file) {
 // ── PEDIDOS ───────────────────────────────────────────────
 let pedidosData = [];
 let pdfBase64 = null, pdfNombre = null, editandoIdx = null;
+
+// ── SALDO CVA ─────────────────────────────────────────────────
+async function cargarSaldo() {
+  const badge = document.getElementById('badge-saldo');
+  if (!badge) return;
+  try {
+    const data = await api('cva_saldo');
+    if (data.ok) {
+      const saldo = parseFloat(data.saldo_disponible || data.saldo || data.credito_disponible || 0);
+      const saldoFmt = saldo.toLocaleString('es-MX', { style: 'currency', currency: 'MXN', maximumFractionDigits: 0 });
+      badge.textContent = saldoFmt;
+      badge.className = 'badge ' + (saldo > 1000 ? 'badge-green' : saldo > 0 ? 'badge-silver' : 'badge-red');
+      badge.title = `Saldo CVA disponible: ${saldoFmt}`;
+      addLog('ok', 'Saldo CVA', saldoFmt);
+    } else {
+      badge.textContent = 'Saldo —';
+      badge.title = 'No se pudo obtener saldo: ' + (data.error || '');
+    }
+  } catch(e) {
+    badge.textContent = 'Saldo —';
+  }
+}
 
 async function cargarPedidos() {
   const el = document.getElementById('pedidos-result');
@@ -2350,6 +2370,8 @@ window.onload = () => {
   try { renderLog(); } catch(e) {}
   // Pre-cargar sucursales en background para que ya estén listas al entrar a Orden
   try { cargarSucursalesSelect(); } catch(e) {}
+  // Cargar saldo CVA en background
+  try { cargarSaldo(); } catch(e) {}
 
   api('ping').then(d=>{
     const b = document.getElementById('badge-cva');
@@ -2373,7 +2395,7 @@ Object.assign(window, {
   agregarClave, agregarAlCarrito, pvQtyChange, setQty,
   cambiarQty, quitarItem, renderCarrito,
   enviarOrden, enviarOrdenTest, toggleFleteFields, onEstadoChange, poblarSelectEstados,
-  cargarPedidos, filtrarPedidos, abrirModalPedido, cerrarModal,
+  cargarPedidos, cargarSaldo, filtrarPedidos, abrirModalPedido, cerrarModal,
   handleFileSelect, handleDrop, handleGuiaFileSelect, handleGuiaDrop, registrarPedido, enviarGuiaCVA,
   ejecutarSync, resetearSync, cargarEstadoSync, instalarTriggers, instalarTriggersUI,
   cargarVentasOdoo, buscarEnOdoo, ejecutarDebug,
