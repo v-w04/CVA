@@ -831,90 +831,104 @@ function pvQtyChange(delta) {
   el.value = Math.max(1, Math.min(999, (parseInt(el.value) || 1) + delta));
 }
 function agregarClave(clave, qty = 1) {
-  document.getElementById('cart-clave').value = clave;
-  document.getElementById('cart-qty').value = qty;
-  // Si viene del producto actual, pre-cachear sus datos para no hacer fetch extra
-  if (_productoActual && _productoActual.clave === clave) {
-    const p = _productoActual;
+  // 1. Buscar en resultados actuales de la tabla (más rápido, sin fetch)
+  const enTabla = _buscarArts.find(a => a.clave === clave);
+  const art = enTabla || (_productoActual?.clave === clave ? _productoActual : null);
+
+  if (art) {
     const exist = carrito.findIndex(i => i.clave === clave);
     if (exist >= 0) {
       carrito[exist].qty += qty;
-      document.getElementById('cart-clave').value = '';
-      addLog('ok', 'Agregado al carrito: ' + clave, 'Qty: ' + qty);
-      guardarCarrito(); renderCarrito();
-      showPage('orden');
-      return;
+    } else {
+      carrito.push({
+        clave      : art.clave,
+        desc       : art.descripcion || clave,
+        precio     : parseFloat(art.precio) || 0,
+        moneda     : art.moneda || 'Pesos',
+        marca      : art.marca || '',
+        qty,
+        imagen     : art.imagen || null,
+        tipo_cambio: parseFloat(art.tipo_cambio) || 0,
+        stock_cedis: parseFloat(art.disponibleCD) || 0,
+      });
     }
-    carrito.push({
-      clave      : p.clave,
-      desc       : p.descripcion || clave,
-      precio     : parseFloat(p.precio) || 0,
-      moneda     : p.moneda || 'Pesos',
-      marca      : p.marca || '',
-      qty,
-      imagen     : p.imagen || null,
-      tipo_cambio: parseFloat(p.tipo_cambio) || 0,
-      stock_cedis: parseFloat(p.disponibleCD) || 0,
-    });
-    document.getElementById('cart-clave').value = '';
-    addLog('ok', 'Agregado al carrito: ' + clave, 'Qty: ' + qty);
-    guardarCarrito(); renderCarrito();
+    addLog('ok', '+ Carrito: ' + clave, 'Qty: ' + qty);
+    guardarCarrito();
+    renderCarrito();
     showPage('orden');
     return;
   }
+
+  // 2. Fallback: fetch si el producto no está en tabla (ej: agregado por clave manual)
+  document.getElementById('cart-clave').value = clave;
+  document.getElementById('cart-qty').value = qty;
   agregarAlCarrito().then(() => showPage('orden'));
 }
 
 async function agregarAlCarrito() {
-  const clave = document.getElementById('cart-clave').value.trim();
+  const clave = document.getElementById('cart-clave').value.trim().toUpperCase();
   const qty   = parseInt(document.getElementById('cart-qty').value) || 1;
   if (!clave) return;
-  // Intentar precio_stock — si falla usar el producto de la búsqueda actual
-  let art = null;
+
+  const btn = document.querySelector('#page-orden .btn-primary[onclick*="agregarAlCarrito"]');
+  if (btn) { btn.textContent = '...'; btn.disabled = true; }
+
   try {
-    const data = await apiConFallback('cva_precio_stock', { clave });
-    art = data.articulos ? data.articulos[0] : (data.clave ? data : null);
-  } catch(_) {}
+    let art = null;
 
-  // Fallback: buscar en los resultados actuales de la tabla
-  if (!art || !art.clave) {
-    const enTabla = _buscarArts.find(a => a.clave === clave);
-    if (enTabla) art = enTabla;
-  }
+    // 1. Buscar en resultados actuales — más rápido, sin fetch
+    art = _buscarArts.find(a => a.clave === clave) || null;
 
-  if (!art || !art.clave) { alert('Producto no encontrado: ' + clave); return; }
-
-  const exist = carrito.findIndex(i => i.clave === clave);
-  if (exist >= 0) { carrito[exist].qty += qty; }
-  else {
-    // Obtener imagen — usar la del producto actual si ya la tenemos
-    let imagen = art.imagen || null;
-    let tcProducto = parseFloat(art.tipo_cambio) || 0;
-
-    if (!imagen) {
+    // 2. Si no está en tabla, hacer fetch a CVA
+    if (!art) {
       try {
-        const pd = await apiConFallback('cva_producto', { clave: art.clave });
-        imagen = pd.producto?.imagen || null;
-        if (!tcProducto && pd.producto?.tipo_cambio) tcProducto = parseFloat(pd.producto.tipo_cambio) || 0;
+        const data = await apiConFallback('cva_precio_stock', { clave });
+        art = data.articulos ? data.articulos[0] : (data.clave ? data : null);
       } catch(_) {}
     }
 
-    carrito.push({
-      clave      : art.clave,
-      desc       : art.descripcion || art.codigo || clave,
-      precio     : parseFloat(art.precio) || 0,
-      moneda     : art.moneda || 'Pesos',
-      marca      : art.marca || '',
-      qty,
-      imagen,
-      tipo_cambio: tcProducto,
-      stock_cedis: (art.inventario || []).find(x => x.nombre==='TOTAL')?.disponible || 0,
-    });
+    // 3. Último fallback: buscar por clave exacta
+    if (!art) {
+      try {
+        const data = await apiConFallback('cva_buscar', { clave, page: 1 });
+        art = (data.articulos || []).find(a => a.clave === clave) || null;
+      } catch(_) {}
+    }
+
+    if (!art || !art.clave) { alert('Producto no encontrado: ' + clave); return; }
+
+    const exist = carrito.findIndex(i => i.clave === clave);
+    if (exist >= 0) { carrito[exist].qty += qty; }
+    else {
+      let imagen = art.imagen || null;
+      let tcProducto = parseFloat(art.tipo_cambio) || 0;
+      if (!imagen) {
+        try {
+          const pd = await apiConFallback('cva_producto', { clave: art.clave });
+          imagen = pd.producto?.imagen || null;
+          if (!tcProducto && pd.producto?.tipo_cambio) tcProducto = parseFloat(pd.producto.tipo_cambio) || 0;
+        } catch(_) {}
+      }
+      carrito.push({
+        clave      : art.clave,
+        desc       : art.descripcion || art.codigo || clave,
+        precio     : parseFloat(art.precio) || 0,
+        moneda     : art.moneda || 'Pesos',
+        marca      : art.marca || '',
+        qty,
+        imagen,
+        tipo_cambio: tcProducto,
+        stock_cedis: (art.inventario || []).find(x => x.nombre==='TOTAL')?.disponible || 0,
+      });
+    }
+    document.getElementById('cart-clave').value = '';
+    addLog('ok', 'Agregado al carrito: ' + clave, 'Qty: ' + qty);
+    guardarCarrito();
+    renderCarrito();
+
+  } finally {
+    if (btn) { btn.textContent = 'Agregar'; btn.disabled = false; }
   }
-  document.getElementById('cart-clave').value = '';
-  addLog('ok', 'Agregado al carrito: ' + clave, 'Qty: ' + qty);
-  guardarCarrito();
-  renderCarrito();
 }
 
 function renderCarrito() {
@@ -923,8 +937,8 @@ function renderCarrito() {
   const qty = carrito.reduce((s,i) => s + i.qty, 0);
   const hb = document.getElementById('cart-badge');
   const sb = document.getElementById('cart-sb-badge');
-  if (qty > 0) { hb.style.display='inline'; hb.textContent='Cart '+qty; sb.style.display='inline'; sb.textContent=qty; }
-  else { hb.style.display='none'; sb.style.display='none'; }
+  if (hb) { hb.style.display = qty > 0 ? 'inline' : 'none'; if (qty > 0) hb.textContent = 'Cart ' + qty; }
+  if (sb) { sb.style.display = qty > 0 ? 'inline' : 'none'; if (qty > 0) sb.textContent = qty; }
   if (carrito.length === 0) {
     el.innerHTML = '<div class="alert alert-info">El carrito está vacío</div>';
     tot.style.display = 'none';
