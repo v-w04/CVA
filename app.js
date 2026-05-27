@@ -34,7 +34,8 @@ function showPage(id) {
   try { history.pushState({ page: id }, '', ''); } catch(e) {}
   const sw = document.querySelector('.scroll-wrap');
   if (sw) sw.scrollTop = 0;
-  if (id === 'sync')  setTimeout(() => { try { cargarEstadoSync();   } catch(e) {} }, 100);
+  if (id === 'sync')    setTimeout(() => { try { cargarEstadoSync();   } catch(e) {} }, 100);
+  if (id === 'pedidos') setTimeout(() => { try { cargarPedidos();      } catch(e) {} }, 100);
   if (id === 'orden')   setTimeout(() => { try { iniciarPaginaOrden(); } catch(e) {} }, 100);
   if (id === 'analisis') setTimeout(() => { try { cargarAnalisis();    } catch(e) {} }, 100);
 }
