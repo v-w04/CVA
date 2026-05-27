@@ -500,7 +500,7 @@ function _actualizarControlSync_(props, pagina, articulos, estado) {
 }
 
 // ── GUÍAS DE ENVÍO ───────────────────────────────────────────
-const CVA_GUIAS_URL = "https://www.grupocva.com/api/v1/orders/guias/";
+const CVA_GUIAS_URL = "https://apicvaservices.grupocva.com/api/v2/waybill";
 
 function cvaEnviarGuia(body) {
   const { order_number, waybills, carrier, pdf_base64 } = body;
@@ -509,7 +509,8 @@ function cvaEnviarGuia(body) {
   if (!waybills)     throw new Error("Se requiere waybill(s)");
   if (!carrier)      throw new Error("Se requiere carrier");
 
-  const token = CFG.CVA_GUIAS_TOKEN;
+  // v2 usa token de sesión CVA (igual que el resto de la API)
+  const token = getCVAToken();
 
   const res = UrlFetchApp.fetch(CVA_GUIAS_URL, {
     method: "post",
@@ -536,7 +537,7 @@ function cvaEnviarGuia(body) {
 
 function cvaConsultarGuia(order_number) {
   if (!order_number) throw new Error("Se requiere order_number");
-  const token = CFG.CVA_GUIAS_TOKEN;
+  const token = getCVAToken();
 
   const res = UrlFetchApp.fetch(CVA_GUIAS_URL + "?order_number=" + encodeURIComponent(order_number), {
     method: "get",
