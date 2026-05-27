@@ -249,6 +249,15 @@ function loading(el) {
 function alert_(el, msg, tipo = 'info') {
   el.innerHTML = `<div class="alert alert-${tipo}">${msg}</div>`;
 }
+function fmtFecha(raw) {
+  if (!raw) return '—';
+  try {
+    const d = new Date(raw);
+    if (isNaN(d)) return String(raw).substring(0, 10);
+    return d.toLocaleDateString('es-MX', { day:'2-digit', month:'short', year:'numeric' });
+  } catch(e) { return String(raw).substring(0, 10); }
+}
+
 function fmt(n, moneda) {
   const sym = moneda === 'Dolares' ? 'USD ' : '$';
   return sym + parseFloat(n || 0).toLocaleString('es-MX', { minimumFractionDigits: 2 });
@@ -1498,15 +1507,26 @@ async function cargarSaldo() {
   try {
     const data = await api('cva_saldo');
     if (data.ok) {
-      const saldo = parseFloat(data.saldo_disponible || data.saldo || data.credito_disponible || 0);
-      const saldoFmt = saldo.toLocaleString('es-MX', { style: 'currency', currency: 'MXN', maximumFractionDigits: 0 });
-      badge.textContent = saldoFmt;
-      badge.className = 'badge ' + (saldo > 1000 ? 'badge-green' : saldo > 0 ? 'badge-silver' : 'badge-red');
-      badge.title = `Saldo CVA disponible: ${saldoFmt}`;
-      addLog('ok', 'Saldo CVA', saldoFmt);
+      // CVA puede devolver: saldo_disponible, saldo, credito_disponible, limite_credito, etc.
+      const saldo = parseFloat(
+        data.saldo_disponible ?? data.saldo ?? data.credito_disponible ??
+        data.limite_credito ?? data.disponible ?? data.monto ?? -1
+      );
+      if (saldo >= 0) {
+        const saldoFmt = saldo.toLocaleString('es-MX', { style: 'currency', currency: 'MXN', maximumFractionDigits: 0 });
+        badge.textContent = saldoFmt;
+        badge.className = 'badge ' + (saldo > 1000 ? 'badge-green' : saldo > 0 ? 'badge-silver' : 'badge-red');
+        badge.title = 'Saldo CVA: ' + saldoFmt;
+        addLog('ok', 'Saldo CVA', saldoFmt);
+      } else {
+        // Endpoint existe pero estructura desconocida — log para debug
+        badge.textContent = 'Saldo';
+        badge.title = 'Respuesta CVA: ' + JSON.stringify(data).substring(0, 120);
+        addLog('warn', 'Saldo CVA — estructura inesperada', JSON.stringify(data).substring(0, 100));
+      }
     } else {
-      badge.textContent = 'Saldo —';
-      badge.title = 'No se pudo obtener saldo: ' + (data.error || '');
+      badge.textContent = 'Saldo';
+      badge.title = 'Saldo no disponible: ' + (data.error || '');
     }
   } catch(e) {
     badge.textContent = 'Saldo —';
@@ -1578,7 +1598,7 @@ function renderTablaPedidos() {
           + '<td style="color:var(--muted);font-size:12px">' + (p.carrier||'—') + '</td>'
           + '<td class="mono" style="font-size:11px">' + guiaCell + '</td>'
           + '<td style="text-align:center;font-size:16px">' + (p.guia_enviada?'✓':'○') + '</td>'
-          + '<td style="font-size:11px;color:var(--muted)">' + (p.FechaAsignado||p.fecha||'—') + '</td>'
+          + '<td style="font-size:11px;color:var(--muted)">' + fmtFecha(p.FechaAsignado||p.fecha) + '</td>'
           + '<td><span class="status-' + (p.Asignado||'pendiente').toLowerCase() + '">' + (p.Asignado||'—') + '</span></td>'
           + '<td><button class="btn ' + btnClass + '" style="' + btnStyle + '" onclick="abrirModalPedido(' + i + ')">' + btnLabel + '</button></td>'
           + '</tr>';
@@ -1872,7 +1892,7 @@ function renderDebugResult(action, data) {
     const p = data.pedido||data;
     const productos = p.productos||data.productos||[];
     return `<div style="margin-bottom:16px">${infoTable([
-      ['No Pedido',p.Numero||p.numero],['Fecha',p.FechaAsignado||p.fecha],
+      ['No Pedido',p.Numero||p.numero],['Fecha', fmtFecha(p.FechaAsignado||p.fecha)],
       ['Estatus',`<span style="color:var(--green-lt);font-size:11px;letter-spacing:1.5px;text-transform:uppercase">${p.Asignado||p.estatus||'—'}</span>`],
       ['Total',p.Total?fmt(p.Total,'Pesos'):null],['Tipo Flete',p.tipo_flete||p.TipoFlete],
     ])}</div>
@@ -2392,7 +2412,7 @@ window.onload = () => {
 Object.assign(window, {
   toggleSidebar, openSidebar, closeSidebar, showPage,
   buscarCVA, buscarTodo, verProducto, volverATabla, limpiarBusqueda, buscarMeli, buscarMeliFila,
-  filtrarPorMarca, filtrarPorGrupo, sortBuscar,
+  filtrarPorMarca, filtrarPorGrupo, sortBuscar, fmtFecha, fmt,
   agregarClave, agregarAlCarrito, pvQtyChange, setQty,
   cambiarQty, quitarItem, renderCarrito,
   enviarOrden, enviarOrdenTest, toggleFleteFields, onEstadoChange, poblarSelectEstados,

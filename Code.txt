@@ -1,0 +1,1018 @@
+// ============================================================
+//  DROPSHIPPING CVA — Electronics México
+//  Code.gs · Router principal + Config + Token CVA
+// ============================================================
+
+// ── CONFIGURACIÓN ────────────────────────────────────────────
+const CFG = {
+  // Odoo
+  ODOO_URL : "https://electronicsmexico.odoo.com",
+  ODOO_DB  : "electronicsmexico",
+  ODOO_USER: "electronics.mexico.oficial@gmail.com",
+  ODOO_KEY : "c28fdf83a24327ab1d1cf19d62bba77672dd7408",
+
+  // Odoo — Bodega CVA Dropshipping
+  ODOO_BODEGA_CVA_ID  : 194,
+  ODOO_BODEGA_CVA_NAME: "CVA/Existencias",
+
+  // CVA
+  CVA_BASE        : "https://apicvaservices.grupocva.com/api/v2",
+  CVA_GUIAS_URL   : "https://www.grupocva.com/api/v1/orders/guias/",
+  CVA_USER        : "admin78308",
+  CVA_PASS        : "r7j6nh47",
+  CVA_GUIAS_TOKEN : "f4c9a82170abde56c1ef9287bd4036a91",
+
+  // Sucursal CVA asignada a Electronics México
+  CVA_SUCURSAL: 1,
+
+  // Margen default (incluye IVA 16% + utilidad)
+  MARGEN_DEFAULT: 16,
+
+  // Sheet ID donde se guardan logs y catálogo
+  SHEET_ID: "1X_Tsi3m9dboLxxZksozRHsBGpwO1BUuHFLvkoRbgSY4",
+};
+
+// ── CREDENCIALES CVA DESDE PROPERTIES ────────────────────────
+function getCVACredentials_() {
+  const props = PropertiesService.getScriptProperties();
+  return {
+    user: props.getProperty("CVA_USER") || CFG.CVA_USER,
+    pass: props.getProperty("CVA_PASS") || CFG.CVA_PASS,
+  };
+}
+
+// ── TOKEN CVA — auto-refresh cada 11h ────────────────────────
+function getCVAToken() {
+  const props = PropertiesService.getScriptProperties();
+  const token = props.getProperty("CVA_TOKEN");
+  const exp   = parseInt(props.getProperty("CVA_TOKEN_EXP") || "0");
+
+  if (token && Date.now() < exp) return token;
+
+  const creds = getCVACredentials_();
+  if (!creds.user || !creds.pass) {
+    throw new Error("❌ Credenciales CVA no configuradas.");
+  }
+
+  const res = UrlFetchApp.fetch(CFG.CVA_BASE + "/user/login", {
+    method: "post",
+    contentType: "application/json",
+    payload: JSON.stringify({ user: creds.user, password: creds.pass }),
+    muteHttpExceptions: true,
+  });
+
+  if (res.getResponseCode() !== 200) {
+    throw new Error("❌ CVA login falló: " + res.getContentText());
+  }
+
+  const data = JSON.parse(res.getContentText());
+  if (!data.token) throw new Error("❌ CVA no devolvió token: " + JSON.stringify(data));
+
+  props.setProperty("CVA_TOKEN", data.token);
+  props.setProperty("CVA_TOKEN_EXP", String(Date.now() + 11 * 3600 * 1000));
+  Logger.log("✅ Token CVA renovado");
+  return data.token;
+}
+
+function setupCVACredentials() {
+  const props = PropertiesService.getScriptProperties();
+  props.setProperty("CVA_USER", "TU_USUARIO_CVA");
+  props.setProperty("CVA_PASS", "TU_PASSWORD_CVA");
+  Logger.log("✅ Credenciales CVA guardadas en PropertiesService");
+}
+
+// ── ROUTER PRINCIPAL ─────────────────────────────────────────
+function doGet(e) {
+  const action = e && e.parameter && e.parameter.action;
+
+  if (!action) {
+    return HtmlService.createTemplateFromFile("index").evaluate()
+      .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL)
+      .setTitle("CVA Dropshipping · Electronics México");
+  }
+
+  try {
+    const result = routeGet_(action, e.parameter);
+    return jsonResponse_(result);
+  } catch (err) {
+    return jsonResponse_({ ok: false, error: err.message });
+  }
+}
+
+function doPost(e) {
+  let body = {};
+  try {
+    const raw = e.postData ? e.postData.contents : "{}";
+    body = JSON.parse(raw || "{}");
+  } catch (_) {
+    body = e.parameter || {};
+  }
+
+  try {
+    const result = routePost_(body.action, body);
+    return jsonResponse_(result);
+  } catch (err) {
+    return jsonResponse_({ ok: false, error: err.message });
+  }
+}
+
+function routeGet_(action, p) {
+  switch (action) {
+
+    case "cva_producto":
+      return cvaGetProducto(p.clave, p);
+
+    case "cva_buscar":
+      return cvaSearch(p);
+
+    case "cva_precio_stock":
+      return cvaPrecioStock(p.clave, p);
+
+    case "cva_marcas":
+      return getMarcasConStock();
+
+    case "cva_grupos":
+      return getGruposConStock();
+
+    case "ml_precio":
+      return mlBuscarPrecio(p.q);
+
+    case "cva_sucursales":
+      return cvaCatalogo("sucursales");
+
+    case "cva_imagenes":
+      return cvaImagenes(p.clave);
+
+    case "cva_info_tecnica":
+      return cvaInfoTecnica(p.clave);
+
+    case "cva_pedidos":
+      return cvaListaPedidos();
+
+    case "cva_saldo":
+      return cvaSaldo();
+
+    case "cva_consultar_pedido":
+      return cvaConsultarPedido(p.pedido);
+
+    case "cva_consultar_guia":
+      return cvaConsultarGuia(p.order_number);
+
+    case "pedidos_locales":
+      return getPedidosLocales();
+
+    case "odoo_ventas_pendientes":
+      return odooVentasPendientes(p);
+
+    case "odoo_ventas_dropship":
+      return odooVentasPendientesDropship(p);
+
+    case "odoo_buscar_producto":
+      return oodooBuscarProducto(p.clave);
+
+    case "odoo_stock":
+      return odooStock(p.clave);
+
+    case "odoo_stock_cva":
+      return odooStockBodegaCVA(p.clave);
+
+    case "ping":
+      return { ok: true, ts: new Date().toISOString() };
+
+    case "instalar_triggers":
+      try { instalarTriggers(); return { ok: true, mensaje: "Triggers instalados" }; }
+      catch(e) { return { ok: false, error: e.message }; }
+
+    case "sync_status": {
+      const props = PropertiesService.getScriptProperties();
+      const page  = parseInt(props.getProperty("SYNC_PAGE") || "1");
+      const ss    = SpreadsheetApp.openById(CFG.SHEET_ID);
+      const shS   = ss.getSheetByName("SYNC_CVA");
+      const shH   = ss.getSheetByName("HISTORIAL_STOCK");
+      const shL   = ss.getSheetByName("SYNC_LOG");
+      let ultimoSync = null;
+      if (shL && shL.getLastRow() > 1) {
+        const lastRow = shL.getRange(shL.getLastRow(), 1, 1, shL.getLastColumn()).getValues()[0];
+        ultimoSync = lastRow.join(" | ");
+      }
+      return {
+        ok: true,
+        pagina_actual: page,
+        registros_sync_cva: shS ? shS.getLastRow() - 1 : 0,
+        registros_historial: shH ? shH.getLastRow() - 1 : 0,
+        fecha_inicio_historial: shH && shH.getLastRow() > 1 ? String(shH.getRange(2,1).getValue()).substring(0,10) : null,
+        ultimo_sync_log: ultimoSync,
+      };
+    }
+
+    case "reset_sync": {
+      const props2 = PropertiesService.getScriptProperties();
+      props2.setProperty("SYNC_PAGE", "1");
+      props2.setProperty("SYNC_RESET_FLAG", "true");
+      if (p.limpiar === "true") {
+        const ss = SpreadsheetApp.openById(CFG.SHEET_ID);
+        const sh = ss.getSheetByName("SYNC_CVA");
+        if (sh && sh.getLastRow() > 1) {
+          sh.deleteRows(2, sh.getLastRow() - 1);
+        }
+      }
+      return { ok: true, mensaje: "Checkpoint de sync reseteado a página 1" + (p.limpiar === "true" ? " y SYNC_CVA limpiado" : "") };
+    }
+
+    default:
+      throw new Error("Acción desconocida: " + action);
+  }
+}
+
+function routePost_(action, body) {
+  switch (action) {
+
+    case "cva_crear_orden":
+      return cvaCrearOrden(body || {});
+
+    case "odoo_recibir_bodega_cva":
+      return odooRecibirEnBodegaCVA(body.po_id);
+
+    case "odoo_actualizar_precio":
+      return odooActualizarPrecio(body.clave, body.precio, body.moneda);
+
+    case "cva_enviar_guia":
+      return cvaEnviarGuia(body);
+
+    case "registrar_pedido":
+      return registrarPedidoLocal(body);
+
+    case "odoo_confirmar_po":
+      return odooConfirmarPO(body);
+
+    case "odoo_crear_po":
+      return odooCrearPO(body);
+
+    case "sync_precios":
+      return syncPreciosCVAOdoo(body);
+
+    case "sync_historial":
+      return syncHistorialCVA();
+
+    case "analisis_movimiento":
+      return getAnalisisMovimiento();
+
+    case "enviar_confirmacion_pedido":
+      return enviarConfirmacionPedido(body);
+
+    default:
+      throw new Error("Acción POST desconocida: " + action);
+  }
+}
+
+// ── HELPERS ───────────────────────────────────────────────────
+function jsonResponse_(data) {
+  return ContentService
+    .createTextOutput(JSON.stringify(data))
+    .setMimeType(ContentService.MimeType.JSON);
+}
+
+function cvaFetch_(path, params) {
+  const token = getCVAToken();
+  const qs = params
+    ? "?" + Object.entries(params)
+        .filter(([, v]) => v !== "" && v !== null && v !== undefined)
+        .map(([k, v]) => encodeURIComponent(k) + "=" + encodeURIComponent(v))
+        .join("&")
+    : "";
+
+  const url = CFG.CVA_BASE + path + qs;
+  Logger.log("CVA GET: " + url);
+
+  let res;
+  try {
+    res = UrlFetchApp.fetch(url, {
+      headers: { Authorization: "Bearer " + token },
+      muteHttpExceptions: true,
+      deadline: 50,
+    });
+  } catch (e) {
+    throw new Error("Tiempo de espera agotado — intenta con filtros más específicos");
+  }
+
+  const code = res.getResponseCode();
+  if (code !== 200) {
+    throw new Error("CVA HTTP " + code + ": " + res.getContentText().substring(0, 200));
+  }
+
+  return JSON.parse(res.getContentText());
+}
+
+function cvaPost_(path, bodyObj) {
+  const token = getCVAToken();
+  const url = CFG.CVA_BASE + path;
+  Logger.log("CVA POST: " + url);
+
+  const res = UrlFetchApp.fetch(url, {
+    method: "post",
+    contentType: "application/json",
+    headers: { Authorization: "Bearer " + token },
+    payload: JSON.stringify(bodyObj),
+    muteHttpExceptions: true,
+  });
+
+  const code = res.getResponseCode();
+  if (code !== 200) {
+    const body = res.getContentText();
+    Logger.log("CVA POST ERROR " + code + ": " + body);
+    throw new Error("CVA " + code + " | " + body);
+  }
+
+  return JSON.parse(res.getContentText());
+}
+
+// ── TRIGGERS ─────────────────────────────────────────────────
+function instalarTriggers() {
+  ScriptApp.getProjectTriggers().forEach(t => ScriptApp.deleteTrigger(t));
+
+  // Sync HISTORIAL diario a las 2am — corre directo en GAS (6 min disponibles, no 30s del browser)
+  ScriptApp.newTrigger("triggerSyncDiario")
+    .timeBased().everyDays(1).atHour(2).create();
+
+  // Polling pedidos cada 15 min
+  ScriptApp.newTrigger("triggerPollingPedidos")
+    .timeBased().everyMinutes(15).create();
+
+  Logger.log("✅ Triggers instalados: sync diario 2am + polling cada 15min");
+}
+
+// Sync diario completo — descarga TODO el catálogo CVA con stock y guarda historial
+// Este corre directo en GAS como trigger, no pasa por el Web App
+function triggerSyncDiario() {
+  try {
+    Logger.log("🔄 Iniciando sync diario CVA...");
+    const resultado = syncHistorialCVA();
+    Logger.log("✅ Sync diario: " + resultado.articulos + " artículos, " + resultado.paginas + " páginas");
+  } catch (e) {
+    Logger.log("❌ triggerSyncDiario: " + e.message);
+  }
+}
+
+// Mantener por compatibilidad con llamadas manuales
+function triggerSyncPrecios() {
+  try {
+    syncPreciosCVAOdoo({ batch: "XL", paginas: 999 });
+  } catch (e) {
+    Logger.log("❌ triggerSyncPrecios: " + e.message);
+  }
+}
+
+function triggerPollingPedidos() {
+  try {
+    pollingPedidosCVA();
+  } catch (e) {
+    Logger.log("❌ triggerPollingPedidos: " + e.message);
+  }
+}
+
+// ── HANDLERS google.script.run ────────────────────────────────
+function apiHandler(action, params) {
+  try {
+    return routeGet_(action, params || {});
+  } catch (e) {
+    return { ok: false, error: e.message };
+  }
+}
+
+function apiHandlerPost(action, body) {
+  try {
+    return routePost_(action, body || {});
+  } catch (e) {
+    return { ok: false, error: e.message };
+  }
+}
+
+// ── LOG A SHEETS ──────────────────────────────────────────────
+function logSheet_(hoja, datos) {
+  try {
+    const ss = SpreadsheetApp.openById(CFG.SHEET_ID);
+    let sh = ss.getSheetByName(hoja);
+    if (!sh) sh = ss.insertSheet(hoja);
+    sh.appendRow([new Date(), ...datos]);
+  } catch (e) {
+    Logger.log("logSheet_ error: " + e.message);
+  }
+}
+
+// ── PEDIDOS LOCALES ───────────────────────────────────────────
+const COLS_PEDIDOS = ["fecha","nuestra_orden","orden_cva","tienda","carrier","no_guia","observaciones","guia_enviada","pdf_nombre","pdf_base64"];
+
+function getPedidosLocales() {
+  try {
+    const ss = SpreadsheetApp.openById(CFG.SHEET_ID);
+    let sh = ss.getSheetByName("PEDIDOS_GUIAS");
+    if (!sh) return { ok: true, pedidos: [] };
+
+    const data = sh.getDataRange().getValues();
+    if (data.length < 2) return { ok: true, pedidos: [] };
+
+    const headers = data[0];
+    const pedidos = data.slice(1).map(row => {
+      const obj = {};
+      headers.forEach((h, i) => { obj[h] = row[i]; });
+      return obj;
+    });
+
+    return { ok: true, pedidos };
+  } catch (e) {
+    return { ok: false, error: e.message };
+  }
+}
+
+function registrarPedidoLocal(body) {
+  try {
+    const ss = SpreadsheetApp.openById(CFG.SHEET_ID);
+    let sh = ss.getSheetByName("PEDIDOS_GUIAS");
+
+    if (!sh) {
+      sh = ss.insertSheet("PEDIDOS_GUIAS");
+      sh.appendRow(COLS_PEDIDOS);
+      sh.getRange(1, 1, 1, COLS_PEDIDOS.length)
+        .setFontWeight("bold")
+        .setBackground("#1f6feb")
+        .setFontColor("#ffffff");
+      sh.setFrozenRows(1);
+    }
+
+    const data = sh.getDataRange().getValues();
+    const headers = data[0];
+
+    let filaExistente = -1;
+    for (let i = 1; i < data.length; i++) {
+      const idxOC = headers.indexOf("orden_cva");
+      if (String(data[i][idxOC]) === String(body.orden_cva)) {
+        filaExistente = i + 1;
+        break;
+      }
+    }
+
+    const rowData = COLS_PEDIDOS.map(col => {
+      if (col === "fecha") return body.fecha || new Date().toLocaleDateString("es-MX");
+      if (col === "guia_enviada") return body.guia_enviada ? "SI" : "NO";
+      return body[col] || "";
+    });
+
+    if (filaExistente > 0) {
+      sh.getRange(filaExistente, 1, 1, rowData.length).setValues([rowData]);
+    } else {
+      sh.appendRow(rowData);
+    }
+
+    if (body.pdf_base64 && body.pdf_nombre) {
+      try {
+        const folder = obtenerCarpetaGuias_();
+        const blob   = Utilities.newBlob(
+          Utilities.base64Decode(body.pdf_base64),
+          "application/pdf",
+          body.pdf_nombre
+        );
+        const file = folder.createFile(blob);
+        Logger.log("✅ PDF guardado: " + file.getUrl());
+      } catch (pdfErr) {
+        Logger.log("⚠️ PDF no guardado: " + pdfErr.message);
+      }
+    }
+
+    return { ok: true, mensaje: "Pedido registrado" };
+  } catch (e) {
+    return { ok: false, error: e.message };
+  }
+}
+
+function obtenerCarpetaGuias_() {
+  const nombre = "CVA Dropship — Guías PDF";
+  const carpetas = DriveApp.getFoldersByName(nombre);
+  if (carpetas.hasNext()) return carpetas.next();
+  return DriveApp.createFolder(nombre);
+}
+
+// ── MARCAS Y GRUPOS CON STOCK (desde SYNC_CVA) ───────────────
+function getMarcasConStock() {
+  try {
+    const sh = SpreadsheetApp.openById(CFG.SHEET_ID).getSheetByName("SYNC_CVA");
+    if (!sh || sh.getLastRow() < 2) return cvaCatalogo("marcas");
+    const data = sh.getRange(2, 1, sh.getLastRow() - 1, 8).getValues();
+    const marcaSet = {};
+    data.forEach(row => {
+      const marca    = (row[2] || "").toString().trim();
+      const stockSuc = parseFloat(row[6]) || 0;
+      const stockCD  = parseFloat(row[7]) || 0;
+      if (marca && (stockSuc > 0 || stockCD > 0)) {
+        marcaSet[marca] = (marcaSet[marca] || 0) + stockSuc + stockCD;
+      }
+    });
+    const marcas = Object.keys(marcaSet)
+      .sort((a, b) => marcaSet[b] - marcaSet[a])
+      .map(m => ({ marca: m, logo: "" }));
+    return { ok: true, marcas };
+  } catch(e) {
+    return cvaCatalogo("marcas");
+  }
+}
+
+function getGruposConStock() {
+  try {
+    const sh = SpreadsheetApp.openById(CFG.SHEET_ID).getSheetByName("SYNC_CVA");
+    if (!sh || sh.getLastRow() < 2) return cvaCatalogo("grupos");
+    const data = sh.getRange(2, 1, sh.getLastRow() - 1, 8).getValues();
+    const grupoSet = {};
+    data.forEach(row => {
+      const grupo    = (row[3] || "").toString().trim();
+      const stockSuc = parseFloat(row[6]) || 0;
+      const stockCD  = parseFloat(row[7]) || 0;
+      if (grupo && (stockSuc > 0 || stockCD > 0)) {
+        grupoSet[grupo] = (grupoSet[grupo] || 0) + stockSuc + stockCD;
+      }
+    });
+    const grupos = Object.keys(grupoSet)
+      .sort((a, b) => grupoSet[b] - grupoSet[a])
+      .map(g => ({ nombre: g, grupo: g }));
+    return { ok: true, grupos };
+  } catch(e) {
+    return cvaCatalogo("grupos");
+  }
+}
+
+// ── MERCADOLIBRE PRECIO PROXY ─────────────────────────────────
+function mlBuscarPrecio(q) {
+  if (!q) return { ok: false, error: "Se requiere query" };
+  try {
+    const url = "https://api.mercadolibre.com/sites/MLM/search?q="
+      + encodeURIComponent(q) + "&limit=12&condition=new";
+    const res = UrlFetchApp.fetch(url, {
+      muteHttpExceptions: true,
+      headers: { "Accept": "application/json" }
+    });
+    const code = res.getResponseCode();
+    if (code !== 200) {
+      const res2 = UrlFetchApp.fetch(
+        "https://api.mercadolibre.com/sites/MLM/search?q=" + encodeURIComponent(q) + "&limit=12",
+        { muteHttpExceptions: true, headers: { "Accept": "application/json" } }
+      );
+      if (res2.getResponseCode() !== 200) return { ok: false, error: "ML " + code };
+      const d2 = JSON.parse(res2.getContentText());
+      return { ok: true, results: d2.results || [], total: d2.paging?.total || 0 };
+    }
+    const data = JSON.parse(res.getContentText());
+    return { ok: true, results: data.results || [], total: data.paging?.total || 0 };
+  } catch(e) {
+    return { ok: false, error: e.message };
+  }
+}
+
+
+// ── CONFIRMACIÓN DE PEDIDO POR EMAIL ─────────────────────────
+function enviarConfirmacionPedido(body) {
+  try {
+    const {
+      pedido, subtotal, iva, total_prod,
+      flete_sub, flete_iva, flete_total, cajas,
+      grand_total, tc, moneda,
+      email_agente, email_almacen,
+      correos, productos, num_oc, sucursal
+    } = body;
+
+    // Destinatarios: los que mandó el usuario + siempre victor.walmart.04@gmail.com
+    const defaultEmail = "victor.walmart.04@gmail.com";
+    const destinatarios = [...new Set([
+      defaultEmail,
+      ...(correos || []).filter(c => c && c.includes("@"))
+    ])];
+
+    const fmtMXN = (n) => "$" + parseFloat(n || 0).toLocaleString("es-MX", {
+      minimumFractionDigits: 2, maximumFractionDigits: 2
+    }) + " MXN";
+
+    const productosHTML = (productos || []).map(p =>
+      `<tr>
+        <td style="padding:8px 12px;border-bottom:1px solid #eee;font-size:12px;font-family:monospace">${p.clave}</td>
+        <td style="padding:8px 12px;border-bottom:1px solid #eee;font-size:12px">${p.desc || ""}</td>
+        <td style="padding:8px 12px;border-bottom:1px solid #eee;font-size:12px;text-align:center">${p.qty}</td>
+        <td style="padding:8px 12px;border-bottom:1px solid #eee;font-size:12px;text-align:right">${fmtMXN(p.precio)}</td>
+      </tr>`
+    ).join("");
+
+    const html = `
+<!DOCTYPE html>
+<html>
+<head><meta charset="UTF-8"></head>
+<body style="margin:0;padding:0;background:#f4f4f4;font-family:-apple-system,sans-serif">
+<table width="100%" cellpadding="0" cellspacing="0" style="background:#f4f4f4;padding:30px 0">
+<tr><td align="center">
+<table width="600" cellpadding="0" cellspacing="0" style="background:#fff;border-radius:4px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.08)">
+
+  <!-- Header -->
+  <tr>
+    <td style="background:#00665e;padding:28px 32px">
+      <div style="font-family:sans-serif;font-size:10px;letter-spacing:3px;text-transform:uppercase;color:rgba(255,255,255,0.6);margin-bottom:8px">Electronics México · CVA Dropshipping</div>
+      <div style="font-family:sans-serif;font-size:28px;font-weight:300;color:#fff;letter-spacing:1px">Pedido Confirmado</div>
+      <div style="font-family:monospace;font-size:20px;color:#67b8af;margin-top:6px;letter-spacing:2px">${pedido}</div>
+      ${num_oc ? `<div style="font-size:11px;color:rgba(255,255,255,0.5);margin-top:4px">OC: ${num_oc}</div>` : ""}
+    </td>
+  </tr>
+
+  <!-- Info sucursal -->
+  ${sucursal ? `<tr><td style="padding:12px 32px;background:#f0f7f6;font-size:11px;color:#555;border-bottom:1px solid #e0e0e0">
+    Sucursal CVA: <strong>${sucursal}</strong>
+    ${email_agente ? ` &nbsp;·&nbsp; Agente: ${email_agente}` : ""}
+    ${email_almacen ? ` &nbsp;·&nbsp; Almacén: ${email_almacen}` : ""}
+  </td></tr>` : ""}
+
+  <!-- Productos -->
+  <tr><td style="padding:24px 32px 0">
+    <div style="font-size:10px;letter-spacing:2px;text-transform:uppercase;color:#999;margin-bottom:12px">Productos</div>
+    <table width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #eee;border-radius:2px">
+      <thead>
+        <tr style="background:#f8f8f8">
+          <th style="padding:8px 12px;text-align:left;font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:#666">Clave</th>
+          <th style="padding:8px 12px;text-align:left;font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:#666">Descripción</th>
+          <th style="padding:8px 12px;text-align:center;font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:#666">Qty</th>
+          <th style="padding:8px 12px;text-align:right;font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:#666">Precio</th>
+        </tr>
+      </thead>
+      <tbody>${productosHTML}</tbody>
+    </table>
+  </td></tr>
+
+  <!-- Desglose de totales -->
+  <tr><td style="padding:20px 32px">
+    <div style="font-size:10px;letter-spacing:2px;text-transform:uppercase;color:#999;margin-bottom:12px">Desglose</div>
+    <table width="100%" cellpadding="0" cellspacing="0">
+      <tr>
+        <td style="padding:7px 0;color:#888;font-size:13px">Subtotal productos</td>
+        <td style="padding:7px 0;text-align:right;font-size:13px;font-weight:500">${fmtMXN(subtotal)}</td>
+      </tr>
+      <tr>
+        <td style="padding:7px 0;color:#888;font-size:13px">IVA (16%)</td>
+        <td style="padding:7px 0;text-align:right;font-size:13px">${fmtMXN(iva)}</td>
+      </tr>
+      <tr style="border-top:1px solid #eee">
+        <td style="padding:8px 0;color:#555;font-size:13px;font-weight:600">Subtotal con IVA</td>
+        <td style="padding:8px 0;text-align:right;font-size:13px;font-weight:600">${fmtMXN(total_prod)}</td>
+      </tr>
+      ${flete_total > 0 ? `
+      <tr style="border-top:1px solid #f0f0f0">
+        <td style="padding:7px 0;color:#888;font-size:13px">Flete (${cajas || 1} caja${cajas !== 1 ? "s" : ""}) — Paquetexpress</td>
+        <td style="padding:7px 0;text-align:right;font-size:13px">${fmtMXN(flete_sub)}</td>
+      </tr>
+      <tr>
+        <td style="padding:7px 0;color:#888;font-size:13px">IVA flete</td>
+        <td style="padding:7px 0;text-align:right;font-size:13px">${fmtMXN(flete_iva)}</td>
+      </tr>` : ""}
+      <tr style="border-top:2px solid #00665e">
+        <td style="padding:12px 0 8px;font-size:11px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:#00665e">TOTAL A PAGAR</td>
+        <td style="padding:12px 0 8px;text-align:right;font-size:24px;font-weight:600;color:#00665e">${fmtMXN(grand_total)}</td>
+      </tr>
+      ${tc ? `<tr><td colspan="2" style="text-align:right;font-size:10px;color:#aaa;padding-bottom:8px">Tipo de cambio: $${tc} MXN/USD</td></tr>` : ""}
+    </table>
+  </td></tr>
+
+  <!-- Footer -->
+  <tr>
+    <td style="padding:16px 32px;background:#f8f8f8;border-top:1px solid #eee;font-size:10px;color:#aaa;text-align:center;letter-spacing:1px">
+      Electronics México · CVA Dropshipping · ${new Date().toLocaleString("es-MX")}
+    </td>
+  </tr>
+
+</table>
+</td></tr>
+</table>
+</body>
+</html>`;
+
+    const asunto = `Pedido CVA ${pedido}${num_oc ? " · OC: " + num_oc : ""} — ${fmtMXN(grand_total)}`;
+
+    destinatarios.forEach(correo => {
+      try {
+        MailApp.sendEmail({
+          to     : correo,
+          subject: asunto,
+          htmlBody: html,
+        });
+        Logger.log("✅ Email enviado a: " + correo);
+      } catch(mailErr) {
+        Logger.log("⚠️ Email a " + correo + " falló: " + mailErr.message);
+      }
+    });
+
+    logSheet_("SYNC_LOG", ["EMAIL_CONFIRMACION", pedido, destinatarios.join(", ")]);
+    return { ok: true, enviado_a: destinatarios };
+
+  } catch(e) {
+    Logger.log("❌ enviarConfirmacionPedido: " + e.message);
+    return { ok: false, error: e.message };
+  }
+}
+
+// ── SYNC DIARIO COMPLETO CVA → HISTORIAL_STOCK ───────────────
+// Diseñado para correr como trigger directo en GAS (no via Web App).
+// Descarga TODO el catálogo CVA página por página y guarda un snapshot
+// diario en HISTORIAL_STOCK. No actualiza SYNC_CVA para no interferir
+// con el sync parcial existente.
+//
+// Estrategia:
+// - batch=LG (500 por página) para minimizar número de páginas
+// - Solo parámetros esenciales: precio, stock suc, stock cedis
+// - Sin sucursales/dimen/dt/dc/upc — esos triplican el tiempo por producto
+// - Guarda snapshot con fecha del día: si ya existe el de hoy, no repite
+function syncHistorialCVA() {
+  const START_MS   = Date.now();
+  const MAX_MS     = 5.5 * 60 * 1000; // 5.5 min (GAS permite 6)
+  const props      = PropertiesService.getScriptProperties();
+  const hoy        = Utilities.formatDate(new Date(), "America/Mexico_City", "yyyy-MM-dd");
+  const existFilter = "3"; // solo con stock (suc o cedis)
+
+  // Verificar si ya corrió hoy
+  const ultimoSync = props.getProperty("HISTORIAL_ULTIMO_DIA");
+  if (ultimoSync === hoy) {
+    Logger.log("⏭ Sync de hoy ya existe (" + hoy + "), omitiendo");
+    return { ok: true, articulos: 0, paginas: 0, mensaje: "Ya sincronizado hoy" };
+  }
+
+  const ss = SpreadsheetApp.openById(CFG.SHEET_ID);
+
+  // Hoja HISTORIAL_STOCK
+  let shH = ss.getSheetByName("HISTORIAL_STOCK");
+  if (!shH) {
+    shH = ss.insertSheet("HISTORIAL_STOCK");
+    shH.appendRow(["fecha","clave","descripcion","marca","grupo",
+                   "precio","moneda","stock_suc","stock_cedis","en_transito"]);
+    shH.setFrozenRows(1);
+  }
+
+  // Hoja SYNC_CVA (catálogo actual — se actualiza también)
+  let shS = ss.getSheetByName("SYNC_CVA");
+  if (!shS) {
+    shS = ss.insertSheet("SYNC_CVA");
+    shS.appendRow(["clave","descripcion","marca","grupo","precio","moneda",
+                   "stock_suc","stock_cedis","en_transito","garantia",
+                   "promo_precio","promo_vence","tipo_cambio","ts"]);
+    shS.setFrozenRows(1);
+  }
+
+  // Obtener total de páginas primero (probe ligera)
+  let totalPaginas = 999;
+  try {
+    const probe = cvaFetch_("/catalogo_clientes/lista_precios", {
+      batch: "SM", page: 1,
+      MonedaPesos: "true",
+      exist: existFilter,
+    });
+    if (probe.paginacion) totalPaginas = probe.paginacion.total_paginas;
+    Logger.log("📊 Total páginas: " + totalPaginas);
+  } catch(e) {
+    Logger.log("⚠️ Probe falló, usando 999: " + e.message);
+  }
+
+  // Leer índice actual de SYNC_CVA para upsert eficiente
+  const lastRowS = shS.getLastRow();
+  let claveIndex = {};
+  if (lastRowS > 1) {
+    const claves = shS.getRange(2, 1, lastRowS - 1, 1).getValues();
+    claves.forEach((r, i) => { if (r[0]) claveIndex[r[0]] = i + 2; });
+  }
+
+  let totalArticulos = 0;
+  let totalPaginas_  = totalPaginas;
+  const historialRows = []; // acumular todas las filas del día para un solo append
+
+  for (let pagina = 1; pagina <= totalPaginas_; pagina++) {
+
+    // Guard de tiempo
+    if (Date.now() - START_MS > MAX_MS) {
+      Logger.log("⏱ Tiempo agotado en pág " + pagina + " — continuará mañana");
+      break;
+    }
+
+    // Fetch con solo parámetros esenciales — rápido
+    let data;
+    try {
+      data = cvaFetch_("/catalogo_clientes/lista_precios", {
+        batch      : "LG",       // 500 por página
+        page       : pagina,
+        MonedaPesos: "true",
+        porcentaje : CFG.MARGEN_DEFAULT,
+        tc         : "true",
+        exist      : existFilter, // solo con stock
+      });
+    } catch(e) {
+      const msg = e.message || "";
+      if (msg.includes("404") || msg.includes("No se encontraron")) {
+        Logger.log("✅ Fin del catálogo en pág " + pagina);
+        break;
+      }
+      Logger.log("⚠️ Error pág " + pagina + ": " + msg);
+      continue; // intentar siguiente página
+    }
+
+    if (!data || data.message === "No se encontraron productos.") break;
+    if (data.paginacion) totalPaginas_ = data.paginacion.total_paginas;
+
+    const articulos = data.articulos || [];
+    const ts = new Date().toISOString();
+
+    // Filtrar: solo con stock
+    const conStock = articulos.filter(a =>
+      (parseFloat(a.disponible) || 0) > 0 || (parseFloat(a.disponibleCD) || 0) > 0
+    );
+
+    // Acumular para HISTORIAL_STOCK (snapshot del día)
+    conStock.forEach(a => {
+      historialRows.push([
+        hoy,
+        a.clave        || "",
+        a.descripcion  || "",
+        a.marca        || "",
+        a.grupo        || "",
+        a.precio       || 0,
+        a.moneda       || "Pesos",
+        a.disponible   || 0,
+        a.disponibleCD || 0,
+        a.en_transito  || 0,
+      ]);
+    });
+
+    // Upsert en SYNC_CVA (catálogo actual)
+    const rowsToAppend = [];
+    conStock.forEach(a => {
+      const promo = a.promociones || null;
+      const row = [
+        a.clave || "", a.descripcion || "", a.marca || "", a.grupo || "",
+        a.precio || 0, a.moneda || "Pesos",
+        a.disponible || 0, a.disponibleCD || 0, a.en_transito || 0,
+        a.garantia || "",
+        promo ? (promo.precio_descuento || "") : "",
+        promo ? (promo.promocion_vencimiento || "") : "",
+        a.tipo_cambio || "", ts,
+      ];
+      const existingRow = claveIndex[a.clave];
+      if (existingRow) {
+        shS.getRange(existingRow, 1, 1, 14).setValues([row]);
+      } else {
+        rowsToAppend.push(row);
+        claveIndex[a.clave] = shS.getLastRow() + rowsToAppend.length + 1;
+      }
+    });
+    if (rowsToAppend.length > 0) {
+      shS.getRange(shS.getLastRow() + 1, 1, rowsToAppend.length, 14).setValues(rowsToAppend);
+    }
+
+    totalArticulos += conStock.length;
+    Logger.log("  Pág " + pagina + "/" + totalPaginas_ + " — " + conStock.length + " artículos con stock");
+  }
+
+  // Escribir historial del día de una sola vez (más eficiente que row a row)
+  if (historialRows.length > 0) {
+    shH.getRange(shH.getLastRow() + 1, 1, historialRows.length, 10).setValues(historialRows);
+  }
+
+  // Marcar que ya corrió hoy
+  props.setProperty("HISTORIAL_ULTIMO_DIA", hoy);
+
+  logSheet_("SYNC_LOG", ["SYNC_DIARIO_COMPLETO", totalArticulos, "páginas:" + totalPaginas_, "fecha:" + hoy]);
+  _actualizarControlSync_(props, 1, totalArticulos, "DIARIO_OK");
+
+  return { ok: true, articulos: totalArticulos, paginas: totalPaginas_, fecha: hoy };
+}
+
+// ── ANÁLISIS DE MOVIMIENTO DE STOCK ──────────────────────────
+// Calcula movimiento comparando snapshots del HISTORIAL_STOCK
+// Movimiento = stock hace N días - stock hoy (positivo = se vendió/bajó)
+function getAnalisisMovimiento() {
+  try {
+    const ss   = SpreadsheetApp.openById(CFG.SHEET_ID);
+    const shH  = ss.getSheetByName("HISTORIAL_STOCK");
+    const shS  = ss.getSheetByName("SYNC_CVA");
+
+    if (!shS || shS.getLastRow() < 2) {
+      return { ok: true, sin_datos: true, mensaje: "SYNC_CVA vacío — ejecuta triggerSyncDiario() en GAS" };
+    }
+
+    // Leer SYNC_CVA completo (stock actual)
+    const syncData = shS.getRange(2, 1, shS.getLastRow() - 1, 8).getValues();
+    // cols: clave,desc,marca,grupo,precio,moneda,stock_suc,stock_cedis
+    const stockActual = {};
+    syncData.forEach(r => {
+      if (!r[0]) return;
+      stockActual[r[0]] = {
+        clave : r[0], desc: r[1], marca: r[2], grupo: r[3],
+        precio: parseFloat(r[4]) || 0, moneda: r[5] || "Pesos",
+        suc   : parseFloat(r[6]) || 0, cedis: parseFloat(r[7]) || 0,
+        total : (parseFloat(r[6]) || 0) + (parseFloat(r[7]) || 0),
+      };
+    });
+
+    // Leer historial — encontrar fechas disponibles
+    let stockHistorial = {};
+    let diasDisponibles = [];
+
+    if (shH && shH.getLastRow() > 1) {
+      // Detectar número de columnas — puede ser 9 (sin grupo) o 10 (con grupo)
+      const numCols = shH.getLastColumn();
+      const histData = shH.getRange(2, 1, shH.getLastRow() - 1, Math.min(numCols, 10)).getValues();
+      // Formato nuevo (10 cols): fecha,clave,desc,marca,grupo,precio,moneda,stock_suc,stock_cedis,en_transito
+      // Formato viejo  (9 cols): fecha,clave,desc,marca,precio,moneda,stock_suc,stock_cedis,en_transito
+
+      // Agrupar por fecha
+      const porFecha = {};
+      histData.forEach(r => {
+        const fecha = r[0] ? String(r[0]).substring(0, 10) : null;
+        const clave = r[1];
+        if (!fecha || !clave) return;
+        if (!porFecha[fecha]) porFecha[fecha] = {};
+        // Detectar si tiene grupo: si r[4] es string (grupo) → formato nuevo
+        const tieneGrupo = typeof r[4] === "string" && isNaN(parseFloat(r[4]));
+        const stockSuc  = tieneGrupo ? (parseFloat(r[7]) || 0) : (parseFloat(r[6]) || 0);
+        const stockCedis = tieneGrupo ? (parseFloat(r[8]) || 0) : (parseFloat(r[7]) || 0);
+        porFecha[fecha][clave] = stockSuc + stockCedis;
+      });
+
+      diasDisponibles = Object.keys(porFecha).sort().reverse(); // más reciente primero
+
+      // Usar el snapshot más antiguo disponible (hasta 7 días)
+      const fechaRef = diasDisponibles[Math.min(diasDisponibles.length - 1, 6)];
+      if (fechaRef) stockHistorial = porFecha[fechaRef] || {};
+    }
+
+    // Calcular movimiento por producto
+    const movimientos = [];
+    Object.values(stockActual).forEach(p => {
+      const stockAntes = stockHistorial[p.clave] !== undefined ? stockHistorial[p.clave] : null;
+      const mov = stockAntes !== null ? stockAntes - p.total : null; // positivo = bajó = se vendió
+      movimientos.push({ ...p, stock_antes: stockAntes, movimiento: mov });
+    });
+
+    // Top 20 más movidos (mayor bajada de stock)
+    const topMovidos = movimientos
+      .filter(p => p.movimiento !== null && p.movimiento > 0)
+      .sort((a, b) => b.movimiento - a.movimiento)
+      .slice(0, 20);
+
+    // Agotados: stock hoy = 0, tenían stock antes
+    const agotados = movimientos
+      .filter(p => p.total === 0 && p.stock_antes !== null && p.stock_antes > 0)
+      .sort((a, b) => b.stock_antes - a.stock_antes)
+      .slice(0, 30);
+
+    // Por marca: suma de movimientos
+    const porMarca = {};
+    movimientos.forEach(p => {
+      if (!p.marca) return;
+      if (!porMarca[p.marca]) porMarca[p.marca] = { marca: p.marca, movimiento: 0, productos: 0, stock_total: 0 };
+      porMarca[p.marca].movimiento  += (p.movimiento || 0);
+      porMarca[p.marca].productos   += 1;
+      porMarca[p.marca].stock_total += p.total;
+    });
+    const topMarcas = Object.values(porMarca)
+      .filter(m => m.movimiento > 0)
+      .sort((a, b) => b.movimiento - a.movimiento)
+      .slice(0, 15);
+
+    // Por grupo
+    const porGrupo = {};
+    movimientos.forEach(p => {
+      if (!p.grupo) return;
+      if (!porGrupo[p.grupo]) porGrupo[p.grupo] = { grupo: p.grupo, movimiento: 0, productos: 0, stock_total: 0 };
+      porGrupo[p.grupo].movimiento  += (p.movimiento || 0);
+      porGrupo[p.grupo].productos   += 1;
+      porGrupo[p.grupo].stock_total += p.total;
+    });
+    const topGrupos = Object.values(porGrupo)
+      .filter(g => g.movimiento > 0)
+      .sort((a, b) => b.movimiento - a.movimiento)
+      .slice(0, 15);
+
+    // KPIs generales
+    const totalConStock = movimientos.filter(p => p.total > 0).length;
+    const totalSinStock = movimientos.filter(p => p.total === 0).length;
+    const totalMovimiento = topMovidos.reduce((s, p) => s + p.movimiento, 0);
+
+    return {
+      ok: true,
+      dias_disponibles: diasDisponibles.length,
+      periodo_analisis: diasDisponibles.length > 0
+        ? diasDisponibles[diasDisponibles.length - 1] + " → " + diasDisponibles[0]
+        : "Sin historial",
+      kpis: {
+        total_con_stock  : totalConStock,
+        total_sin_stock  : totalSinStock,
+        total_agotados   : agotados.length,
+        total_movimiento : totalMovimiento,
+        marcas_activas   : Object.keys(porMarca).length,
+        grupos_activos   : Object.keys(porGrupo).length,
+      },
+      top_movidos  : topMovidos,
+      agotados     : agotados,
+      top_marcas   : topMarcas,
+      top_grupos   : topGrupos,
+    };
+
+  } catch(e) {
+    return { ok: false, error: e.message };
+  }
+}
