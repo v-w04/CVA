@@ -154,6 +154,12 @@ async function apiConFallback(action, params = {}) {
 
 // Ejecutar acción CVA en modo directo
 async function cvaDirectAction(action, params) {
+  _tpStart();
+  try {
+    return await _cvaDirectActionImpl(action, params);
+  } finally { _tpEnd(); }
+}
+async function _cvaDirectActionImpl(action, params) {
   switch(action) {
     case 'cva_buscar': {
       const p = { ...params };
@@ -209,37 +215,97 @@ async function cvaDirectAction(action, params) {
 }
 
 
-async function api(action, params = {}) {
-  const qs = new URLSearchParams({ action, ...params }).toString();
-  let res;
-  try {
-    res = await fetch(`${GAS_URL}?${qs}`, { method: 'GET', redirect: 'follow' });
-  } catch(e) {
-    const isCors = e.message && (e.message.includes('fetch') || e.message.includes('CORS') || e.message.includes('network') || e.message.includes('Failed'));
-    throw new Error(isCors
-      ? 'Sin conexión al servidor GAS. Abre la app desde GitHub Pages o verifica que el Web App esté publicado.'
-      : e.message);
+// ── PROGRESS BAR + BOTÓN LOADING ──────────────────────────
+// Centraliza el feedback visual cuando hay llamadas async en vuelo.
+let _apiInFlight = 0;
+function _tpStart() {
+  _apiInFlight++;
+  const tp = document.getElementById('top-progress');
+  if (tp) {
+    tp.classList.add('active');
+    // Crece rápido al 85% y se "estanca" — UX clásica de progress indeterminado
+    tp.style.width = '85%';
   }
-  if (!res.ok) throw new Error('HTTP ' + res.status);
-  return res.json();
+  document.body.classList.add('api-busy');
+}
+function _tpEnd() {
+  _apiInFlight = Math.max(0, _apiInFlight - 1);
+  if (_apiInFlight === 0) {
+    const tp = document.getElementById('top-progress');
+    if (tp) {
+      tp.style.width = '100%';
+      setTimeout(() => {
+        if (_apiInFlight === 0) {
+          tp.classList.remove('active');
+          tp.style.width = '0';
+        }
+      }, 280);
+    }
+    document.body.classList.remove('api-busy');
+  }
+}
+
+// Helpers para marcar un botón específico en estado loading
+function btnLoad(btnOrEvent) {
+  let btn = btnOrEvent;
+  if (btnOrEvent && btnOrEvent.target) btn = btnOrEvent.target.closest('.btn');
+  if (!btn || !btn.classList) return null;
+  btn.classList.add('btn-loading');
+  btn._origDisabled = btn.disabled;
+  btn.disabled = true;
+  return btn;
+}
+function btnDone(btn) {
+  if (!btn || !btn.classList) return;
+  btn.classList.remove('btn-loading');
+  btn.disabled = btn._origDisabled || false;
+}
+// Envuelve cualquier promesa con el spinner del botón que disparó el evento.
+//   onclick="withBtn(event, () => enviarOrden())"
+async function withBtn(ev, fn) {
+  const btn = ev && ev.currentTarget ? ev.currentTarget : (ev && ev.target ? ev.target.closest('.btn') : null);
+  const handle = btnLoad(btn);
+  try { return await fn(); }
+  finally { btnDone(handle); }
+}
+
+async function api(action, params = {}) {
+  _tpStart();
+  try {
+    const qs = new URLSearchParams({ action, ...params }).toString();
+    let res;
+    try {
+      res = await fetch(`${GAS_URL}?${qs}`, { method: 'GET', redirect: 'follow' });
+    } catch(e) {
+      const isCors = e.message && (e.message.includes('fetch') || e.message.includes('CORS') || e.message.includes('network') || e.message.includes('Failed'));
+      throw new Error(isCors
+        ? 'Sin conexión al servidor GAS. Abre la app desde GitHub Pages o verifica que el Web App esté publicado.'
+        : e.message);
+    }
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    return res.json();
+  } finally { _tpEnd(); }
 }
 
 async function apiPost(action, body = {}) {
-  const payload = JSON.stringify({ action, ...body });
-  let res;
+  _tpStart();
   try {
-    res = await fetch(GAS_URL, {
-      method: 'POST', redirect: 'follow',
-      headers: { 'Content-Type': 'text/plain' },
-      body: payload,
-    });
-  } catch(e) {
-    throw new Error(e.message && e.message.includes('fetch')
-      ? 'Sin conexión al servidor GAS. Verifica que estés en GitHub Pages.'
-      : e.message);
-  }
-  if (!res.ok) throw new Error('HTTP ' + res.status);
-  return res.json();
+    const payload = JSON.stringify({ action, ...body });
+    let res;
+    try {
+      res = await fetch(GAS_URL, {
+        method: 'POST', redirect: 'follow',
+        headers: { 'Content-Type': 'text/plain' },
+        body: payload,
+      });
+    } catch(e) {
+      throw new Error(e.message && e.message.includes('fetch')
+        ? 'Sin conexión al servidor GAS. Verifica que estés en GitHub Pages.'
+        : e.message);
+    }
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    return res.json();
+  } finally { _tpEnd(); }
 }
 
 // ── UTILS ─────────────────────────────────────────────────
@@ -2178,8 +2244,12 @@ function renderAnalisisDashboard() {
           <input type="checkbox" ${_analisisFiltros.soloMovimiento?'checked':''} onchange="anFiltrar('soloMovimiento',this.checked)"> Solo con movimiento
         </label>
         <div style="flex:1"></div>
-        <button class="btn btn-ghost" style="padding:6px 14px;font-size:10px" onclick="anExportCSV()">CSV</button>
-        <button class="btn btn-ghost" style="padding:6px 14px;font-size:10px" onclick="anExportPDF()">PDF</button>
+        <button class="btn btn-primary" style="padding:6px 14px;font-size:10px;display:flex;align-items:center;gap:5px" onclick="anExportXLSX()" title="Excel con formato real (moneda MXN, columnas, filtros, hoja de resumen con KPIs)">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="16" y2="17"/></svg>
+          Excel
+        </button>
+        <button class="btn btn-ghost" style="padding:6px 14px;font-size:10px" onclick="anExportCSV()" title="CSV plano (compatible con cualquier programa)">CSV</button>
+        <button class="btn btn-ghost" style="padding:6px 14px;font-size:10px" onclick="anExportPDF()" title="PDF imprimible">PDF</button>
         <button class="btn btn-ghost" style="padding:6px 14px;font-size:10px" onclick="anLimpiarFiltros()">Limpiar</button>
       </div>
     </div>
@@ -2458,6 +2528,208 @@ function renderTablaSimple(items, cols) {
     <thead style="background:rgba(0,0,0,0.3)"><tr>${headerHtml}</tr></thead>
     <tbody>${rowsHtml || '<tr><td colspan="'+cols.length+'" style="padding:30px;text-align:center;color:var(--muted)">Sin datos</td></tr>'}</tbody>
   </table></div>`;
+}
+
+// ── EXPORT XLSX (con formato real: moneda MXN, columnas, freeze, autofilter, KPIs) ──
+function _hasXLSX() { return typeof XLSX !== 'undefined' && XLSX.utils; }
+
+function anExportXLSX() {
+  if (!_analisisData) return;
+
+  // Si SheetJS no cargó (sin internet al cargar la página), cae a CSV
+  if (!_hasXLSX()) {
+    addLog('warn', 'SheetJS no disponible — exportando CSV', 'Verifica conexión a cdn.jsdelivr.net');
+    return anExportCSV();
+  }
+
+  const f = _analisisFiltros;
+  const k = _analisisData.kpis    || {};
+  const p = _analisisData.periodo || {};
+  const stamp = new Date().toISOString().slice(0,10);
+
+  const prods = f.tab === 'marcas' ? (_analisisData.marcas || [])
+              : f.tab === 'grupos' ? (_analisisData.grupos || [])
+              : anFiltrarProductos();
+
+  // Mapeo de columnas según el tab
+  let cols;
+  if (f.tab === 'marcas') {
+    cols = [
+      { h:'Marca',              k:'marca',         t:'text', w:28 },
+      { h:'Productos',          k:'productos',     t:'int',  w:14 },
+      { h:'Stock Total',        k:'stock_total',   t:'int',  w:14 },
+      { h:'Unidades Movidas',   k:'movido',        t:'int',  w:18 },
+      { h:'Valor Movido',       k:'valor_movido',  t:'mxn',  w:18 },
+    ];
+  } else if (f.tab === 'grupos') {
+    cols = [
+      { h:'Grupo',              k:'grupo',         t:'text', w:30 },
+      { h:'Productos',          k:'productos',     t:'int',  w:14 },
+      { h:'Stock Total',        k:'stock_total',   t:'int',  w:14 },
+      { h:'Unidades Movidas',   k:'movido',        t:'int',  w:18 },
+      { h:'Valor Movido',       k:'valor_movido',  t:'mxn',  w:18 },
+    ];
+  } else {
+    cols = [
+      { h:'Clave',              k:'clave',            t:'text', w:14 },
+      { h:'Descripción',        k:'desc',             t:'text', w:50 },
+      { h:'Marca',              k:'marca',            t:'text', w:16 },
+      { h:'Grupo',              k:'grupo',            t:'text', w:22 },
+      { h:'Stock Base',         k:'stock_base',       t:'int',  w:12 },
+      { h:'Stock Hoy',          k:'total',            t:'int',  w:12 },
+      { h:'Movido',             k:'movido',           t:'int',  w:12 },
+      { h:'Prom/día',           k:'prom_diario',      t:'dec2', w:11 },
+      { h:'Prom/semana',        k:'prom_semanal',     t:'dec2', w:12 },
+      { h:'Prom/mes',           k:'prom_mensual',     t:'dec2', w:11 },
+      { h:'Días stock',         k:'dias_restantes',   t:'int',  w:11 },
+      { h:'Precio',             k:'precio',           t:'mxn',  w:14 },
+      { h:'Valor Movido',       k:'valor_movido',     t:'mxn',  w:18 },
+      { h:'Valor Inventario',   k:'valor_inventario', t:'mxn',  w:18 },
+    ];
+  }
+
+  const fmtZ = {
+    text: '@',
+    int:  '#,##0',
+    dec2: '#,##0.00',
+    mxn:  '"$"#,##0.00',
+  };
+
+  // Estilos (xlsx-js-style)
+  const styleHead = {
+    font:      { bold:true, color:{ rgb:'FFFFFF' }, sz:11, name:'Calibri' },
+    fill:      { patternType:'solid', fgColor:{ rgb:'00665E' } },
+    alignment: { vertical:'center', horizontal:'center', wrapText:false },
+    border:    { bottom:{ style:'medium', color:{ rgb:'00403A' } } },
+  };
+  const borderLite = {
+    top:    { style:'thin', color:{ rgb:'E8E8E8' } },
+    bottom: { style:'thin', color:{ rgb:'E8E8E8' } },
+    left:   { style:'thin', color:{ rgb:'F0F0F0' } },
+    right:  { style:'thin', color:{ rgb:'F0F0F0' } },
+  };
+  const styleHi = { font:{ bold:true, color:{ rgb:'00665E' } } }; // p/ col "Movido"
+
+  // Construir matriz AoA
+  const aoa = [ cols.map(c => c.h) ];
+  prods.forEach(row => {
+    aoa.push(cols.map(c => {
+      let v = row[c.k];
+      if (v === null || v === undefined || v === '') return c.t === 'text' ? '' : null;
+      if (c.t === 'int' || c.t === 'dec2' || c.t === 'mxn') {
+        const n = Number(v);
+        return isFinite(n) ? n : null;
+      }
+      return String(v);
+    }));
+  });
+
+  const ws = XLSX.utils.aoa_to_sheet(aoa);
+
+  // Estilo de cada celda
+  for (let r = 0; r < aoa.length; r++) {
+    cols.forEach((c, ci) => {
+      const ref = XLSX.utils.encode_cell({ r, c: ci });
+      const cell = ws[ref];
+      if (!cell) return;
+      if (r === 0) {
+        cell.s = styleHead;
+      } else {
+        const baseStyle = {
+          border: borderLite,
+          alignment: { vertical:'center' },
+          ...(r % 2 === 0 ? { fill:{ patternType:'solid', fgColor:{ rgb:'FAFBFB' } } } : {}),
+        };
+        // Resaltar col "Movido"
+        if (c.k === 'movido') Object.assign(baseStyle, { font: styleHi.font });
+        cell.s = baseStyle;
+        if (fmtZ[c.t]) cell.z = fmtZ[c.t];
+        // Asegurar que sea numérico para que el formato aplique
+        if (c.t !== 'text' && cell.v != null) cell.t = 'n';
+      }
+    });
+  }
+
+  ws['!cols']       = cols.map(c => ({ wch: c.w }));
+  ws['!rows']       = [{ hpt: 24 }]; // header más alto
+  ws['!views']      = [{ state:'frozen', xSplit:0, ySplit:1 }];
+  ws['!autofilter'] = { ref: `A1:${XLSX.utils.encode_col(cols.length - 1)}${aoa.length}` };
+
+  // ── Hoja "Resumen" con KPIs y metadatos ──
+  const tabNames = { movidos:'Top Movidos', agotados:'Agotados', sin_movimiento:'Sin Movimiento', todos:'Todos', marcas:'Por Marca', grupos:'Por Grupo' };
+  const resumen = [
+    ['Análisis de Movimiento — CVA'],
+    [],
+    ['Generado',         new Date().toLocaleString('es-MX')],
+    ['Periodo',          `${p.fecha_inicio || '—'}  →  ${p.fecha_fin || '—'}`],
+    ['Días analizados',  p.dias || 0],
+    ['Vista',            tabNames[f.tab] || f.tab],
+    [],
+    ['INDICADORES'],
+    ['Total productos',      k.total_productos    || 0],
+    ['Productos activos',    k.productos_activos  || 0],
+    ['Con movimiento',       k.con_movimiento     || 0],
+    ['Sin movimiento',       k.sin_movimiento     || 0],
+    ['Agotados recientes',   k.agotados_recientes || 0],
+    ['Unidades movidas',     k.unidades_movidas   || 0],
+    ['Valor movido (MXN)',   k.valor_movido_mxn   || 0],
+    [],
+    ['FILTROS APLICADOS'],
+    ['Búsqueda',             f.busqueda || '—'],
+    ['Marca',                f.marca   || '— Todas —'],
+    ['Grupo',                f.grupo   || '— Todos —'],
+    ['Precio mínimo',        f.precioMin != null ? f.precioMin : '—'],
+    ['Precio máximo',        f.precioMax != null ? f.precioMax : '—'],
+    ['Solo con movimiento',  f.soloMovimiento ? 'Sí' : 'No'],
+    ['Ordenado por',         `${f.sortCol} ${f.sortDir < 0 ? '↓' : '↑'}`],
+    [],
+    ['Filas exportadas',     prods.length],
+  ];
+
+  const wsR = XLSX.utils.aoa_to_sheet(resumen);
+  wsR['!cols'] = [{ wch:26 }, { wch:34 }];
+
+  // Estilos del Resumen
+  const stTitle = { font:{ bold:true, sz:16, color:{ rgb:'00665E' } } };
+  const stSec   = { font:{ bold:true, sz:11, color:{ rgb:'00665E' } }, fill:{ patternType:'solid', fgColor:{ rgb:'F0F8F7' } } };
+  const stLbl   = { font:{ color:{ rgb:'666666' } } };
+  const stVal   = { font:{ bold:true, color:{ rgb:'1E2025' } }, alignment:{ horizontal:'left' } };
+
+  if (wsR['A1']) wsR['A1'].s = stTitle;
+  ['A8','A17'].forEach(ref => { if (wsR[ref]) wsR[ref].s = stSec; });
+  // Estilo a etiquetas (col A) y valores (col B) — filas 3..25
+  for (let r = 2; r < resumen.length; r++) {
+    const a = XLSX.utils.encode_cell({ r, c:0 });
+    const b = XLSX.utils.encode_cell({ r, c:1 });
+    if (wsR[a] && !wsR[a].s) wsR[a].s = stLbl;
+    if (wsR[b] && !wsR[b].s) wsR[b].s = stVal;
+  }
+  // Formato moneda para "Valor movido"
+  if (wsR['B15']) { wsR['B15'].z = '"$"#,##0.00'; wsR['B15'].t = 'n'; }
+  // Formato número para los enteros
+  ['B5','B9','B10','B11','B12','B13','B14','B26'].forEach(ref => {
+    if (wsR[ref]) { wsR[ref].z = '#,##0'; wsR[ref].t = 'n'; }
+  });
+
+  // ── Construir workbook ──
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, wsR, 'Resumen');
+  XLSX.utils.book_append_sheet(wb, ws,  'Datos');
+
+  // Metadata del documento
+  wb.Props = {
+    Title:    'Análisis de Movimiento CVA',
+    Subject:  tabNames[f.tab] || f.tab,
+    Author:   'Electronics México',
+    Company:  'Electronics México · CVA Dropship',
+    CreatedDate: new Date(),
+  };
+
+  const tabSlug = { movidos:'Top-Movidos', agotados:'Agotados', sin_movimiento:'Sin-Movimiento', todos:'Todos', marcas:'Marcas', grupos:'Grupos' }[f.tab] || f.tab;
+  const filename = `CVA_Analisis_${tabSlug}_${stamp}.xlsx`;
+
+  XLSX.writeFile(wb, filename, { compression:true });
+  addLog('ok', 'XLSX exportado', `${prods.length} filas · ${filename}`);
 }
 
 function anExportCSV() {
@@ -2809,6 +3081,17 @@ function lanzarWordCloud(grupos) {
 
 // ── INIT ──────────────────────────────────────────────────
 window.onload = () => {
+  // ── FEEDBACK CLICK GLOBAL — flash visible al tocar/clickear cualquier botón ──
+  // Garantiza feedback táctil instantáneo incluso si el navegador no muestra :active.
+  document.addEventListener('pointerdown', (e) => {
+    const el = e.target && e.target.closest && e.target.closest(
+      '.btn, .sb-foot-btn, .sb-item, .pv-cta, .pv-back, .qty-btn, .marca-chip, .pv-qty-btn, .ham-btn, .header-logo'
+    );
+    if (!el || el.disabled || el.classList.contains('btn-loading')) return;
+    el.classList.add('btn-flash');
+    setTimeout(() => el.classList.remove('btn-flash'), 220);
+  }, { passive: true, capture: true });
+
   const splash     = document.getElementById('splash');
   const shell      = document.querySelector('.shell');
 
@@ -2872,5 +3155,6 @@ Object.assign(window, {
   exportarTodoCSV, exportarTodoPDF, exportCarritoCSV, exportCarritoPDF,
   limpiarLog, cargarSucursalesSelect, iniciarPaginaOrden, sugerirSucursalPorStock, recargarSucursales, cargarAnalisis,
   iniciarCarruselMarcas, _renderCarruselMarcas,
-  cargarAnalisis, renderAnalisisDashboard, renderAnalisisTab, anFiltrar, anTab, anSort, anLimpiarFiltros, anExportCSV, anExportPDF, anCambiarPeriodo,
+  cargarAnalisis, renderAnalisisDashboard, renderAnalisisTab, anFiltrar, anTab, anSort, anLimpiarFiltros, anExportCSV, anExportXLSX, anExportPDF, anCambiarPeriodo,
+  btnLoad, btnDone, withBtn,
 });

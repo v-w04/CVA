@@ -20,6 +20,9 @@
 <meta name="mobile-web-app-capable" content="yes">
 
 <link href="https://fonts.googleapis.com/css2?family=Barlow:wght@300;400;500;600&family=Barlow+Condensed:wght@300;400;600&display=swap" rel="stylesheet">
+
+<!-- SheetJS (xlsx-js-style: fork con soporte de estilos, bold, fill, freeze, formatos) -->
+<script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
 <style>
   :root {
     color-scheme: dark only;
@@ -1198,9 +1201,139 @@
   ::-webkit-scrollbar-thumb { background: #2A2A2A; }
   ::-webkit-scrollbar-thumb:hover { background: var(--green); }
 
+  /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+     BUTTON FEEDBACK — hover lift + press + loading spinner
+     Aplica a TODOS los botones .btn de la app
+     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+  .btn {
+    position: relative;
+    overflow: hidden;
+    transform: translateY(0);
+    box-shadow: 0 0 0 0 transparent;
+    transition: background .2s, color .2s, border-color .2s,
+                transform .12s cubic-bezier(.4,0,.2,1),
+                box-shadow .2s ease,
+                filter .15s ease;
+  }
+  .btn:hover:not(:disabled):not(.btn-loading) {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 14px rgba(0,0,0,0.35);
+  }
+  .btn:active:not(:disabled):not(.btn-loading) {
+    transform: translateY(1px) scale(0.985);
+    transition-duration: .05s;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.25), inset 0 0 0 1px rgba(255,255,255,0.06);
+    filter: brightness(.88);
+  }
+  /* Variantes — hover y press más expresivos */
+  .btn-primary:hover:not(:disabled):not(.btn-loading),
+  .btn-green:hover:not(:disabled):not(.btn-loading) {
+    background: var(--green-hi);
+    color: #0c1614;
+    box-shadow: 0 4px 18px rgba(103,184,175,0.4);
+  }
+  .btn-primary:active:not(:disabled):not(.btn-loading),
+  .btn-green:active:not(:disabled):not(.btn-loading) {
+    background: var(--green-dark);
+    color: #fff;
+  }
+  .btn-orange:hover:not(:disabled):not(.btn-loading) {
+    box-shadow: 0 4px 14px rgba(0,0,0,0.35);
+  }
+  .btn-red:hover:not(:disabled):not(.btn-loading) {
+    background: #aa2828;
+    box-shadow: 0 4px 16px rgba(139,32,32,0.5);
+  }
+  .btn-red:active:not(:disabled):not(.btn-loading) { background: #6b1818; }
+  .btn-ghost:hover:not(:disabled):not(.btn-loading) {
+    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+  }
+
+  /* Flash visible al hacer click — para feedback táctil instantáneo en mobile */
+  .btn::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(circle at center, rgba(255,255,255,0.30) 0%, transparent 65%);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity .42s ease;
+  }
+  .btn.btn-flash::after { opacity: 1; transition: opacity 0s; }
+
+  /* Loading state — botón con spinner interior + texto invisible */
+  .btn.btn-loading {
+    color: transparent !important;
+    pointer-events: none;
+    cursor: progress;
+    opacity: 0.85;
+    transform: none !important;
+  }
+  .btn.btn-loading > * { visibility: hidden; }
+  .btn.btn-loading::before {
+    content: '';
+    position: absolute;
+    top: 50%; left: 50%;
+    width: 14px; height: 14px;
+    margin: -7px 0 0 -7px;
+    border: 1.5px solid rgba(255,255,255,0.35);
+    border-top-color: #fff;
+    border-radius: 50%;
+    animation: spin .7s linear infinite;
+    z-index: 2;
+    visibility: visible !important;
+  }
+  /* Spinner verde para botones claros */
+  .btn-ghost.btn-loading::before,
+  .btn-orange.btn-loading::before {
+    border-color: rgba(238,240,240,0.2);
+    border-top-color: var(--green-lt);
+  }
+
+  /* Feedback de presión para otros elementos interactivos no-.btn */
+  .sb-item:active   { background: rgba(0,102,94,0.3) !important; }
+  .qty-btn:active   { transform: scale(0.92); background: rgba(0,102,94,0.4) !important; transition: transform .08s; }
+  .pv-cta:active    { background: var(--green-dark); filter: brightness(.9); }
+  .pv-back:active   { transform: scale(0.96); }
+  .pv-qty-btn:active { color: var(--green-hi); transform: scale(0.9); transition: transform .08s; }
+  .cart-item-remove:active { transform: scale(0.94); }
+  .marca-chip:active { transform: scale(0.97); background: rgba(0,102,94,0.18); }
+  .sb-foot-btn:hover { transform: translateY(-1px); box-shadow: 0 3px 10px rgba(0,0,0,0.3); transition: background .2s, transform .12s, box-shadow .2s; }
+  .sb-foot-btn:active { transform: translateY(1px); box-shadow: 0 1px 2px rgba(0,0,0,0.2); }
+
+  /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+     TOP PROGRESS BAR — visible cuando hay una llamada async
+     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+  #top-progress {
+    position: fixed;
+    top: 0; left: 0;
+    height: 2px;
+    width: 0;
+    background: linear-gradient(90deg, var(--green) 0%, var(--green-hi) 50%, var(--green) 100%);
+    background-size: 200% 100%;
+    z-index: 9999;
+    opacity: 0;
+    transition: width .35s ease, opacity .28s ease;
+    box-shadow: 0 0 10px var(--green-hi), 0 0 4px var(--green-lt);
+    pointer-events: none;
+  }
+  #top-progress.active {
+    opacity: 1;
+    animation: tpShimmer 1.2s linear infinite;
+  }
+  @keyframes tpShimmer {
+    from { background-position: 200% 0; }
+    to   { background-position: -200% 0; }
+  }
+  /* Cursor "progress" globalmente mientras hay actividad */
+  body.api-busy, body.api-busy * { cursor: progress !important; }
+
 </style>
 </head>
 <body>
+
+<!-- Barra de progreso superior — activa durante llamadas async -->
+<div id="top-progress"></div>
 
 <!-- ══ SPLASH ══ -->
 <div id="splash">
