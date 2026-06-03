@@ -2098,6 +2098,9 @@ function renderAnalisisDashboard() {
 
   const k = d.kpis || {};
   const p = d.periodo || {};
+  const productos = d.productos || [];
+  const marcas    = d.marcas    || [];
+  const grupos    = d.grupos    || [];
   const fmtMXN = (n) => '$' + Math.round(n||0).toLocaleString('es-MX');
   const fmtN = (n) => (n != null ? n : 0).toLocaleString('es-MX');
 
@@ -2119,11 +2122,11 @@ function renderAnalisisDashboard() {
         <input id="anal-busqueda" placeholder="Buscar clave, descripción…" value="${_analisisFiltros.busqueda}" oninput="anFiltrar('busqueda',this.value)" style="background:rgba(0,0,0,0.3);border:1px solid rgba(238,240,240,0.1);color:var(--text);padding:8px 12px;font-size:12px;outline:none">
         <select id="anal-marca" onchange="anFiltrar('marca',this.value)" style="background:rgba(0,0,0,0.3);border:1px solid rgba(238,240,240,0.1);color:var(--text);padding:8px 12px;font-size:12px;outline:none">
           <option value="">Todas las marcas</option>
-          ${d.marcas.slice(0,80).map(m => `<option value="${m.marca}" ${_analisisFiltros.marca===m.marca?'selected':''}>${m.marca} (${m.productos})</option>`).join('')}
+          ${marcas.slice(0,80).map(m => `<option value="${m.marca}" ${_analisisFiltros.marca===m.marca?'selected':''}>${m.marca} (${m.productos})</option>`).join('')}
         </select>
         <select id="anal-grupo" onchange="anFiltrar('grupo',this.value)" style="background:rgba(0,0,0,0.3);border:1px solid rgba(238,240,240,0.1);color:var(--text);padding:8px 12px;font-size:12px;outline:none">
           <option value="">Todos los grupos</option>
-          ${d.grupos.slice(0,80).map(g => `<option value="${g.grupo}" ${_analisisFiltros.grupo===g.grupo?'selected':''}>${g.grupo} (${g.productos})</option>`).join('')}
+          ${grupos.slice(0,80).map(g => `<option value="${g.grupo}" ${_analisisFiltros.grupo===g.grupo?'selected':''}>${g.grupo} (${g.productos})</option>`).join('')}
         </select>
         <select id="anal-porpag" onchange="anFiltrar('porPagina',parseInt(this.value))" style="background:rgba(0,0,0,0.3);border:1px solid rgba(238,240,240,0.1);color:var(--text);padding:8px 12px;font-size:12px;outline:none">
           ${[10,20,50,100,250,500,1000,9999].map(n => `<option value="${n}" ${_analisisFiltros.porPagina===n?'selected':''}>${n>=9999?'Todos':n+' / pág'}</option>`).join('')}
@@ -2145,12 +2148,12 @@ function renderAnalisisDashboard() {
     <!-- Tabs -->
     <div style="display:flex;gap:0;margin-bottom:0;border-bottom:1px solid rgba(238,240,240,0.08);overflow-x:auto">
       ${[
-        ['movidos','▼ Más movidos', d.productos.filter(p=>p.tiene_movimiento).length],
-        ['agotados','✖ Agotados', d.productos.filter(p=>p.agotado_recientemente).length],
-        ['sin_movimiento','• Sin movimiento', d.productos.filter(p=>!p.tiene_movimiento && p.total>0).length],
-        ['todos','◯ Todos', d.productos.length],
-        ['marcas','📊 Por marca', d.marcas.length],
-        ['grupos','📦 Por grupo', d.grupos.length],
+        ['movidos','▼ Más movidos', productos.filter(p=>p.tiene_movimiento).length],
+        ['agotados','✖ Agotados', productos.filter(p=>p.agotado_recientemente).length],
+        ['sin_movimiento','• Sin movimiento', productos.filter(p=>!p.tiene_movimiento && p.total>0).length],
+        ['todos','◯ Todos', productos.length],
+        ['marcas','📊 Por marca', marcas.length],
+        ['grupos','📦 Por grupo', grupos.length],
       ].map(([id,label,count]) => `
         <button onclick="anTab('${id}')" style="background:${_analisisFiltros.tab===id?'rgba(0,102,94,0.15)':'transparent'};border:none;border-bottom:2px solid ${_analisisFiltros.tab===id?'var(--green-lt)':'transparent'};color:${_analisisFiltros.tab===id?'var(--green-lt)':'var(--muted)'};padding:12px 18px;font-size:11px;letter-spacing:1.5px;text-transform:uppercase;cursor:pointer;white-space:nowrap;font-family:inherit">
           ${label} <span style="opacity:0.5;font-size:10px">${count}</span>
@@ -2224,7 +2227,7 @@ function anSort(col) {
 
 function anFiltrarProductos() {
   const f = _analisisFiltros;
-  let prods = _analisisData.productos;
+  let prods = _analisisData.productos || [];
 
   // Tab filtering
   if (f.tab === 'movidos')         prods = prods.filter(p => p.tiene_movimiento);
@@ -2271,7 +2274,7 @@ function renderAnalisisTab() {
 
   // Tabs de marcas y grupos
   if (f.tab === 'marcas') {
-    const items = [..._analisisData.marcas].sort((a,b) => f.sortDir * ((a[f.sortCol]||0) - (b[f.sortCol]||0)));
+    const items = [...(_analisisData.marcas || [])].sort((a,b) => f.sortDir * ((a[f.sortCol]||0) - (b[f.sortCol]||0)));
     cont.innerHTML = renderTablaSimple(items, [
       {k:'marca',     l:'Marca',         t:'text'},
       {k:'productos', l:'Productos',     t:'num'},
@@ -2282,7 +2285,7 @@ function renderAnalisisTab() {
     return;
   }
   if (f.tab === 'grupos') {
-    const items = [..._analisisData.grupos].sort((a,b) => f.sortDir * ((a[f.sortCol]||0) - (b[f.sortCol]||0)));
+    const items = [...(_analisisData.grupos || [])].sort((a,b) => f.sortDir * ((a[f.sortCol]||0) - (b[f.sortCol]||0)));
     cont.innerHTML = renderTablaSimple(items, [
       {k:'grupo',     l:'Grupo',         t:'text'},
       {k:'productos', l:'Productos',     t:'num'},
@@ -2406,8 +2409,8 @@ function renderTablaSimple(items, cols) {
 
 function anExportCSV() {
   if (!_analisisData) return;
-  const prods = _analisisFiltros.tab === 'marcas' ? _analisisData.marcas
-              : _analisisFiltros.tab === 'grupos' ? _analisisData.grupos
+  const prods = _analisisFiltros.tab === 'marcas' ? (_analisisData.marcas || [])
+              : _analisisFiltros.tab === 'grupos' ? (_analisisData.grupos || [])
               : anFiltrarProductos();
   let header, rows;
   if (_analisisFiltros.tab === 'marcas') {
@@ -2437,8 +2440,8 @@ function anExportPDF() {
   if (!_analisisData) return;
   const w = window.open('', '_blank');
   if (!w) { alert('Permite popups para exportar PDF'); return; }
-  const prods = _analisisFiltros.tab === 'marcas' ? _analisisData.marcas
-              : _analisisFiltros.tab === 'grupos' ? _analisisData.grupos
+  const prods = _analisisFiltros.tab === 'marcas' ? (_analisisData.marcas || [])
+              : _analisisFiltros.tab === 'grupos' ? (_analisisData.grupos || [])
               : anFiltrarProductos();
   const p = _analisisData.periodo;
   const k = _analisisData.kpis;
