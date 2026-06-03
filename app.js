@@ -2086,7 +2086,7 @@ async function cargarAnalisis() {
         ? '<th style="text-align:right;color:var(--muted)">Stock</th>'
         : '<th style="text-align:right;color:var(--green-lt)">▼ Movido</th>';
       const aviso = soloStock
-        ? '<div style="padding:8px 0 12px;font-size:10px;color:var(--orange);letter-spacing:1px">⏳ SOLO UN SNAPSHOT — mañana verás movimiento real. Mostrando top por stock actual.</div>'
+        ? '<div style="padding:8px 0 12px;font-size:10px;color:var(--orange);letter-spacing:1px">⏳ Sin movimiento detectado en el periodo. Mostrando top productos por stock actual disponible en CVA.</div>'
         : '';
       elTop.innerHTML = aviso +
         '<div class="table-wrap"><table><thead><tr>' +
