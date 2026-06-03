@@ -1,8 +1,10 @@
 <!DOCTYPE html>
-<html lang="es">
+<html lang="es" data-darkreader-lock="" style="color-scheme:dark">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="darkreader-lock">
+<meta name="color-scheme" content="dark">
 <title>CVA Dropshipping · Electronics México</title>
 
 <!-- PWA -->
@@ -20,6 +22,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Barlow:wght@300;400;500;600&family=Barlow+Condensed:wght@300;400;600&display=swap" rel="stylesheet">
 <style>
   :root {
+    color-scheme: dark only;
     --bg:        #1e2025;
     --surface:   rgba(30,32,37,0.85);
     --surface-2: rgba(38,41,48,0.9);
@@ -40,6 +43,14 @@
     --header-h:  64px;
   }
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  /* Forzar selects en oscuro — protege contra Dark Reader y otros */
+  select, option { color-scheme: dark; }
+  option {
+    background-color: #2a2d35 !important;
+    color: #eef0f0 !important;
+  }
+  select:focus { outline: none; }
 
   html, body {
     height: 100%;
