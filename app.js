@@ -2039,7 +2039,12 @@ let _logEntries = [];
 // ── ANÁLISIS DE STOCK — DASHBOARD COMPLETO ─────────────────
 let _analisisData = null;
 let _analisisFiltros = {
-  tab: "movidos",     // movidos | agotados | sin_movimiento | todos | marcas | grupos
+  // PERIODO
+  periodoPreset: 30,    // 1 | 7 | 30 | 90 | 365 | 'custom'
+  fechaDesde: null,     // YYYY-MM-DD (solo cuando custom)
+  fechaHasta: null,     // YYYY-MM-DD (solo cuando custom)
+  // TABLA
+  tab: "movidos",       // movidos | agotados | sin_movimiento | todos | marcas | grupos
   busqueda: "",
   marca: "",
   grupo: "",
@@ -2049,14 +2054,24 @@ let _analisisFiltros = {
   pagina: 1,
   porPagina: 20,
   sortCol: "movido",
-  sortDir: -1,        // 1 asc, -1 desc
+  sortDir: -1,
 };
 
 async function cargarAnalisis() {
   const cont = document.getElementById('analisis-content') || document.getElementById('analisis-top-movidos');
   if (cont) cont.innerHTML = '<div style="padding:40px;text-align:center;color:var(--muted);font-size:11px;letter-spacing:2px;text-transform:uppercase"><span class="spin"></span>Calculando análisis…</div>';
 
-  const data = await api('analisis_movimiento');
+  // Construir params según preset o custom
+  const f = _analisisFiltros;
+  const params = {};
+  if (f.periodoPreset === 'custom' && f.fechaDesde) {
+    params.fecha_desde = f.fechaDesde;
+    if (f.fechaHasta) params.fecha_hasta = f.fechaHasta;
+  } else if (typeof f.periodoPreset === 'number') {
+    params.dias_atras = f.periodoPreset;
+  }
+
+  const data = await api('analisis_movimiento', params);
   if (!data.ok) {
     if (cont) alert_(cont, '✖ ' + (data.error || 'Error'), 'error');
     return;
@@ -2105,11 +2120,35 @@ function renderAnalisisDashboard() {
   const fmtN = (n) => (n != null ? n : 0).toLocaleString('es-MX');
 
   dash.innerHTML = `
-    <!-- Periodo -->
+    <!-- Selector de Periodo -->
+    <div style="background:rgba(0,0,0,0.18);padding:14px;margin-bottom:14px;border:1px solid rgba(238,240,240,0.06)">
+      <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
+        <span style="font-size:10px;color:var(--muted);letter-spacing:1.5px;text-transform:uppercase;margin-right:8px">Comparar contra:</span>
+        ${[
+          [1,   'Ayer'],
+          [7,   '7 días'],
+          [30,  '30 días'],
+          [90,  '3 meses'],
+          [365, '1 año'],
+          ['custom', 'Rango...'],
+        ].map(([v,l]) => `
+          <button onclick="anCambiarPeriodo(${typeof v==='string'?`'${v}'`:v})" style="background:${_analisisFiltros.periodoPreset===v?'var(--green)':'transparent'};border:1px solid ${_analisisFiltros.periodoPreset===v?'var(--green)':'rgba(238,240,240,0.15)'};color:${_analisisFiltros.periodoPreset===v?'#fff':'var(--muted)'};padding:7px 14px;font-size:11px;letter-spacing:1px;text-transform:uppercase;cursor:pointer;font-family:inherit">${l}</button>
+        `).join('')}
+        ${_analisisFiltros.periodoPreset === 'custom' ? `
+          <div style="display:flex;gap:6px;align-items:center;margin-left:8px">
+            <input type="date" value="${_analisisFiltros.fechaDesde||''}" onchange="_analisisFiltros.fechaDesde=this.value;cargarAnalisis()" style="background:rgba(0,0,0,0.3);border:1px solid rgba(238,240,240,0.15);color:var(--text);padding:6px 10px;font-size:11px;outline:none">
+            <span style="color:var(--muted);font-size:11px">→</span>
+            <input type="date" value="${_analisisFiltros.fechaHasta||''}" onchange="_analisisFiltros.fechaHasta=this.value;cargarAnalisis()" style="background:rgba(0,0,0,0.3);border:1px solid rgba(238,240,240,0.15);color:var(--text);padding:6px 10px;font-size:11px;outline:none">
+          </div>
+        ` : ''}
+      </div>
+    </div>
+
+    <!-- Banner Periodo Actual -->
     <div style="padding:14px 18px;background:rgba(0,102,94,0.05);border-left:2px solid var(--green);margin-bottom:18px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px">
       <div style="font-size:11px;color:var(--muted);letter-spacing:1px">
         Periodo: <strong style="color:var(--text)">${p.fecha_inicio || '—'}</strong> → <strong style="color:var(--text)">${p.fecha_fin || '—'}</strong>
-        <span style="opacity:0.5"> · ${p.dias} días · ${p.snapshots_validos} snapshots</span>
+        <span style="opacity:0.5"> · ${p.dias} días · ${p.snapshots_validos} snapshots disponibles</span>
       </div>
       <div style="font-size:10px;color:var(--green-lt);letter-spacing:1.5px">
         ${fmtN(k.unidades_movidas)} unidades movidas · ${fmtMXN(k.valor_movido_mxn)} valor estimado
@@ -2196,6 +2235,20 @@ function anFiltrar(campo, valor) {
   _analisisFiltros[campo] = valor;
   _analisisFiltros.pagina = 1;
   renderAnalisisTab();
+}
+
+// Cambiar periodo de comparación — recarga datos del backend
+function anCambiarPeriodo(preset) {
+  _analisisFiltros.periodoPreset = preset;
+  _analisisFiltros.pagina = 1;
+  // Si es custom y no hay fechas previas, prellenar con últimos 30 días
+  if (preset === 'custom' && !_analisisFiltros.fechaDesde) {
+    const hoy = new Date();
+    const hace30 = new Date(); hace30.setDate(hace30.getDate() - 30);
+    _analisisFiltros.fechaDesde = hace30.toISOString().slice(0,10);
+    _analisisFiltros.fechaHasta = hoy.toISOString().slice(0,10);
+  }
+  cargarAnalisis(); // recarga del backend
 }
 
 function anLimpiarFiltros() {
@@ -2819,5 +2872,5 @@ Object.assign(window, {
   exportarTodoCSV, exportarTodoPDF, exportCarritoCSV, exportCarritoPDF,
   limpiarLog, cargarSucursalesSelect, iniciarPaginaOrden, sugerirSucursalPorStock, recargarSucursales, cargarAnalisis,
   iniciarCarruselMarcas, _renderCarruselMarcas,
-  cargarAnalisis, renderAnalisisDashboard, renderAnalisisTab, anFiltrar, anTab, anSort, anLimpiarFiltros, anExportCSV, anExportPDF,
+  cargarAnalisis, renderAnalisisDashboard, renderAnalisisTab, anFiltrar, anTab, anSort, anLimpiarFiltros, anExportCSV, anExportPDF, anCambiarPeriodo,
 });
