@@ -2307,7 +2307,7 @@ function renderAnalisisTab() {
     {k:'clave',     l:'Clave',       t:'mono', w:'90px'},
     {k:'desc',      l:'Descripción', t:'desc'},
     {k:'marca',     l:'Marca',       t:'small'},
-    {k:'stock_base',l:`Stock ${_analisisData.periodo.fecha_inicio||''}`, t:'num'},
+    {k:'stock_base',l:`Stock ${(_analisisData.periodo && _analisisData.periodo.fecha_inicio) || ''}`, t:'num'},
     {k:'total',     l:'Stock Hoy',   t:'num'},
     {k:'movido',    l:'▼ Movido',    t:'mov', hi:true},
     {k:'prom_diario',l:'Prom/día',   t:'num'},
