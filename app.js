@@ -2096,9 +2096,10 @@ function renderAnalisisDashboard() {
   // KPIs grandes
   renderAnalisisKPIs();
 
-  const k = d.kpis;
-  const p = d.periodo;
+  const k = d.kpis || {};
+  const p = d.periodo || {};
   const fmtMXN = (n) => '$' + Math.round(n||0).toLocaleString('es-MX');
+  const fmtN = (n) => (n != null ? n : 0).toLocaleString('es-MX');
 
   dash.innerHTML = `
     <!-- Periodo -->
@@ -2108,7 +2109,7 @@ function renderAnalisisDashboard() {
         <span style="opacity:0.5"> · ${p.dias} días · ${p.snapshots_validos} snapshots</span>
       </div>
       <div style="font-size:10px;color:var(--green-lt);letter-spacing:1.5px">
-        ${k.unidades_movidas.toLocaleString('es-MX')} unidades movidas · ${fmtMXN(k.valor_movido_mxn)} valor estimado
+        ${fmtN(k.unidades_movidas)} unidades movidas · ${fmtMXN(k.valor_movido_mxn)} valor estimado
       </div>
     </div>
 
@@ -2165,15 +2166,16 @@ function renderAnalisisDashboard() {
 }
 
 function renderAnalisisKPIs() {
-  const k = _analisisData.kpis;
-  const p = _analisisData.periodo;
+  const k = _analisisData.kpis || {};
+  const p = _analisisData.periodo || {};
   const fmtMXN = (n) => '$' + (Math.round(n||0)).toLocaleString('es-MX');
+  const fmtN = (n) => (n != null ? n : 0).toLocaleString('es-MX');
 
   // Actualizar las 3 tarjetas KPI viejas si existen
   const map = {
-    'analisis-total-stock'  : k.productos_activos.toLocaleString('es-MX'),
-    'analisis-agotados-hoy' : k.agotados_recientes.toLocaleString('es-MX'),
-    'analisis-movimiento'   : k.unidades_movidas.toLocaleString('es-MX'),
+    'analisis-total-stock'  : fmtN(k.productos_activos),
+    'analisis-agotados-hoy' : fmtN(k.agotados_recientes),
+    'analisis-movimiento'   : fmtN(k.unidades_movidas),
   };
   Object.keys(map).forEach(id => {
     const el = document.getElementById(id);
@@ -2470,11 +2472,11 @@ function anExportPDF() {
     <h1>Análisis de Movimiento CVA</h1>
     <div class="meta">Periodo: ${p.fecha_inicio} → ${p.fecha_fin} · ${p.dias} días · Generado: ${new Date().toLocaleString('es-MX')}</div>
     <div class="kpis">
-      <div class="kpi"><span>Productos</span><b>${k.total_productos.toLocaleString('es-MX')}</b></div>
-      <div class="kpi"><span>Con movimiento</span><b>${k.con_movimiento.toLocaleString('es-MX')}</b></div>
-      <div class="kpi"><span>Unidades movidas</span><b>${k.unidades_movidas.toLocaleString('es-MX')}</b></div>
+      <div class="kpi"><span>Productos</span><b>${fmtN(k.total_productos)}</b></div>
+      <div class="kpi"><span>Con movimiento</span><b>${fmtN(k.con_movimiento)}</b></div>
+      <div class="kpi"><span>Unidades movidas</span><b>${fmtN(k.unidades_movidas)}</b></div>
       <div class="kpi"><span>Valor movido</span><b>${fmtMXN(k.valor_movido_mxn)}</b></div>
-      <div class="kpi"><span>Agotados</span><b>${k.agotados_recientes.toLocaleString('es-MX')}</b></div>
+      <div class="kpi"><span>Agotados</span><b>${fmtN(k.agotados_recientes)}</b></div>
     </div>
     ${tableHtml}
     <script>setTimeout(()=>window.print(),500)<\/script>
