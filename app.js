@@ -2036,123 +2036,451 @@ function renderDebugResult(action, data) {
 let _logEntries = [];
 
 // ── ANÁLISIS DE MOVIMIENTO DE STOCK ──────────────────────────
+// ── ANÁLISIS DE STOCK — DASHBOARD COMPLETO ─────────────────
+let _analisisData = null;
+let _analisisFiltros = {
+  tab: "movidos",     // movidos | agotados | sin_movimiento | todos | marcas | grupos
+  busqueda: "",
+  marca: "",
+  grupo: "",
+  precioMin: null,
+  precioMax: null,
+  soloMovimiento: false,
+  pagina: 1,
+  porPagina: 20,
+  sortCol: "movido",
+  sortDir: -1,        // 1 asc, -1 desc
+};
+
 async function cargarAnalisis() {
-  ['analisis-top-movidos','analisis-agotados','analisis-marcas','analisis-grupos'].forEach(id => {
-    const el = document.getElementById(id);
-    if (el) el.innerHTML = '<div style="padding:20px;text-align:center;color:var(--muted);font-size:11px"><span class="spin"></span>Calculando...</div>';
-  });
+  const cont = document.getElementById('analisis-content') || document.getElementById('analisis-top-movidos');
+  if (cont) cont.innerHTML = '<div style="padding:40px;text-align:center;color:var(--muted);font-size:11px;letter-spacing:2px;text-transform:uppercase"><span class="spin"></span>Calculando análisis…</div>';
 
   const data = await api('analisis_movimiento');
-
   if (!data.ok) {
-    ['analisis-top-movidos','analisis-agotados','analisis-marcas','analisis-grupos'].forEach(id => {
-      const el = document.getElementById(id);
-      if (el) alert_(el, '✖ ' + (data.error || 'Error'), 'error');
-    });
+    if (cont) alert_(cont, '✖ ' + (data.error || 'Error'), 'error');
     return;
   }
 
-  const aviso = document.getElementById('analisis-aviso');
-  if (data.sin_datos) {
-    if (aviso) aviso.style.display = 'block';
-    ['ak-con-stock','ak-agotados','ak-movimiento'].forEach(id => {
-      const el = document.getElementById(id); if (el) el.textContent = '—';
-    });
+  _analisisData = data;
+  renderAnalisisDashboard();
+  addLog('ok', 'Análisis cargado', `${data.kpis.total_productos} productos · ${data.periodo.dias}d`);
+}
+
+function renderAnalisisDashboard() {
+  const d = _analisisData;
+  if (!d) return;
+
+  // Crear el contenedor del dashboard si no existe
+  let dash = document.getElementById('analisis-dashboard');
+  if (!dash) {
+    const page = document.getElementById('page-analisis');
+    if (!page) return;
+    const main = page.querySelector('.main-content') || page;
+    dash = document.createElement('div');
+    dash.id = 'analisis-dashboard';
+    // Limpiar lo viejo
     ['analisis-top-movidos','analisis-agotados','analisis-marcas','analisis-grupos'].forEach(id => {
-      const el = document.getElementById(id);
-      if (el) alert_(el, data.mensaje || 'Ejecuta triggerSyncDiario() en GAS para generar el primer snapshot', 'warn');
+      const old = document.getElementById(id);
+      if (old) old.innerHTML = '';
     });
+    // Buscar el contenedor de kpis
+    const kpiGrid = page.querySelector('.grid-3');
+    if (kpiGrid && kpiGrid.parentNode) {
+      kpiGrid.parentNode.insertBefore(dash, kpiGrid.nextSibling);
+    } else {
+      main.appendChild(dash);
+    }
+  }
+
+  // KPIs grandes
+  renderAnalisisKPIs();
+
+  const k = d.kpis;
+  const p = d.periodo;
+  const fmtMXN = (n) => '$' + Math.round(n||0).toLocaleString('es-MX');
+
+  dash.innerHTML = `
+    <!-- Periodo -->
+    <div style="padding:14px 18px;background:rgba(0,102,94,0.05);border-left:2px solid var(--green);margin-bottom:18px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px">
+      <div style="font-size:11px;color:var(--muted);letter-spacing:1px">
+        Periodo: <strong style="color:var(--text)">${p.fecha_inicio || '—'}</strong> → <strong style="color:var(--text)">${p.fecha_fin || '—'}</strong>
+        <span style="opacity:0.5"> · ${p.dias} días · ${p.snapshots_validos} snapshots</span>
+      </div>
+      <div style="font-size:10px;color:var(--green-lt);letter-spacing:1.5px">
+        ${k.unidades_movidas.toLocaleString('es-MX')} unidades movidas · ${fmtMXN(k.valor_movido_mxn)} valor estimado
+      </div>
+    </div>
+
+    <!-- Filtros -->
+    <div style="background:rgba(0,0,0,0.18);padding:14px;margin-bottom:18px;border:1px solid rgba(238,240,240,0.06)">
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;margin-bottom:10px">
+        <input id="anal-busqueda" placeholder="Buscar clave, descripción…" value="${_analisisFiltros.busqueda}" oninput="anFiltrar('busqueda',this.value)" style="background:rgba(0,0,0,0.3);border:1px solid rgba(238,240,240,0.1);color:var(--text);padding:8px 12px;font-size:12px;outline:none">
+        <select id="anal-marca" onchange="anFiltrar('marca',this.value)" style="background:rgba(0,0,0,0.3);border:1px solid rgba(238,240,240,0.1);color:var(--text);padding:8px 12px;font-size:12px;outline:none">
+          <option value="">Todas las marcas</option>
+          ${d.marcas.slice(0,80).map(m => `<option value="${m.marca}" ${_analisisFiltros.marca===m.marca?'selected':''}>${m.marca} (${m.productos})</option>`).join('')}
+        </select>
+        <select id="anal-grupo" onchange="anFiltrar('grupo',this.value)" style="background:rgba(0,0,0,0.3);border:1px solid rgba(238,240,240,0.1);color:var(--text);padding:8px 12px;font-size:12px;outline:none">
+          <option value="">Todos los grupos</option>
+          ${d.grupos.slice(0,80).map(g => `<option value="${g.grupo}" ${_analisisFiltros.grupo===g.grupo?'selected':''}>${g.grupo} (${g.productos})</option>`).join('')}
+        </select>
+        <select id="anal-porpag" onchange="anFiltrar('porPagina',parseInt(this.value))" style="background:rgba(0,0,0,0.3);border:1px solid rgba(238,240,240,0.1);color:var(--text);padding:8px 12px;font-size:12px;outline:none">
+          ${[10,20,50,100,250,500,1000,9999].map(n => `<option value="${n}" ${_analisisFiltros.porPagina===n?'selected':''}>${n>=9999?'Todos':n+' / pág'}</option>`).join('')}
+        </select>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+        <input type="number" placeholder="Precio mín" value="${_analisisFiltros.precioMin||''}" oninput="anFiltrar('precioMin',this.value?parseFloat(this.value):null)" style="background:rgba(0,0,0,0.3);border:1px solid rgba(238,240,240,0.1);color:var(--text);padding:6px 10px;font-size:11px;width:110px;outline:none">
+        <input type="number" placeholder="Precio máx" value="${_analisisFiltros.precioMax||''}" oninput="anFiltrar('precioMax',this.value?parseFloat(this.value):null)" style="background:rgba(0,0,0,0.3);border:1px solid rgba(238,240,240,0.1);color:var(--text);padding:6px 10px;font-size:11px;width:110px;outline:none">
+        <label style="font-size:11px;color:var(--muted);display:flex;align-items:center;gap:6px;cursor:pointer">
+          <input type="checkbox" ${_analisisFiltros.soloMovimiento?'checked':''} onchange="anFiltrar('soloMovimiento',this.checked)"> Solo con movimiento
+        </label>
+        <div style="flex:1"></div>
+        <button class="btn btn-ghost" style="padding:6px 14px;font-size:10px" onclick="anExportCSV()">CSV</button>
+        <button class="btn btn-ghost" style="padding:6px 14px;font-size:10px" onclick="anExportPDF()">PDF</button>
+        <button class="btn btn-ghost" style="padding:6px 14px;font-size:10px" onclick="anLimpiarFiltros()">Limpiar</button>
+      </div>
+    </div>
+
+    <!-- Tabs -->
+    <div style="display:flex;gap:0;margin-bottom:0;border-bottom:1px solid rgba(238,240,240,0.08);overflow-x:auto">
+      ${[
+        ['movidos','▼ Más movidos', d.productos.filter(p=>p.tiene_movimiento).length],
+        ['agotados','✖ Agotados', d.productos.filter(p=>p.agotado_recientemente).length],
+        ['sin_movimiento','• Sin movimiento', d.productos.filter(p=>!p.tiene_movimiento && p.total>0).length],
+        ['todos','◯ Todos', d.productos.length],
+        ['marcas','📊 Por marca', d.marcas.length],
+        ['grupos','📦 Por grupo', d.grupos.length],
+      ].map(([id,label,count]) => `
+        <button onclick="anTab('${id}')" style="background:${_analisisFiltros.tab===id?'rgba(0,102,94,0.15)':'transparent'};border:none;border-bottom:2px solid ${_analisisFiltros.tab===id?'var(--green-lt)':'transparent'};color:${_analisisFiltros.tab===id?'var(--green-lt)':'var(--muted)'};padding:12px 18px;font-size:11px;letter-spacing:1.5px;text-transform:uppercase;cursor:pointer;white-space:nowrap;font-family:inherit">
+          ${label} <span style="opacity:0.5;font-size:10px">${count}</span>
+        </button>
+      `).join('')}
+    </div>
+
+    <!-- Contenido del tab -->
+    <div id="anal-tab-content" style="padding-top:16px"></div>
+  `;
+
+  renderAnalisisTab();
+}
+
+function renderAnalisisKPIs() {
+  const k = _analisisData.kpis;
+  const p = _analisisData.periodo;
+  const fmtMXN = (n) => '$' + (Math.round(n||0)).toLocaleString('es-MX');
+
+  // Actualizar las 3 tarjetas KPI viejas si existen
+  const map = {
+    'analisis-total-stock'  : k.productos_activos.toLocaleString('es-MX'),
+    'analisis-agotados-hoy' : k.agotados_recientes.toLocaleString('es-MX'),
+    'analisis-movimiento'   : k.unidades_movidas.toLocaleString('es-MX'),
+  };
+  Object.keys(map).forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.textContent = map[id];
+  });
+
+  // También actualizar el subtítulo del periodo si existe
+  const periodoEl = document.getElementById('analisis-periodo');
+  if (periodoEl) {
+    periodoEl.textContent = `${p.dias} días · ${p.fecha_inicio} → ${p.fecha_fin}`;
+  }
+}
+
+function anFiltrar(campo, valor) {
+  _analisisFiltros[campo] = valor;
+  _analisisFiltros.pagina = 1;
+  renderAnalisisTab();
+}
+
+function anLimpiarFiltros() {
+  _analisisFiltros.busqueda = "";
+  _analisisFiltros.marca = "";
+  _analisisFiltros.grupo = "";
+  _analisisFiltros.precioMin = null;
+  _analisisFiltros.precioMax = null;
+  _analisisFiltros.soloMovimiento = false;
+  _analisisFiltros.pagina = 1;
+  renderAnalisisDashboard();
+}
+
+function anTab(tab) {
+  _analisisFiltros.tab = tab;
+  _analisisFiltros.pagina = 1;
+  renderAnalisisDashboard();
+}
+
+function anSort(col) {
+  if (_analisisFiltros.sortCol === col) {
+    _analisisFiltros.sortDir *= -1;
+  } else {
+    _analisisFiltros.sortCol = col;
+    _analisisFiltros.sortDir = -1;
+  }
+  renderAnalisisTab();
+}
+
+function anFiltrarProductos() {
+  const f = _analisisFiltros;
+  let prods = _analisisData.productos;
+
+  // Tab filtering
+  if (f.tab === 'movidos')         prods = prods.filter(p => p.tiene_movimiento);
+  else if (f.tab === 'agotados')   prods = prods.filter(p => p.agotado_recientemente);
+  else if (f.tab === 'sin_movimiento') prods = prods.filter(p => !p.tiene_movimiento && p.total > 0);
+  // 'todos' → sin filtro
+
+  if (f.soloMovimiento && f.tab !== 'movidos') prods = prods.filter(p => p.tiene_movimiento);
+  if (f.marca) prods = prods.filter(p => p.marca === f.marca);
+  if (f.grupo) prods = prods.filter(p => p.grupo === f.grupo);
+  if (f.precioMin !== null) prods = prods.filter(p => p.precio >= f.precioMin);
+  if (f.precioMax !== null) prods = prods.filter(p => p.precio <= f.precioMax);
+  if (f.busqueda) {
+    const q = f.busqueda.toLowerCase();
+    prods = prods.filter(p =>
+      (p.clave||'').toLowerCase().includes(q) ||
+      (p.desc||'').toLowerCase().includes(q) ||
+      (p.marca||'').toLowerCase().includes(q)
+    );
+  }
+
+  // Sort
+  const dir = f.sortDir;
+  const col = f.sortCol;
+  prods = [...prods].sort((a, b) => {
+    let va = a[col], vb = b[col];
+    if (va === null || va === undefined) va = -Infinity;
+    if (vb === null || vb === undefined) vb = -Infinity;
+    if (typeof va === 'string') {
+      return dir * va.localeCompare(vb || '');
+    }
+    return dir * (va - vb);
+  });
+
+  return prods;
+}
+
+function renderAnalisisTab() {
+  const cont = document.getElementById('anal-tab-content');
+  if (!cont || !_analisisData) return;
+
+  const f = _analisisFiltros;
+  const fmtMXN = (n) => '$' + (Math.round(n||0)).toLocaleString('es-MX');
+
+  // Tabs de marcas y grupos
+  if (f.tab === 'marcas') {
+    const items = [..._analisisData.marcas].sort((a,b) => f.sortDir * ((a[f.sortCol]||0) - (b[f.sortCol]||0)));
+    cont.innerHTML = renderTablaSimple(items, [
+      {k:'marca',     l:'Marca',         t:'text'},
+      {k:'productos', l:'Productos',     t:'num'},
+      {k:'stock_total',l:'Stock Total',  t:'num'},
+      {k:'movido',    l:'Unidades Movidas', t:'num', hi:true},
+      {k:'valor_movido',l:'Valor Movido', t:'mxn'},
+    ]);
     return;
   }
-  if (aviso) aviso.style.display = 'none';
-
-  const k = data.kpis || {};
-  const setKpi = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
-  setKpi('ak-con-stock',  (k.total_con_stock  || 0).toLocaleString('es-MX'));
-  setKpi('ak-agotados',   (k.total_agotados   || 0).toLocaleString('es-MX'));
-  setKpi('ak-movimiento', (k.total_movimiento || 0).toLocaleString('es-MX'));
-  const periodoEl = document.getElementById('ak-periodo');
-  if (periodoEl) periodoEl.textContent = data.dias_disponibles > 1
-    ? `${data.dias_disponibles} dias - ${data.periodo_analisis}`
-    : 'necesitas 2+ dias de historial';
-
-  const elTop = document.getElementById('analisis-top-movidos');
-  if (elTop) {
-    if (!data.top_movidos?.length) {
-      alert_(elTop, 'Sin datos de stock — asegúrate de que SYNC_CVA tiene productos', 'warn');
-    } else {
-      const soloStock = data.solo_stock;
-      const colHeader = soloStock
-        ? '<th style="text-align:right;color:var(--muted)">Stock</th>'
-        : '<th style="text-align:right;color:var(--green-lt)">▼ Movido</th>';
-      const aviso = soloStock
-        ? '<div style="padding:8px 0 12px;font-size:10px;color:var(--orange);letter-spacing:1px">⏳ Sin movimiento detectado en el periodo. Mostrando top productos por stock actual disponible en CVA.</div>'
-        : '';
-      elTop.innerHTML = aviso +
-        '<div class="table-wrap"><table><thead><tr>' +
-        '<th>Clave</th><th>Descripción</th><th>Marca</th>' +
-        '<th style="text-align:right">Stock</th>' + colHeader +
-        '<th style="text-align:right">Precio</th>' +
-        '</tr></thead><tbody>' +
-        data.top_movidos.map(p =>
-          '<tr>' +
-          '<td class="mono" style="color:var(--green-lt)">' + p.clave + '</td>' +
-          '<td style="max-width:220px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:12px" title="' + (p.desc||'') + '">' + (p.desc||'—') + '</td>' +
-          '<td style="color:var(--muted);font-size:11px">' + (p.marca||'—') + '</td>' +
-          '<td style="text-align:right;font-family:Barlow Condensed,sans-serif;font-size:15px">' + (p.total||0) + '</td>' +
-          (soloStock
-            ? '<td style="text-align:right;color:var(--muted);font-size:13px">—</td>'
-            : '<td style="text-align:right"><span style="color:var(--green-lt);font-family:Barlow Condensed,sans-serif;font-size:16px">▼ ' + p.movimiento + '</span></td>') +
-          '<td style="text-align:right;font-family:Barlow Condensed,sans-serif;font-size:13px;color:var(--muted)">' + fmt(p.precio, p.moneda) + '</td>' +
-          '</tr>'
-        ).join('') +
-        '</tbody></table></div>';
-    }
+  if (f.tab === 'grupos') {
+    const items = [..._analisisData.grupos].sort((a,b) => f.sortDir * ((a[f.sortCol]||0) - (b[f.sortCol]||0)));
+    cont.innerHTML = renderTablaSimple(items, [
+      {k:'grupo',     l:'Grupo',         t:'text'},
+      {k:'productos', l:'Productos',     t:'num'},
+      {k:'stock_total',l:'Stock Total',  t:'num'},
+      {k:'movido',    l:'Unidades Movidas', t:'num', hi:true},
+      {k:'valor_movido',l:'Valor Movido', t:'mxn'},
+    ]);
+    return;
   }
 
-  const elAg = document.getElementById('analisis-agotados');
-  if (elAg) {
-    if (!data.agotados?.length) {
-      elAg.innerHTML = '<div class="alert alert-success" style="margin:0">Sin agotados en este periodo</div>';
-    } else {
-      elAg.innerHTML = '<div class="table-wrap"><table><thead><tr><th>Clave</th><th>Descripcion</th><th>Marca</th><th style="text-align:right;color:#e05555">Tenia</th></tr></thead><tbody>' +
-        data.agotados.map(p =>
-          '<tr><td class="mono">' + p.clave + '</td>' +
-          '<td style="max-width:200px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:12px">' + p.desc + '</td>' +
-          '<td style="color:var(--muted);font-size:11px">' + (p.marca||'—') + '</td>' +
-          '<td style="text-align:right;color:#e05555;font-family:Barlow Condensed,sans-serif;font-size:15px">' + p.stock_antes + '</td></tr>'
-        ).join('') +
-        '</tbody></table></div>';
-    }
+  // Tab de productos
+  const prods = anFiltrarProductos();
+  const total = prods.length;
+  const inicio = (f.pagina - 1) * f.porPagina;
+  const pag = prods.slice(inicio, inicio + f.porPagina);
+  const totPag = Math.max(1, Math.ceil(total / f.porPagina));
+
+  const cols = [
+    {k:'clave',     l:'Clave',       t:'mono', w:'90px'},
+    {k:'desc',      l:'Descripción', t:'desc'},
+    {k:'marca',     l:'Marca',       t:'small'},
+    {k:'stock_base',l:`Stock ${_analisisData.periodo.fecha_inicio||''}`, t:'num'},
+    {k:'total',     l:'Stock Hoy',   t:'num'},
+    {k:'movido',    l:'▼ Movido',    t:'mov', hi:true},
+    {k:'prom_diario',l:'Prom/día',   t:'num'},
+    {k:'prom_semanal',l:'Prom/sem',  t:'num'},
+    {k:'prom_mensual',l:'Prom/mes',  t:'num'},
+    {k:'dias_restantes',l:'Días stock', t:'dias'},
+    {k:'precio',    l:'Precio',      t:'mxn'},
+    {k:'valor_movido',l:'Valor mov', t:'mxn'},
+  ];
+
+  const headerHtml = cols.map(c => {
+    const isSort = f.sortCol === c.k;
+    const arrow = isSort ? (f.sortDir > 0 ? ' ↑' : ' ↓') : '';
+    return `<th onclick="anSort('${c.k}')" style="cursor:pointer;user-select:none;${c.hi?'color:var(--green-lt);':''}${c.w?'width:'+c.w+';':''}padding:8px 10px;font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:${isSort?'var(--green-lt)':'var(--muted)'};text-align:${['num','mov','mxn','dias'].includes(c.t)?'right':'left'};border-bottom:1px solid rgba(238,240,240,0.1)">${c.l}${arrow}</th>`;
+  }).join('');
+
+  const rowsHtml = pag.map(p => {
+    return '<tr style="border-bottom:1px solid rgba(238,240,240,0.04)">' + cols.map(c => {
+      const v = p[c.k];
+      let cell = '—';
+      let extra = '';
+      if (c.t === 'mono')  cell = `<span style="font-family:monospace;color:var(--green-lt);font-size:11px">${v||'—'}</span>`;
+      else if (c.t === 'desc') cell = `<span title="${(v||'').replace(/"/g,'&quot;')}" style="font-size:12px">${(v||'—').substring(0,60)}${v && v.length>60?'…':''}</span>`;
+      else if (c.t === 'small') cell = `<span style="color:var(--muted);font-size:11px">${v||'—'}</span>`;
+      else if (c.t === 'num') {
+        cell = v !== null && v !== undefined ? Number(v).toLocaleString('es-MX') : '—';
+        extra = 'text-align:right;font-family:Barlow Condensed,sans-serif;font-size:14px';
+      } else if (c.t === 'mov') {
+        if (v === null || v === undefined) cell = '<span style="color:rgba(238,240,240,0.2)">—</span>';
+        else if (v > 0) cell = `<span style="color:var(--green-lt);font-family:Barlow Condensed,sans-serif;font-size:15px;font-weight:500">▼ ${v.toLocaleString('es-MX')}</span>`;
+        else cell = '<span style="color:rgba(238,240,240,0.3)">0</span>';
+        extra = 'text-align:right';
+      } else if (c.t === 'mxn') {
+        cell = v !== null && v !== undefined ? fmtMXN(v) : '—';
+        extra = 'text-align:right;font-family:Barlow Condensed,sans-serif;color:var(--muted);font-size:12px';
+      } else if (c.t === 'dias') {
+        if (v === null || v === undefined) cell = '<span style="color:rgba(238,240,240,0.2)">—</span>';
+        else if (v === 0) cell = '<span style="color:#e05555;font-size:11px;letter-spacing:1px">AGOTADO</span>';
+        else if (v < 7) cell = `<span style="color:var(--orange);font-weight:500">${v} d</span>`;
+        else cell = `<span style="color:var(--muted)">${v.toLocaleString('es-MX')} d</span>`;
+        extra = 'text-align:right;font-size:12px';
+      }
+      return `<td style="padding:6px 10px;${extra}">${cell}</td>`;
+    }).join('') + '</tr>';
+  }).join('');
+
+  // Paginación
+  const pagNums = [];
+  for (let i = 1; i <= Math.min(totPag, 7); i++) pagNums.push(i);
+  if (totPag > 7 && f.pagina > 4) {
+    pagNums.length = 0;
+    pagNums.push(1, '…');
+    for (let i = Math.max(2, f.pagina-2); i <= Math.min(totPag, f.pagina+2); i++) pagNums.push(i);
+    if (f.pagina < totPag - 2) { pagNums.push('…'); pagNums.push(totPag); }
   }
 
-  const elMarca = document.getElementById('analisis-marcas');
-  if (elMarca && data.top_marcas?.length) {
-    const maxM = data.top_marcas[0].movimiento || 1;
-    elMarca.innerHTML = '<div style="display:flex;flex-direction:column;gap:8px;padding:4px 0">' +
-      data.top_marcas.map(m =>
-        '<div style="display:flex;align-items:center;gap:10px">' +
-        '<div style="width:110px;font-size:11px;color:var(--text-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex-shrink:0">' + m.marca + '</div>' +
-        '<div style="flex:1;height:16px;background:rgba(238,240,240,0.06);border-radius:2px;overflow:hidden">' +
-        '<div style="height:100%;background:var(--green);opacity:0.7;width:' + Math.round(m.movimiento/maxM*100) + '%"></div></div>' +
-        '<div style="font-family:Barlow Condensed,sans-serif;font-size:14px;color:var(--green-lt);width:36px;text-align:right;flex-shrink:0">' + m.movimiento + '</div></div>'
-      ).join('') + '</div>';
-  } else if (elMarca) { alert_(elMarca, 'Sin datos por marca', 'info'); }
+  cont.innerHTML = `
+    <div style="font-size:11px;color:var(--muted);margin-bottom:10px;letter-spacing:1px">
+      ${total.toLocaleString('es-MX')} productos · Mostrando ${inicio + 1}–${Math.min(inicio + f.porPagina, total)}
+    </div>
+    <div style="overflow-x:auto;border:1px solid rgba(238,240,240,0.06)">
+      <table style="width:100%;border-collapse:collapse;min-width:1100px">
+        <thead style="background:rgba(0,0,0,0.3)"><tr>${headerHtml}</tr></thead>
+        <tbody>${rowsHtml || '<tr><td colspan="'+cols.length+'" style="padding:30px;text-align:center;color:var(--muted)">Sin productos con estos filtros</td></tr>'}</tbody>
+      </table>
+    </div>
+    ${totPag > 1 ? `
+    <div style="display:flex;justify-content:center;gap:4px;margin-top:14px;flex-wrap:wrap">
+      <button onclick="anFiltrar('pagina',Math.max(1,${f.pagina-1}))" ${f.pagina<=1?'disabled':''} style="background:transparent;border:1px solid rgba(238,240,240,0.1);color:var(--muted);padding:5px 10px;cursor:pointer;font-size:11px">‹</button>
+      ${pagNums.map(n => n === '…'
+        ? '<span style="padding:5px 8px;color:var(--muted);font-size:11px">…</span>'
+        : `<button onclick="anFiltrar('pagina',${n})" style="background:${f.pagina===n?'var(--green)':'transparent'};border:1px solid ${f.pagina===n?'var(--green)':'rgba(238,240,240,0.1)'};color:${f.pagina===n?'#fff':'var(--muted)'};padding:5px 10px;cursor:pointer;font-size:11px;min-width:32px">${n}</button>`
+      ).join('')}
+      <button onclick="anFiltrar('pagina',Math.min(${totPag},${f.pagina+1}))" ${f.pagina>=totPag?'disabled':''} style="background:transparent;border:1px solid rgba(238,240,240,0.1);color:var(--muted);padding:5px 10px;cursor:pointer;font-size:11px">›</button>
+    </div>` : ''}
+  `;
+}
 
-  const elGrupo = document.getElementById('analisis-grupos');
-  if (elGrupo && data.top_grupos?.length) {
-    const maxG = data.top_grupos[0].movimiento || 1;
-    elGrupo.innerHTML = '<div style="display:flex;flex-direction:column;gap:8px;padding:4px 0">' +
-      data.top_grupos.map(g =>
-        '<div style="display:flex;align-items:center;gap:10px">' +
-        '<div style="width:130px;font-size:11px;color:var(--text-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex-shrink:0">' + g.grupo + '</div>' +
-        '<div style="flex:1;height:16px;background:rgba(238,240,240,0.06);border-radius:2px;overflow:hidden">' +
-        '<div style="height:100%;background:#1a5276;opacity:0.8;width:' + Math.round(g.movimiento/maxG*100) + '%"></div></div>' +
-        '<div style="font-family:Barlow Condensed,sans-serif;font-size:14px;color:var(--green-lt);width:36px;text-align:right;flex-shrink:0">' + g.movimiento + '</div></div>'
-      ).join('') + '</div>';
-  } else if (elGrupo) { alert_(elGrupo, 'Sin datos por grupo', 'info'); }
+function renderTablaSimple(items, cols) {
+  const fmtMXN = (n) => '$' + (Math.round(n||0)).toLocaleString('es-MX');
+  const f = _analisisFiltros;
+  const headerHtml = cols.map(c => {
+    const isSort = f.sortCol === c.k;
+    return `<th onclick="anSort('${c.k}')" style="cursor:pointer;padding:8px 10px;font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:${isSort?'var(--green-lt)':'var(--muted)'};text-align:${c.t==='text'?'left':'right'};border-bottom:1px solid rgba(238,240,240,0.1)${c.hi?';color:var(--green-lt)':''}">${c.l}${isSort?(f.sortDir>0?' ↑':' ↓'):''}</th>`;
+  }).join('');
+  const rowsHtml = items.map(it => '<tr style="border-bottom:1px solid rgba(238,240,240,0.04)">' + cols.map(c => {
+    const v = it[c.k];
+    let cell = '—'; let extra = '';
+    if (c.t === 'text') { cell = v || '—'; extra = 'font-size:12px'; }
+    else if (c.t === 'num') { cell = (v||0).toLocaleString('es-MX'); extra = 'text-align:right;font-family:Barlow Condensed,sans-serif;font-size:14px' + (c.hi?';color:var(--green-lt);font-weight:500':''); }
+    else if (c.t === 'mxn') { cell = fmtMXN(v); extra = 'text-align:right;font-family:Barlow Condensed,sans-serif;color:var(--muted);font-size:12px'; }
+    return `<td style="padding:8px 10px;${extra}">${cell}</td>`;
+  }).join('') + '</tr>').join('');
+  return `<div style="overflow-x:auto;border:1px solid rgba(238,240,240,0.06)"><table style="width:100%;border-collapse:collapse">
+    <thead style="background:rgba(0,0,0,0.3)"><tr>${headerHtml}</tr></thead>
+    <tbody>${rowsHtml || '<tr><td colspan="'+cols.length+'" style="padding:30px;text-align:center;color:var(--muted)">Sin datos</td></tr>'}</tbody>
+  </table></div>`;
+}
 
-  addLog('ok', 'Analisis cargado', (k.total_con_stock||0) + ' productos, ' + (k.total_agotados||0) + ' agotados');
+function anExportCSV() {
+  if (!_analisisData) return;
+  const prods = _analisisFiltros.tab === 'marcas' ? _analisisData.marcas
+              : _analisisFiltros.tab === 'grupos' ? _analisisData.grupos
+              : anFiltrarProductos();
+  let header, rows;
+  if (_analisisFiltros.tab === 'marcas') {
+    header = ['Marca','Productos','Stock Total','Movido','Valor Movido MXN'];
+    rows = prods.map(p => [p.marca, p.productos, p.stock_total, p.movido, p.valor_movido]);
+  } else if (_analisisFiltros.tab === 'grupos') {
+    header = ['Grupo','Productos','Stock Total','Movido','Valor Movido MXN'];
+    rows = prods.map(p => [p.grupo, p.productos, p.stock_total, p.movido, p.valor_movido]);
+  } else {
+    header = ['Clave','Descripción','Marca','Grupo','Stock Base','Stock Hoy','Movido','Prom/día','Prom/sem','Prom/mes','Días stock','Precio','Valor Movido','Valor Inventario'];
+    rows = prods.map(p => [p.clave, p.desc, p.marca, p.grupo, p.stock_base, p.total, p.movido, p.prom_diario, p.prom_semanal, p.prom_mensual, p.dias_restantes, p.precio, p.valor_movido, p.valor_inventario]);
+  }
+  const csv = [header, ...rows].map(r => r.map(v => {
+    if (v === null || v === undefined) return '';
+    const s = String(v).replace(/"/g,'""');
+    return /[",\n]/.test(s) ? `"${s}"` : s;
+  }).join(',')).join('\n');
+  const blob = new Blob(['\ufeff'+csv], {type:'text/csv;charset=utf-8'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `analisis-${_analisisFiltros.tab}-${new Date().toISOString().slice(0,10)}.csv`;
+  a.click();
+  addLog('ok','CSV exportado',`${rows.length} filas`);
+}
+
+function anExportPDF() {
+  if (!_analisisData) return;
+  const w = window.open('', '_blank');
+  if (!w) { alert('Permite popups para exportar PDF'); return; }
+  const prods = _analisisFiltros.tab === 'marcas' ? _analisisData.marcas
+              : _analisisFiltros.tab === 'grupos' ? _analisisData.grupos
+              : anFiltrarProductos();
+  const p = _analisisData.periodo;
+  const k = _analisisData.kpis;
+  const fmtMXN = (n) => '$' + (Math.round(n||0)).toLocaleString('es-MX');
+
+  let tableHtml;
+  if (_analisisFiltros.tab === 'marcas' || _analisisFiltros.tab === 'grupos') {
+    const isMarca = _analisisFiltros.tab === 'marcas';
+    tableHtml = `<table><thead><tr><th>${isMarca?'Marca':'Grupo'}</th><th>Productos</th><th>Stock</th><th>Movido</th><th>Valor</th></tr></thead><tbody>${
+      prods.map(p => `<tr><td>${isMarca?p.marca:p.grupo}</td><td>${p.productos}</td><td>${p.stock_total.toLocaleString('es-MX')}</td><td><strong>${(p.movido||0).toLocaleString('es-MX')}</strong></td><td>${fmtMXN(p.valor_movido)}</td></tr>`).join('')
+    }</tbody></table>`;
+  } else {
+    tableHtml = `<table><thead><tr><th>Clave</th><th>Descripción</th><th>Marca</th><th>Stock Hoy</th><th>Movido</th><th>P/día</th><th>Precio</th></tr></thead><tbody>${
+      prods.slice(0, 500).map(p => `<tr><td>${p.clave}</td><td>${(p.desc||'').substring(0,60)}</td><td>${p.marca||''}</td><td>${p.total.toLocaleString('es-MX')}</td><td><strong>${(p.movido||0).toLocaleString('es-MX')}</strong></td><td>${p.prom_diario}</td><td>${fmtMXN(p.precio)}</td></tr>`).join('')
+    }</tbody></table>`;
+  }
+  w.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Análisis CVA</title><style>
+    body{font-family:Arial,sans-serif;padding:20px;font-size:11px;color:#222}
+    h1{color:#00665e;font-size:18px;margin:0 0 4px;font-weight:500}
+    .meta{color:#777;font-size:10px;margin-bottom:20px}
+    .kpis{display:flex;gap:14px;margin-bottom:20px;flex-wrap:wrap}
+    .kpi{padding:8px 14px;background:#f0f7f6;border-left:3px solid #00665e}
+    .kpi b{display:block;font-size:14px;color:#00665e}
+    .kpi span{font-size:9px;letter-spacing:1px;text-transform:uppercase;color:#888}
+    table{width:100%;border-collapse:collapse;font-size:10px}
+    th{background:#00665e;color:#fff;padding:6px 8px;text-align:left;font-size:9px;letter-spacing:1px;text-transform:uppercase}
+    td{padding:5px 8px;border-bottom:1px solid #eee}
+    tr:nth-child(even){background:#fafafa}
+    @media print { @page { size: landscape; margin: 1cm } }
+  </style></head><body>
+    <h1>Análisis de Movimiento CVA</h1>
+    <div class="meta">Periodo: ${p.fecha_inicio} → ${p.fecha_fin} · ${p.dias} días · Generado: ${new Date().toLocaleString('es-MX')}</div>
+    <div class="kpis">
+      <div class="kpi"><span>Productos</span><b>${k.total_productos.toLocaleString('es-MX')}</b></div>
+      <div class="kpi"><span>Con movimiento</span><b>${k.con_movimiento.toLocaleString('es-MX')}</b></div>
+      <div class="kpi"><span>Unidades movidas</span><b>${k.unidades_movidas.toLocaleString('es-MX')}</b></div>
+      <div class="kpi"><span>Valor movido</span><b>${fmtMXN(k.valor_movido_mxn)}</b></div>
+      <div class="kpi"><span>Agotados</span><b>${k.agotados_recientes.toLocaleString('es-MX')}</b></div>
+    </div>
+    ${tableHtml}
+    <script>setTimeout(()=>window.print(),500)<\/script>
+  </body></html>`);
+  w.document.close();
+  addLog('ok','PDF generado',`${prods.length} filas`);
 }
 
 
@@ -2486,4 +2814,5 @@ Object.assign(window, {
   exportarTodoCSV, exportarTodoPDF, exportCarritoCSV, exportCarritoPDF,
   limpiarLog, cargarSucursalesSelect, iniciarPaginaOrden, sugerirSucursalPorStock, recargarSucursales, cargarAnalisis,
   iniciarCarruselMarcas, _renderCarruselMarcas,
+  cargarAnalisis, renderAnalisisDashboard, renderAnalisisTab, anFiltrar, anTab, anSort, anLimpiarFiltros, anExportCSV, anExportPDF,
 });

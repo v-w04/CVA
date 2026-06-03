@@ -4,6 +4,19 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>CVA Dropshipping · Electronics México</title>
+
+<!-- PWA -->
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#00665e">
+<meta name="description" content="Sistema de gestión de pedidos dropshipping con CVA">
+<link rel="icon" type="image/png" href="favicon.png">
+<link rel="icon" type="image/svg+xml" href="icon.svg">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="CVA Dropship">
+<meta name="mobile-web-app-capable" content="yes">
+
 <link href="https://fonts.googleapis.com/css2?family=Barlow:wght@300;400;500;600&family=Barlow+Condensed:wght@300;400;600&display=swap" rel="stylesheet">
 <style>
   :root {
@@ -1567,58 +1580,30 @@
         <div class="page-header">
           <div class="page-rule"></div>
           <div class="page-title">Análisis de Movimiento</div>
-          <div class="page-sub">Rotación de inventario · qué se mueve · qué se agota</div>
-        </div>
-
-        <!-- Aviso sin historial -->
-        <div id="analisis-aviso" style="display:none" class="alert alert-warn">
-          ⚠️ Sin historial de stock aún. Ejecuta <code>triggerSyncDiario()</code> en GAS para generar el primer snapshot. El análisis comparará días consecutivos.
+          <div class="page-sub">Dashboard de rotación · qué se mueve · qué se agota · qué reabastecer</div>
         </div>
 
         <!-- KPIs -->
         <div class="grid-3" id="analisis-kpis" style="margin-bottom:20px">
-          <div class="card"><div class="card-title">Productos con stock</div><div class="kpi" id="ak-con-stock">—</div><div class="kpi-sub">en catálogo CVA</div></div>
-          <div class="card"><div class="card-title">Se agotaron hoy</div><div class="kpi" id="ak-agotados" style="color:#e05555">—</div><div class="kpi-sub">llegaron a 0</div></div>
-          <div class="card"><div class="card-title">Unidades movidas</div><div class="kpi" id="ak-movimiento" style="color:var(--green-lt)">—</div><div class="kpi-sub" id="ak-periodo">sin historial</div></div>
+          <div class="card"><div class="card-title">Productos activos</div><div class="kpi" id="analisis-total-stock">—</div><div class="kpi-sub">con stock en CVA</div></div>
+          <div class="card"><div class="card-title">Agotados recientes</div><div class="kpi" id="analisis-agotados-hoy" style="color:#e05555">—</div><div class="kpi-sub">llegaron a 0</div></div>
+          <div class="card"><div class="card-title">Unidades movidas</div><div class="kpi" id="analisis-movimiento" style="color:var(--green-lt)">—</div><div class="kpi-sub" id="analisis-periodo">en el periodo</div></div>
         </div>
 
-        <div class="grid-2" style="margin-bottom:20px">
-          <!-- Top productos movidos -->
-          <div>
-            <div class="section-title">🏆 Top productos — mayor bajada de stock</div>
-            <div id="analisis-top-movidos">
-              <div style="padding:20px;text-align:center;color:var(--muted);font-size:11px"><span class="spin"></span>Cargando...</div>
-            </div>
-          </div>
-          <!-- Agotados -->
-          <div>
-            <div class="section-title" style="color:#e05555">🚨 Productos agotados</div>
-            <div id="analisis-agotados">
-              <div style="padding:20px;text-align:center;color:var(--muted);font-size:11px"><span class="spin"></span>Cargando...</div>
-            </div>
-          </div>
+        <!-- Dashboard dinámico — se construye en JS -->
+        <div id="analisis-content">
+          <div style="padding:40px;text-align:center;color:var(--muted);font-size:11px;letter-spacing:2px;text-transform:uppercase"><span class="spin"></span>Cargando análisis…</div>
         </div>
 
-        <div class="grid-2">
-          <!-- Por marca -->
-          <div>
-            <div class="section-title">🏷 Rotación por marca</div>
-            <div id="analisis-marcas">
-              <div style="padding:20px;text-align:center;color:var(--muted);font-size:11px"><span class="spin"></span>Cargando...</div>
-            </div>
-          </div>
-          <!-- Por grupo -->
-          <div>
-            <div class="section-title">📦 Rotación por grupo</div>
-            <div id="analisis-grupos">
-              <div style="padding:20px;text-align:center;color:var(--muted);font-size:11px"><span class="spin"></span>Cargando...</div>
-            </div>
-          </div>
-        </div>
+        <!-- Containers viejos vacíos (referencias del JS) -->
+        <div id="analisis-top-movidos" style="display:none"></div>
+        <div id="analisis-agotados"    style="display:none"></div>
+        <div id="analisis-marcas"      style="display:none"></div>
+        <div id="analisis-grupos"      style="display:none"></div>
 
-        <div style="display:flex;gap:10px;margin-top:20px">
-          <button class="btn btn-ghost" onclick="cargarAnalisis()" style="font-size:11px">↻ Actualizar</button>
-          <span style="color:var(--muted);font-size:11px;align-self:center">Los datos se actualizan cada día con el sync automático</span>
+        <div style="display:flex;gap:10px;margin-top:24px;padding-top:18px;border-top:1px solid rgba(238,240,240,0.06)">
+          <button class="btn btn-ghost" onclick="cargarAnalisis()" style="font-size:11px">↻ Actualizar datos</button>
+          <span style="color:var(--muted);font-size:11px;align-self:center">Datos se actualizan diariamente a las 2am · Sync automático</span>
         </div>
       </div>
 
@@ -1829,5 +1814,15 @@
 </div>
 
 <script src="app.js"></script>
+<script>
+  // Service Worker — PWA
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('sw.js')
+        .then(reg => console.log('✅ SW registrado:', reg.scope))
+        .catch(err => console.warn('⚠️ SW falló:', err));
+    });
+  }
+</script>
 </body>
 </html>
