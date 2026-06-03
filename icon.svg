@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" fill="#1e2025"/>
+  <circle cx="256" cy="256" r="180" fill="none" stroke="#67b8af" stroke-width="14"/>
+  <text x="256" y="285" font-family="Arial, sans-serif" font-size="100" font-weight="700"
+        fill="#67b8af" text-anchor="middle" letter-spacing="8">CVA</text>
+  <text x="256" y="345" font-family="Arial, sans-serif" font-size="22" font-weight="400"
+        fill="rgba(103,184,175,0.5)" text-anchor="middle" letter-spacing="3">DROPSHIP</text>
+</svg>
