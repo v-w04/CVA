@@ -2764,25 +2764,37 @@ function anExportCSV() {
 function anExportPDF() {
   if (!_analisisData) return;
   const w = window.open('', '_blank');
-  if (!w) { alert('Permite popups para exportar PDF'); return; }
+  if (!w || w.closed || typeof w.document === 'undefined') {
+    alert('No se pudo abrir la ventana de impresión.\n\nTu navegador bloqueó el popup — autoriza popups para este sitio y vuelve a intentarlo.');
+    addLog('error', 'PDF: popup bloqueado', 'Habilita popups en el navegador para v-w04.github.io');
+    return;
+  }
   const prods = _analisisFiltros.tab === 'marcas' ? (_analisisData.marcas || [])
               : _analisisFiltros.tab === 'grupos' ? (_analisisData.grupos || [])
               : anFiltrarProductos();
-  const p = _analisisData.periodo;
-  const k = _analisisData.kpis;
+  const p = _analisisData.periodo || {};
+  const k = _analisisData.kpis    || {};
+  // Helpers locales — antes faltaba fmtN y rompía la función entera
+  const fmtN   = (n) => (n != null ? Number(n) : 0).toLocaleString('es-MX');
   const fmtMXN = (n) => '$' + (Math.round(n||0)).toLocaleString('es-MX');
+  const safe   = (n) => (n != null ? Number(n) : 0);
 
   let tableHtml;
   if (_analisisFiltros.tab === 'marcas' || _analisisFiltros.tab === 'grupos') {
     const isMarca = _analisisFiltros.tab === 'marcas';
     tableHtml = `<table><thead><tr><th>${isMarca?'Marca':'Grupo'}</th><th>Productos</th><th>Stock</th><th>Movido</th><th>Valor</th></tr></thead><tbody>${
-      prods.map(p => `<tr><td>${isMarca?p.marca:p.grupo}</td><td>${p.productos}</td><td>${p.stock_total.toLocaleString('es-MX')}</td><td><strong>${(p.movido||0).toLocaleString('es-MX')}</strong></td><td>${fmtMXN(p.valor_movido)}</td></tr>`).join('')
+      prods.map(r => `<tr><td>${isMarca?(r.marca||'—'):(r.grupo||'—')}</td><td>${fmtN(r.productos)}</td><td>${fmtN(r.stock_total)}</td><td><strong>${fmtN(r.movido)}</strong></td><td>${fmtMXN(r.valor_movido)}</td></tr>`).join('')
     }</tbody></table>`;
   } else {
     tableHtml = `<table><thead><tr><th>Clave</th><th>Descripción</th><th>Marca</th><th>Stock Hoy</th><th>Movido</th><th>P/día</th><th>Precio</th></tr></thead><tbody>${
-      prods.slice(0, 500).map(p => `<tr><td>${p.clave}</td><td>${(p.desc||'').substring(0,60)}</td><td>${p.marca||''}</td><td>${p.total.toLocaleString('es-MX')}</td><td><strong>${(p.movido||0).toLocaleString('es-MX')}</strong></td><td>${p.prom_diario}</td><td>${fmtMXN(p.precio)}</td></tr>`).join('')
+      prods.slice(0, 500).map(r => `<tr><td>${r.clave||''}</td><td>${(r.desc||'').substring(0,60)}</td><td>${r.marca||''}</td><td>${fmtN(r.total)}</td><td><strong>${fmtN(r.movido)}</strong></td><td>${safe(r.prom_diario).toFixed(2)}</td><td>${fmtMXN(r.precio)}</td></tr>`).join('')
     }</tbody></table>`;
   }
+
+  const limitNotice = prods.length > 500
+    ? `<div style="background:#fff8e8;border-left:3px solid #C8973A;padding:8px 12px;margin-bottom:14px;font-size:10px;color:#8a6a20">Mostrando 500 de ${fmtN(prods.length)} filas. Para todas, usa Excel.</div>`
+    : '';
+
   w.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Análisis CVA</title><style>
     body{font-family:Arial,sans-serif;padding:20px;font-size:11px;color:#222}
     h1{color:#00665e;font-size:18px;margin:0 0 4px;font-weight:500}
@@ -2798,7 +2810,7 @@ function anExportPDF() {
     @media print { @page { size: landscape; margin: 1cm } }
   </style></head><body>
     <h1>Análisis de Movimiento CVA</h1>
-    <div class="meta">Periodo: ${p.fecha_inicio} → ${p.fecha_fin} · ${p.dias} días · Generado: ${new Date().toLocaleString('es-MX')}</div>
+    <div class="meta">Periodo: ${p.fecha_inicio||'—'} → ${p.fecha_fin||'—'} · ${p.dias||0} días · Generado: ${new Date().toLocaleString('es-MX')}</div>
     <div class="kpis">
       <div class="kpi"><span>Productos</span><b>${fmtN(k.total_productos)}</b></div>
       <div class="kpi"><span>Con movimiento</span><b>${fmtN(k.con_movimiento)}</b></div>
@@ -2806,6 +2818,7 @@ function anExportPDF() {
       <div class="kpi"><span>Valor movido</span><b>${fmtMXN(k.valor_movido_mxn)}</b></div>
       <div class="kpi"><span>Agotados</span><b>${fmtN(k.agotados_recientes)}</b></div>
     </div>
+    ${limitNotice}
     ${tableHtml}
     <script>setTimeout(()=>window.print(),500)<\/script>
   </body></html>`);
