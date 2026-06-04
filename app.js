@@ -2198,7 +2198,7 @@ function renderAnalisisDashboard() {
           [365, '1 año'],
           ['custom', 'Rango...'],
         ].map(([v,l]) => `
-          <button onclick="anCambiarPeriodo(${typeof v==='string'?`'${v}'`:v})" style="background:${_analisisFiltros.periodoPreset===v?'var(--green)':'transparent'};border:1px solid ${_analisisFiltros.periodoPreset===v?'var(--green)':'rgba(238,240,240,0.15)'};color:${_analisisFiltros.periodoPreset===v?'#fff':'var(--muted)'};padding:7px 14px;font-size:11px;letter-spacing:1px;text-transform:uppercase;cursor:pointer;font-family:inherit">${l}</button>
+          <button class="btn-flat" onclick="document.querySelectorAll('.btn-flat.btn-pending').forEach(b=>b.classList.remove('btn-pending'));this.classList.add('btn-pending');anCambiarPeriodo(${typeof v==='string'?`'${v}'`:v})" style="background:${_analisisFiltros.periodoPreset===v?'var(--green)':'transparent'};border:1px solid ${_analisisFiltros.periodoPreset===v?'var(--green)':'rgba(238,240,240,0.15)'};color:${_analisisFiltros.periodoPreset===v?'#fff':'var(--muted)'};padding:7px 14px;font-size:11px;letter-spacing:1px;text-transform:uppercase;cursor:pointer;font-family:inherit">${l}</button>
         `).join('')}
         ${_analisisFiltros.periodoPreset === 'custom' ? `
           <div style="display:flex;gap:6px;align-items:center;margin-left:8px">
@@ -2264,7 +2264,7 @@ function renderAnalisisDashboard() {
         ['marcas','📊 Por marca', marcas.length],
         ['grupos','📦 Por grupo', grupos.length],
       ].map(([id,label,count]) => `
-        <button onclick="anTab('${id}')" style="background:${_analisisFiltros.tab===id?'rgba(0,102,94,0.15)':'transparent'};border:none;border-bottom:2px solid ${_analisisFiltros.tab===id?'var(--green-lt)':'transparent'};color:${_analisisFiltros.tab===id?'var(--green-lt)':'var(--muted)'};padding:12px 18px;font-size:11px;letter-spacing:1.5px;text-transform:uppercase;cursor:pointer;white-space:nowrap;font-family:inherit">
+        <button class="btn-flat btn-tab" onclick="anTab('${id}')" style="background:${_analisisFiltros.tab===id?'rgba(0,102,94,0.15)':'transparent'};border:none;border-bottom:2px solid ${_analisisFiltros.tab===id?'var(--green-lt)':'transparent'};color:${_analisisFiltros.tab===id?'var(--green-lt)':'var(--muted)'};padding:12px 18px;font-size:11px;letter-spacing:1.5px;text-transform:uppercase;cursor:pointer;white-space:nowrap;font-family:inherit">
           ${label} <span style="opacity:0.5;font-size:10px">${count}</span>
         </button>
       `).join('')}
@@ -3085,7 +3085,7 @@ window.onload = () => {
   // Garantiza feedback táctil instantáneo incluso si el navegador no muestra :active.
   document.addEventListener('pointerdown', (e) => {
     const el = e.target && e.target.closest && e.target.closest(
-      '.btn, .sb-foot-btn, .sb-item, .pv-cta, .pv-back, .qty-btn, .marca-chip, .pv-qty-btn, .ham-btn, .header-logo'
+      '.btn, .btn-flat, .sb-foot-btn, .sb-item, .pv-cta, .pv-back, .qty-btn, .marca-chip, .pv-qty-btn, .ham-btn, .header-logo'
     );
     if (!el || el.disabled || el.classList.contains('btn-loading')) return;
     el.classList.add('btn-flash');

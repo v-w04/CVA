@@ -1328,6 +1328,68 @@
   /* Cursor "progress" globalmente mientras hay actividad */
   body.api-busy, body.api-busy * { cursor: progress !important; }
 
+  /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+     BOTONES "FLAT" — período (1d/7d/30d) y tabs (movidos/etc)
+     Estos tienen estilos inline puros, así que necesitan
+     su propio set de reglas que no choquen con los inline.
+     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+  .btn-flat {
+    position: relative;
+    overflow: hidden;
+    transform: translateY(0);
+    transition: background .18s, color .18s, border-color .18s,
+                transform .12s cubic-bezier(.4,0,.2,1),
+                box-shadow .2s ease,
+                filter .15s ease;
+  }
+  .btn-flat:hover:not(:disabled) {
+    transform: translateY(-1px);
+    color: var(--text) !important;
+    box-shadow: 0 3px 10px rgba(0,0,0,0.28);
+    filter: brightness(1.1);
+  }
+  /* Para el tab, el border-bottom (verde) es el "selected" — al hacer hover
+     suavemente lo ilumino sin tapar el selector */
+  .btn-tab:hover:not(:disabled) {
+    border-bottom-color: rgba(103,184,175,0.4) !important;
+    background: rgba(0,102,94,0.08) !important;
+  }
+  .btn-flat:active:not(:disabled) {
+    transform: translateY(1px) scale(0.97);
+    transition-duration: .05s;
+    filter: brightness(.85);
+  }
+  /* Flash al click — mismo destello blanco que .btn */
+  .btn-flat::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(circle at center, rgba(255,255,255,0.30) 0%, transparent 65%);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity .42s ease;
+  }
+  .btn-flat.btn-flash::after { opacity: 1; transition: opacity 0s; }
+  /* Estado "presionado pendiente" — cuando se hace click y aún está cargando */
+  .btn-flat.btn-pending {
+    background: rgba(0,102,94,0.35) !important;
+    border-color: var(--green-lt) !important;
+    color: var(--text) !important;
+    box-shadow: inset 0 0 0 1px rgba(103,184,175,0.4);
+    padding-right: 28px !important;
+  }
+  .btn-flat.btn-pending::before {
+    content: '';
+    position: absolute;
+    right: 8px; top: 50%;
+    margin-top: -5px;
+    width: 10px; height: 10px;
+    border: 1.5px solid rgba(255,255,255,0.35);
+    border-top-color: #fff;
+    border-radius: 50%;
+    animation: spin .65s linear infinite;
+  }
+
 </style>
 </head>
 <body>
