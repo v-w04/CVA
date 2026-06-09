@@ -2389,12 +2389,12 @@ function renderAnalisisTab() {
   // Eso libera 3 columnas y permite ver más plataformas sin scroll.
   const colsBase = _modoVistaTabla === 'precios' ? [
     {k:'clave',     l:'Clave',       t:'mono',  w:'80px'},
-    {k:'desc',      l:'Descripción', t:'desc',  w:'220px'},
+    {k:'desc',      l:'Descripción', t:'desc',  w:'280px'},
     {k:'marca',     l:'Marca',       t:'small', w:'85px'},
     {k:'precio',    l:'Precio CVA',  t:'mxn',   w:'90px', hi:true},
   ] : [
     {k:'clave',     l:'Clave',       t:'mono', w:'80px'},
-    {k:'desc',      l:'Descripción', t:'desc', w:_modoVistaTabla==='datos' ? '260px' : '320px'},
+    {k:'desc',      l:'Descripción', t:'desc', w:_modoVistaTabla==='datos' ? '300px' : '320px'},
     {k:'marca',     l:'Marca',       t:'small', w:'85px'},
     {k:'stock_base',l:`Stock Inicial`, t:'num', w:'70px'},
     {k:'total',     l:'Stock Hoy',   t:'num', w:'70px'},
@@ -2431,10 +2431,10 @@ function renderAnalisisTab() {
       let extra = '';
       if (c.t === 'mono')  cell = `<span style="font-family:monospace;color:var(--green-lt);font-size:11px">${v||'—'}</span>`;
       else if (c.t === 'desc') {
-        // En modos datos/precios: wrap (multilinea, sin truncar)
+        // En modos datos/precios: descripción completa, wrap multilinea
         // En modo ventas: truncar a 60 con tooltip
         if (_modoVistaTabla !== 'ventas') {
-          cell = `<span title="${(v||'').replace(/"/g,'&quot;')}" style="font-size:11px;display:inline-block;white-space:normal;line-height:1.3;max-height:38px;overflow:hidden">${v||'—'}</span>`;
+          cell = `<span title="${(v||'').replace(/"/g,'&quot;')}" style="font-size:11px;display:block;white-space:normal;line-height:1.35;word-break:break-word">${v||'—'}</span>`;
         } else {
           cell = `<span title="${(v||'').replace(/"/g,'&quot;')}" style="font-size:12px">${(v||'—').substring(0,60)}${v && v.length>60?'…':''}</span>`;
         }
