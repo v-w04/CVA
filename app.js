@@ -2383,10 +2383,18 @@ function renderAnalisisTab() {
   const pag = prods.slice(inicio, inicio + f.porPagina);
   const totPag = Math.max(1, Math.ceil(total / f.porPagina));
 
-  // Columnas BASE — siempre presentes a la izquierda
-  const colsBase = [
+  // Columnas BASE — cambian según el modo.
+  // En precios: quitamos Stock Inicial / Stock Hoy / Movido y agregamos
+  // Precio CVA (como referencia para ver de dónde sale cada precio calculado).
+  // Eso libera 3 columnas y permite ver más plataformas sin scroll.
+  const colsBase = _modoVistaTabla === 'precios' ? [
+    {k:'clave',     l:'Clave',       t:'mono',  w:'80px'},
+    {k:'desc',      l:'Descripción', t:'desc',  w:'220px'},
+    {k:'marca',     l:'Marca',       t:'small', w:'85px'},
+    {k:'precio',    l:'Precio CVA',  t:'mxn',   w:'90px', hi:true},
+  ] : [
     {k:'clave',     l:'Clave',       t:'mono', w:'80px'},
-    {k:'desc',      l:'Descripción', t:'desc', w:_modoVistaTabla==='precios' ? '220px' : '320px'},
+    {k:'desc',      l:'Descripción', t:'desc', w:_modoVistaTabla==='datos' ? '260px' : '320px'},
     {k:'marca',     l:'Marca',       t:'small', w:'85px'},
     {k:'stock_base',l:`Stock Inicial`, t:'num', w:'70px'},
     {k:'total',     l:'Stock Hoy',   t:'num', w:'70px'},
@@ -2474,7 +2482,7 @@ function renderAnalisisTab() {
       ${total.toLocaleString('es-MX')} productos · Mostrando ${inicio + 1}–${Math.min(inicio + f.porPagina, total)}
     </div>
     <div style="overflow-x:auto;border:1px solid rgba(238,240,240,0.06)">
-      <table style="width:100%;border-collapse:collapse;min-width:${_modoVistaTabla==='precios'?'1800':_modoVistaTabla==='datos'?'1700':'1100'}px">
+      <table style="width:100%;border-collapse:collapse;min-width:${_modoVistaTabla==='precios'?'1700':_modoVistaTabla==='datos'?'1700':'1100'}px">
         <thead style="background:rgba(0,0,0,0.3);position:sticky;top:0"><tr>${headerHtml}</tr></thead>
         <tbody>${rowsHtml || '<tr><td colspan="'+(cols.length + (_modoVistaTabla==='precios'?13:_modoVistaTabla==='datos'?6:0))+'" style="padding:30px;text-align:center;color:var(--muted)">Sin productos con estos filtros</td></tr>'}</tbody>
       </table>
