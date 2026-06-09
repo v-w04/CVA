@@ -509,6 +509,58 @@
   .btn-ghost:hover { border-color: rgba(238,240,240,0.5); background: rgba(238,240,240,0.09); }
   .btn:disabled { opacity: .25; cursor: not-allowed; }
 
+  /* ── COCKPIT STYLE ──────────────────────────────────────────
+     Botones minimalistas: sin caja completa, solo borde inferior.
+     Hover acentúa con color en vez de cambiar background.        */
+  .btn-cockpit {
+    background: transparent;
+    color: var(--muted);
+    border: none;
+    padding: 8px 16px;
+    font-size: 10px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    cursor: pointer;
+    font-family: inherit;
+    transition: color 0.2s ease;
+    position: relative;
+  }
+  .btn-cockpit:hover {
+    color: var(--green-lt);
+  }
+  .btn-cockpit:hover::after {
+    content: '';
+    position: absolute;
+    left: 16px;
+    right: 16px;
+    bottom: 4px;
+    height: 1px;
+    background: var(--green-lt);
+  }
+  .btn-cockpit-muted:hover { color: var(--muted); }
+  .btn-cockpit-muted:hover::after { background: var(--muted); opacity: 0.6; }
+
+  /* ── FILA DE TABLA — hover lateral verde tipo Aston ───────── */
+  tr.cva-row {
+    transition: background 0.18s ease, box-shadow 0.18s ease;
+    position: relative;
+  }
+  tr.cva-row:hover {
+    background: rgba(103,184,175,0.04);
+    box-shadow: inset 3px 0 0 0 var(--green-lt);
+  }
+  tr.cva-row > td:first-child {
+    transition: padding-left 0.18s ease;
+  }
+  tr.cva-row:hover > td:first-child {
+    padding-left: 14px !important;
+  }
+
+  /* ── Inputs con underline (estilo cockpit) ─────────────────── */
+  input[type="text"]:focus, input[type="number"]:focus, input[type="date"]:focus, select:focus {
+    border-bottom-color: var(--green-lt) !important;
+  }
+
   .table-wrap {
     overflow-x: auto;
     border: 1px solid rgba(238,240,240,0.07);
@@ -1876,11 +1928,23 @@
           <div class="page-sub">Dashboard de rotación · qué se mueve · qué se agota · qué reabastecer</div>
         </div>
 
-        <!-- KPIs -->
-        <div class="grid-3" id="analisis-kpis" style="margin-bottom:20px">
-          <div class="card"><div class="card-title">Productos activos</div><div class="kpi" id="analisis-total-stock">—</div><div class="kpi-sub">con stock en CVA</div></div>
-          <div class="card"><div class="card-title">Agotados recientes</div><div class="kpi" id="analisis-agotados-hoy" style="color:#e05555">—</div><div class="kpi-sub">llegaron a 0</div></div>
-          <div class="card"><div class="card-title">Unidades movidas</div><div class="kpi" id="analisis-movimiento" style="color:var(--green-lt)">—</div><div class="kpi-sub" id="analisis-periodo">en el periodo</div></div>
+        <!-- KPIs estilo cockpit — sin cajas, separadas por líneas verticales -->
+        <div id="analisis-kpis" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:0;margin-bottom:28px;padding:18px 0;border-top:1px solid rgba(238,240,240,0.06);border-bottom:1px solid rgba(238,240,240,0.06)">
+          <div style="padding:6px 32px;border-right:1px solid rgba(238,240,240,0.06)">
+            <div style="font-size:9px;color:var(--muted);letter-spacing:2.5px;text-transform:uppercase;margin-bottom:8px">Productos Activos</div>
+            <div id="analisis-total-stock" style="font-family:Barlow Condensed,sans-serif;font-size:36px;font-weight:500;color:var(--text);line-height:1">—</div>
+            <div style="font-size:9px;color:var(--muted);letter-spacing:2px;text-transform:uppercase;margin-top:6px;opacity:0.7">con stock en CVA</div>
+          </div>
+          <div style="padding:6px 32px;border-right:1px solid rgba(238,240,240,0.06)">
+            <div style="font-size:9px;color:var(--muted);letter-spacing:2.5px;text-transform:uppercase;margin-bottom:8px">Agotados Recientes</div>
+            <div id="analisis-agotados-hoy" style="font-family:Barlow Condensed,sans-serif;font-size:36px;font-weight:500;color:#e05555;line-height:1">—</div>
+            <div style="font-size:9px;color:var(--muted);letter-spacing:2px;text-transform:uppercase;margin-top:6px;opacity:0.7">llegaron a 0</div>
+          </div>
+          <div style="padding:6px 32px">
+            <div style="font-size:9px;color:var(--muted);letter-spacing:2.5px;text-transform:uppercase;margin-bottom:8px">Unidades Movidas</div>
+            <div id="analisis-movimiento" style="font-family:Barlow Condensed,sans-serif;font-size:36px;font-weight:500;color:var(--green-lt);line-height:1">—</div>
+            <div id="analisis-periodo" style="font-size:9px;color:var(--muted);letter-spacing:2px;text-transform:uppercase;margin-top:6px;opacity:0.7">en el periodo</div>
+          </div>
         </div>
 
         <!-- Dashboard dinámico — se construye en JS -->
