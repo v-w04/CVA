@@ -2128,9 +2128,9 @@ function renderAnalisisDashboard() {
 
   dash.innerHTML = `
     <!-- Selector de Periodo -->
-    <div style="background:rgba(0,0,0,0.18);padding:14px;margin-bottom:14px;border:1px solid rgba(238,240,240,0.06)">
-      <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
-        <span style="font-size:10px;color:var(--muted);letter-spacing:1.5px;text-transform:uppercase;margin-right:8px">Comparar contra:</span>
+    <div style="padding:14px 0 18px 0;margin-bottom:14px;border-bottom:1px solid rgba(238,240,240,0.08)">
+      <div style="display:flex;gap:4px;flex-wrap:wrap;align-items:center">
+        <span style="font-size:10px;color:var(--muted);letter-spacing:2px;text-transform:uppercase;margin-right:14px">Comparar contra</span>
         ${[
           [1,   'Ayer'],
           [7,   '7 días'],
@@ -2138,72 +2138,85 @@ function renderAnalisisDashboard() {
           [90,  '3 meses'],
           [365, '1 año'],
           ['custom', 'Rango...'],
-        ].map(([v,l]) => `
-          <button onclick="anCambiarPeriodo(${typeof v==='string'?`'${v}'`:v})" style="background:${_analisisFiltros.periodoPreset===v?'var(--green)':'transparent'};border:1px solid ${_analisisFiltros.periodoPreset===v?'var(--green)':'rgba(238,240,240,0.15)'};color:${_analisisFiltros.periodoPreset===v?'#fff':'var(--muted)'};padding:7px 14px;font-size:11px;letter-spacing:1px;text-transform:uppercase;cursor:pointer;font-family:inherit">${l}</button>
-        `).join('')}
+        ].map(([v,l]) => {
+          const active = _analisisFiltros.periodoPreset===v;
+          return `<button onclick="anCambiarPeriodo(${typeof v==='string'?`'${v}'`:v})" style="background:transparent;border:none;border-bottom:2px solid ${active?'var(--green-lt)':'transparent'};color:${active?'var(--text)':'var(--muted)'};padding:8px 14px 7px 14px;font-size:11px;letter-spacing:1.5px;text-transform:uppercase;cursor:pointer;font-family:inherit;transition:color 0.2s ease, border-color 0.2s ease;${active?'font-weight:500':''}">${l}</button>`;
+        }).join('')}
         ${_analisisFiltros.periodoPreset === 'custom' ? `
-          <div style="display:flex;gap:6px;align-items:center;margin-left:8px">
-            <input type="date" value="${_analisisFiltros.fechaDesde||''}" onchange="_analisisFiltros.fechaDesde=this.value;cargarAnalisis()" style="background:rgba(0,0,0,0.3);border:1px solid rgba(238,240,240,0.15);color:var(--text);padding:6px 10px;font-size:11px;outline:none">
+          <div style="display:flex;gap:6px;align-items:center;margin-left:14px">
+            <input type="date" value="${_analisisFiltros.fechaDesde||''}" onchange="_analisisFiltros.fechaDesde=this.value;cargarAnalisis()" style="background:transparent;border:none;border-bottom:1px solid rgba(238,240,240,0.15);color:var(--text);padding:6px 4px;font-size:11px;outline:none">
             <span style="color:var(--muted);font-size:11px">→</span>
-            <input type="date" value="${_analisisFiltros.fechaHasta||''}" onchange="_analisisFiltros.fechaHasta=this.value;cargarAnalisis()" style="background:rgba(0,0,0,0.3);border:1px solid rgba(238,240,240,0.15);color:var(--text);padding:6px 10px;font-size:11px;outline:none">
+            <input type="date" value="${_analisisFiltros.fechaHasta||''}" onchange="_analisisFiltros.fechaHasta=this.value;cargarAnalisis()" style="background:transparent;border:none;border-bottom:1px solid rgba(238,240,240,0.15);color:var(--text);padding:6px 4px;font-size:11px;outline:none">
           </div>
         ` : ''}
       </div>
     </div>
 
     <!-- Banner Periodo Actual -->
-    <div style="padding:14px 18px;background:rgba(0,102,94,0.05);border-left:2px solid var(--green);margin-bottom:18px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px">
-      <div style="font-size:11px;color:var(--muted);letter-spacing:1px">
-        Periodo: <strong style="color:var(--text)">${p.fecha_inicio || '—'}</strong> → <strong style="color:var(--text)">${p.fecha_fin || '—'}</strong>
-        <span style="opacity:0.5"> · ${p.dias} días · ${p.snapshots_validos} snapshots disponibles</span>
+    <div style="padding:16px 0 16px 18px;border-left:1px solid var(--green);margin-bottom:24px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px">
+      <div style="font-size:11px;color:var(--muted);letter-spacing:1.5px">
+        <span style="text-transform:uppercase;opacity:0.6;margin-right:8px">Periodo</span>
+        <strong style="color:var(--text);font-weight:400">${p.fecha_inicio || '—'}</strong>
+        <span style="margin:0 6px;opacity:0.4">→</span>
+        <strong style="color:var(--text);font-weight:400">${p.fecha_fin || '—'}</strong>
+        <span style="opacity:0.4;margin-left:10px">${p.dias} días · ${p.snapshots_validos} snapshots</span>
       </div>
-      <div style="font-size:10px;color:var(--green-lt);letter-spacing:1.5px">
-        ${fmtN(k.unidades_movidas)} unidades movidas · ${fmtMXN(k.valor_movido_mxn)} valor estimado
+      <div style="font-size:11px;color:var(--green-lt);letter-spacing:2px;text-transform:uppercase;font-weight:400">
+        <span style="font-family:Barlow Condensed,sans-serif;font-size:16px;letter-spacing:0;font-weight:500">${fmtN(k.unidades_movidas)}</span>
+        <span style="opacity:0.6;margin:0 4px">unidades</span>
+        <span style="opacity:0.3;margin:0 8px">/</span>
+        <span style="font-family:Barlow Condensed,sans-serif;font-size:16px;letter-spacing:0;font-weight:500">${fmtMXN(k.valor_movido_mxn)}</span>
+        <span style="opacity:0.6;margin-left:4px">valor</span>
       </div>
     </div>
 
     <!-- Filtros -->
-    <div style="background:rgba(0,0,0,0.18);padding:14px;margin-bottom:18px;border:1px solid rgba(238,240,240,0.06)">
-      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;margin-bottom:10px">
-        <input id="anal-busqueda" placeholder="Buscar clave, descripción…" value="${_analisisFiltros.busqueda}" oninput="anFiltrar('busqueda',this.value)" style="background:rgba(0,0,0,0.3);border:1px solid rgba(238,240,240,0.1);color:var(--text);padding:8px 12px;font-size:12px;outline:none">
-        <select id="anal-marca" onchange="anFiltrar('marca',this.value)" style="background:rgba(0,0,0,0.3);border:1px solid rgba(238,240,240,0.1);color:var(--text);padding:8px 12px;font-size:12px;outline:none">
+    <!-- Filtros: estilo cockpit, sin caja, líneas finas -->
+    <div style="padding:6px 0 22px 0;margin-bottom:18px;border-bottom:1px solid rgba(238,240,240,0.06)">
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:14px;margin-bottom:14px">
+        <input id="anal-busqueda" placeholder="Buscar clave, descripción…" value="${_analisisFiltros.busqueda}" oninput="anFiltrar('busqueda',this.value)" style="background:transparent;border:none;border-bottom:1px solid rgba(238,240,240,0.12);color:var(--text);padding:8px 4px;font-size:12px;outline:none;font-family:inherit;letter-spacing:0.5px">
+        <select id="anal-marca" onchange="anFiltrar('marca',this.value)" style="background:transparent;border:none;border-bottom:1px solid rgba(238,240,240,0.12);color:var(--text);padding:8px 4px;font-size:12px;outline:none;font-family:inherit">
           <option value="">Todas las marcas</option>
           ${marcas.slice(0,80).map(m => `<option value="${m.marca}" ${_analisisFiltros.marca===m.marca?'selected':''}>${m.marca} (${m.productos})</option>`).join('')}
         </select>
-        <select id="anal-grupo" onchange="anFiltrar('grupo',this.value)" style="background:rgba(0,0,0,0.3);border:1px solid rgba(238,240,240,0.1);color:var(--text);padding:8px 12px;font-size:12px;outline:none">
+        <select id="anal-grupo" onchange="anFiltrar('grupo',this.value)" style="background:transparent;border:none;border-bottom:1px solid rgba(238,240,240,0.12);color:var(--text);padding:8px 4px;font-size:12px;outline:none;font-family:inherit">
           <option value="">Todos los grupos</option>
           ${grupos.slice(0,80).map(g => `<option value="${g.grupo}" ${_analisisFiltros.grupo===g.grupo?'selected':''}>${g.grupo} (${g.productos})</option>`).join('')}
         </select>
-        <select id="anal-porpag" onchange="anFiltrar('porPagina',parseInt(this.value))" style="background:rgba(0,0,0,0.3);border:1px solid rgba(238,240,240,0.1);color:var(--text);padding:8px 12px;font-size:12px;outline:none">
+        <select id="anal-porpag" onchange="anFiltrar('porPagina',parseInt(this.value))" style="background:transparent;border:none;border-bottom:1px solid rgba(238,240,240,0.12);color:var(--text);padding:8px 4px;font-size:12px;outline:none;font-family:inherit">
           ${[10,20,50,100,250,500,1000,9999].map(n => `<option value="${n}" ${_analisisFiltros.porPagina===n?'selected':''}>${n>=9999?'Todos':n+' / pág'}</option>`).join('')}
         </select>
       </div>
-      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-        <input type="number" placeholder="Precio mín" value="${_analisisFiltros.precioMin||''}" oninput="anFiltrar('precioMin',this.value?parseFloat(this.value):null)" style="background:rgba(0,0,0,0.3);border:1px solid rgba(238,240,240,0.1);color:var(--text);padding:6px 10px;font-size:11px;width:100px;outline:none">
-        <input type="number" placeholder="Precio máx" value="${_analisisFiltros.precioMax||''}" oninput="anFiltrar('precioMax',this.value?parseFloat(this.value):null)" style="background:rgba(0,0,0,0.3);border:1px solid rgba(238,240,240,0.1);color:var(--text);padding:6px 10px;font-size:11px;width:100px;outline:none">
-        <input type="number" placeholder="Movido ≥" value="${_analisisFiltros.minMovido||''}" oninput="anFiltrar('minMovido',this.value?parseFloat(this.value):null)" style="background:rgba(0,0,0,0.3);border:1px solid rgba(238,240,240,0.1);color:var(--text);padding:6px 10px;font-size:11px;width:90px;outline:none" title="Mínimo de unidades movidas">
-        <input type="number" placeholder="Stock ≥" value="${_analisisFiltros.minStock||''}" oninput="anFiltrar('minStock',this.value?parseFloat(this.value):null)" style="background:rgba(0,0,0,0.3);border:1px solid rgba(238,240,240,0.1);color:var(--text);padding:6px 10px;font-size:11px;width:90px;outline:none" title="Stock actual mínimo">
-        <label style="font-size:11px;color:var(--muted);display:flex;align-items:center;gap:6px;cursor:pointer">
+      <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">
+        <input type="number" placeholder="Precio mín" value="${_analisisFiltros.precioMin||''}" oninput="anFiltrar('precioMin',this.value?parseFloat(this.value):null)" style="background:transparent;border:none;border-bottom:1px solid rgba(238,240,240,0.12);color:var(--text);padding:6px 4px;font-size:11px;width:100px;outline:none">
+        <input type="number" placeholder="Precio máx" value="${_analisisFiltros.precioMax||''}" oninput="anFiltrar('precioMax',this.value?parseFloat(this.value):null)" style="background:transparent;border:none;border-bottom:1px solid rgba(238,240,240,0.12);color:var(--text);padding:6px 4px;font-size:11px;width:100px;outline:none">
+        <input type="number" placeholder="Movido ≥" value="${_analisisFiltros.minMovido||''}" oninput="anFiltrar('minMovido',this.value?parseFloat(this.value):null)" style="background:transparent;border:none;border-bottom:1px solid rgba(238,240,240,0.12);color:var(--text);padding:6px 4px;font-size:11px;width:90px;outline:none" title="Mínimo de unidades movidas">
+        <input type="number" placeholder="Stock ≥" value="${_analisisFiltros.minStock||''}" oninput="anFiltrar('minStock',this.value?parseFloat(this.value):null)" style="background:transparent;border:none;border-bottom:1px solid rgba(238,240,240,0.12);color:var(--text);padding:6px 4px;font-size:11px;width:90px;outline:none" title="Stock actual mínimo">
+        <label style="font-size:11px;color:var(--muted);display:flex;align-items:center;gap:6px;cursor:pointer;letter-spacing:0.5px">
           <input type="checkbox" ${_analisisFiltros.soloMovimiento?'checked':''} onchange="anFiltrar('soloMovimiento',this.checked)"> Solo con movimiento
         </label>
         <div style="flex:1"></div>
-        <div style="display:inline-flex;border:1px solid rgba(238,240,240,0.15);overflow:hidden">
+        <!-- Modo de visualización — underline minimal -->
+        <div style="display:inline-flex;gap:0;align-items:center">
           ${[
-            ['ventas','📊 Ventas'],
-            ['datos','🗂 Datos'],
-            ['precios','💰 Precios'],
-          ].map(([modo, label]) => `
-            <button onclick="anSetModoVista('${modo}')" style="background:${_modoVistaTabla===modo?'var(--green)':'transparent'};border:none;color:${_modoVistaTabla===modo?'#fff':'var(--muted)'};padding:6px 12px;font-size:10px;letter-spacing:1.5px;text-transform:uppercase;cursor:pointer;font-family:inherit;border-right:${modo==='precios'?'none':'1px solid rgba(238,240,240,0.15)'}">${label}</button>
-          `).join('')}
+            ['ventas','Ventas'],
+            ['datos','Datos'],
+            ['precios','Precios'],
+          ].map(([modo, label]) => {
+            const active = _modoVistaTabla===modo;
+            return `<button onclick="anSetModoVista('${modo}')" style="background:transparent;border:none;border-bottom:1.5px solid ${active?'var(--green-lt)':'transparent'};color:${active?'var(--text)':'var(--muted)'};padding:6px 14px;font-size:10px;letter-spacing:2px;text-transform:uppercase;cursor:pointer;font-family:inherit;transition:color 0.2s, border-color 0.2s;${active?'font-weight:500':''}">${label}</button>`;
+          }).join('')}
         </div>
         ${_modoVistaTabla === 'precios' ? `
-          <span style="font-size:10px;color:var(--muted);letter-spacing:1px">% GAN GLOBAL:</span>
-          <input type="number" min="5" step="0.5" value="${_gananciaGlobal}" onchange="anCambiarGananciaGlobal(this.value)" style="background:rgba(0,102,94,0.18);border:1px solid var(--green-lt);color:var(--green-lt);padding:6px 8px;font-size:12px;width:60px;outline:none;font-weight:500;text-align:right" title="Mínimo 5%. Aplica a filas sin % individual.">
+          <div style="display:flex;align-items:center;gap:8px;margin-left:10px;padding-left:14px;border-left:1px solid rgba(238,240,240,0.1)">
+            <span style="font-size:9px;color:var(--muted);letter-spacing:2px;text-transform:uppercase">% Gan global</span>
+            <input type="number" min="5" step="0.5" value="${_gananciaGlobal}" onchange="anCambiarGananciaGlobal(this.value)" style="background:transparent;border:none;border-bottom:1px solid var(--green-lt);color:var(--green-lt);padding:4px 4px;font-size:14px;width:48px;outline:none;font-weight:500;text-align:right;font-family:Barlow Condensed,sans-serif" title="Mínimo 5%. Aplica a filas sin % individual.">
+          </div>
         ` : ''}
-        <button class="btn btn-ghost" style="padding:6px 14px;font-size:10px" onclick="anExportXLSX()" title="Excel completo con todas las columnas visibles">Excel</button>
-        <button class="btn btn-ghost" style="padding:6px 14px;font-size:10px" onclick="anExportCVAUPCs()" title="Archivo limpio para mandar a CVA pidiendo UPCs">📋 CVA UPCs</button>
-        <button class="btn btn-ghost" style="padding:6px 14px;font-size:10px" onclick="anExportPDF()">PDF</button>
-        <button class="btn btn-ghost" style="padding:6px 14px;font-size:10px" onclick="anLimpiarFiltros()">Limpiar</button>
+        <button class="btn-cockpit" onclick="anExportXLSX()" title="Excel completo con todas las columnas">Excel</button>
+        <button class="btn-cockpit" onclick="anExportCVAUPCs()" title="Archivo limpio para CVA pidiendo UPCs">CVA UPCs</button>
+        <button class="btn-cockpit" onclick="anExportPDF()">PDF</button>
+        <button class="btn-cockpit btn-cockpit-muted" onclick="anLimpiarFiltros()">Limpiar</button>
       </div>
     </div>
 
@@ -2214,17 +2227,18 @@ function renderAnalisisDashboard() {
         ['agotados','✖ Agotados', productos.filter(p=>p.agotado_recientemente).length],
         ['sin_movimiento','• Sin movimiento', productos.filter(p=>!p.tiene_movimiento && p.total>0).length],
         ['todos','◯ Todos', productos.length],
-        ['marcas','📊 Por marca', marcas.length],
-        ['grupos','📦 Por grupo', grupos.length],
-      ].map(([id,label,count]) => `
-        <button onclick="anTab('${id}')" style="background:${_analisisFiltros.tab===id?'rgba(0,102,94,0.15)':'transparent'};border:none;border-bottom:2px solid ${_analisisFiltros.tab===id?'var(--green-lt)':'transparent'};color:${_analisisFiltros.tab===id?'var(--green-lt)':'var(--muted)'};padding:12px 18px;font-size:11px;letter-spacing:1.5px;text-transform:uppercase;cursor:pointer;white-space:nowrap;font-family:inherit">
-          ${label} <span style="opacity:0.5;font-size:10px">${count}</span>
-        </button>
-      `).join('')}
+        ['marcas','Por marca', marcas.length],
+        ['grupos','Por grupo', grupos.length],
+      ].map(([id,label,count]) => {
+        const active = _analisisFiltros.tab===id;
+        return `<button onclick="anTab('${id}')" style="background:transparent;border:none;border-bottom:2px solid ${active?'var(--green-lt)':'transparent'};color:${active?'var(--text)':'var(--muted)'};padding:14px 22px;font-size:11px;letter-spacing:2px;text-transform:uppercase;cursor:pointer;white-space:nowrap;font-family:inherit;transition:color 0.2s, border-color 0.2s;${active?'font-weight:500':''}">
+          ${label} <span style="opacity:0.4;font-size:10px;margin-left:4px;font-family:Barlow Condensed,sans-serif">${count}</span>
+        </button>`;
+      }).join('')}
     </div>
 
     <!-- Contenido del tab -->
-    <div id="anal-tab-content" style="padding-top:16px"></div>
+    <div id="anal-tab-content" style="padding-top:20px"></div>
   `;
 
   renderAnalisisTab();
@@ -2464,7 +2478,7 @@ function renderAnalisisTab() {
         _modoVistaTabla==='datos'   ? _renderColumnasDatosFila_(p)
       : _modoVistaTabla==='precios' ? _renderColumnasPreciosFila_(p)
       : '';
-    return '<tr style="border-bottom:1px solid rgba(238,240,240,0.04)">' + baseCells + extraCells + '</tr>';
+    return '<tr class="cva-row" style="border-bottom:1px solid rgba(238,240,240,0.04)">' + baseCells + extraCells + '</tr>';
   }).join('');
 
   // Paginación
@@ -2478,13 +2492,16 @@ function renderAnalisisTab() {
   }
 
   cont.innerHTML = `
-    <div style="font-size:11px;color:var(--muted);margin-bottom:10px;letter-spacing:1px">
-      ${total.toLocaleString('es-MX')} productos · Mostrando ${inicio + 1}–${Math.min(inicio + f.porPagina, total)}
+    <div style="font-size:10px;color:var(--muted);margin-bottom:14px;letter-spacing:2px;text-transform:uppercase">
+      <span style="font-family:Barlow Condensed,sans-serif;font-size:14px;color:var(--text);letter-spacing:0;font-weight:500">${total.toLocaleString('es-MX')}</span>
+      <span style="opacity:0.6;margin:0 6px">productos</span>
+      <span style="opacity:0.3">/</span>
+      <span style="opacity:0.6;margin-left:6px">mostrando ${inicio + 1}–${Math.min(inicio + f.porPagina, total)}</span>
     </div>
-    <div style="overflow-x:auto;border:1px solid rgba(238,240,240,0.06)">
+    <div style="overflow-x:auto;border-top:1px solid rgba(238,240,240,0.04);border-bottom:1px solid rgba(238,240,240,0.04)">
       <table style="width:100%;border-collapse:collapse;min-width:${_modoVistaTabla==='precios'?'1700':_modoVistaTabla==='datos'?'1700':'1100'}px">
-        <thead style="background:rgba(0,0,0,0.3);position:sticky;top:0"><tr>${headerHtml}</tr></thead>
-        <tbody>${rowsHtml || '<tr><td colspan="'+(cols.length + (_modoVistaTabla==='precios'?13:_modoVistaTabla==='datos'?6:0))+'" style="padding:30px;text-align:center;color:var(--muted)">Sin productos con estos filtros</td></tr>'}</tbody>
+        <thead style="background:transparent;position:sticky;top:0"><tr>${headerHtml}</tr></thead>
+        <tbody>${rowsHtml || '<tr><td colspan="'+(cols.length + (_modoVistaTabla==='precios'?13:_modoVistaTabla==='datos'?6:0))+'" style="padding:40px;text-align:center;color:var(--muted);letter-spacing:1.5px;text-transform:uppercase;font-size:10px">Sin productos con estos filtros</td></tr>'}</tbody>
       </table>
     </div>
     ${totPag > 1 ? `
@@ -2506,7 +2523,7 @@ function renderTablaSimple(items, cols) {
     const isSort = f.sortCol === c.k;
     return `<th onclick="anSort('${c.k}')" style="cursor:pointer;padding:8px 10px;font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:${isSort?'var(--green-lt)':'var(--muted)'};text-align:${c.t==='text'?'left':'right'};border-bottom:1px solid rgba(238,240,240,0.1)${c.hi?';color:var(--green-lt)':''}">${c.l}${isSort?(f.sortDir>0?' ↑':' ↓'):''}</th>`;
   }).join('');
-  const rowsHtml = items.map(it => '<tr style="border-bottom:1px solid rgba(238,240,240,0.04)">' + cols.map(c => {
+  const rowsHtml = items.map(it => '<tr class="cva-row" style="border-bottom:1px solid rgba(238,240,240,0.04)">' + cols.map(c => {
     const v = it[c.k];
     let cell = '—'; let extra = '';
     if (c.t === 'text') { cell = v || '—'; extra = 'font-size:12px'; }
@@ -2514,9 +2531,9 @@ function renderTablaSimple(items, cols) {
     else if (c.t === 'mxn') { cell = fmtMXN(v); extra = 'text-align:right;font-family:Barlow Condensed,sans-serif;color:var(--muted);font-size:12px'; }
     return `<td style="padding:8px 10px;${extra}">${cell}</td>`;
   }).join('') + '</tr>').join('');
-  return `<div style="overflow-x:auto;border:1px solid rgba(238,240,240,0.06)"><table style="width:100%;border-collapse:collapse">
-    <thead style="background:rgba(0,0,0,0.3)"><tr>${headerHtml}</tr></thead>
-    <tbody>${rowsHtml || '<tr><td colspan="'+cols.length+'" style="padding:30px;text-align:center;color:var(--muted)">Sin datos</td></tr>'}</tbody>
+  return `<div style="overflow-x:auto;border-top:1px solid rgba(238,240,240,0.04);border-bottom:1px solid rgba(238,240,240,0.04)"><table style="width:100%;border-collapse:collapse">
+    <thead style="background:transparent"><tr>${headerHtml}</tr></thead>
+    <tbody>${rowsHtml || '<tr><td colspan="'+cols.length+'" style="padding:40px;text-align:center;color:var(--muted);letter-spacing:1.5px;text-transform:uppercase;font-size:10px">Sin datos</td></tr>'}</tbody>
   </table></div>`;
 }
 
