@@ -154,12 +154,6 @@ async function apiConFallback(action, params = {}) {
 
 // Ejecutar acción CVA en modo directo
 async function cvaDirectAction(action, params) {
-  _tpStart();
-  try {
-    return await _cvaDirectActionImpl(action, params);
-  } finally { _tpEnd(); }
-}
-async function _cvaDirectActionImpl(action, params) {
   switch(action) {
     case 'cva_buscar': {
       const p = { ...params };
@@ -215,97 +209,37 @@ async function _cvaDirectActionImpl(action, params) {
 }
 
 
-// ── PROGRESS BAR + BOTÓN LOADING ──────────────────────────
-// Centraliza el feedback visual cuando hay llamadas async en vuelo.
-let _apiInFlight = 0;
-function _tpStart() {
-  _apiInFlight++;
-  const tp = document.getElementById('top-progress');
-  if (tp) {
-    tp.classList.add('active');
-    // Crece rápido al 85% y se "estanca" — UX clásica de progress indeterminado
-    tp.style.width = '85%';
-  }
-  document.body.classList.add('api-busy');
-}
-function _tpEnd() {
-  _apiInFlight = Math.max(0, _apiInFlight - 1);
-  if (_apiInFlight === 0) {
-    const tp = document.getElementById('top-progress');
-    if (tp) {
-      tp.style.width = '100%';
-      setTimeout(() => {
-        if (_apiInFlight === 0) {
-          tp.classList.remove('active');
-          tp.style.width = '0';
-        }
-      }, 280);
-    }
-    document.body.classList.remove('api-busy');
-  }
-}
-
-// Helpers para marcar un botón específico en estado loading
-function btnLoad(btnOrEvent) {
-  let btn = btnOrEvent;
-  if (btnOrEvent && btnOrEvent.target) btn = btnOrEvent.target.closest('.btn');
-  if (!btn || !btn.classList) return null;
-  btn.classList.add('btn-loading');
-  btn._origDisabled = btn.disabled;
-  btn.disabled = true;
-  return btn;
-}
-function btnDone(btn) {
-  if (!btn || !btn.classList) return;
-  btn.classList.remove('btn-loading');
-  btn.disabled = btn._origDisabled || false;
-}
-// Envuelve cualquier promesa con el spinner del botón que disparó el evento.
-//   onclick="withBtn(event, () => enviarOrden())"
-async function withBtn(ev, fn) {
-  const btn = ev && ev.currentTarget ? ev.currentTarget : (ev && ev.target ? ev.target.closest('.btn') : null);
-  const handle = btnLoad(btn);
-  try { return await fn(); }
-  finally { btnDone(handle); }
-}
-
 async function api(action, params = {}) {
-  _tpStart();
+  const qs = new URLSearchParams({ action, ...params }).toString();
+  let res;
   try {
-    const qs = new URLSearchParams({ action, ...params }).toString();
-    let res;
-    try {
-      res = await fetch(`${GAS_URL}?${qs}`, { method: 'GET', redirect: 'follow' });
-    } catch(e) {
-      const isCors = e.message && (e.message.includes('fetch') || e.message.includes('CORS') || e.message.includes('network') || e.message.includes('Failed'));
-      throw new Error(isCors
-        ? 'Sin conexión al servidor GAS. Abre la app desde GitHub Pages o verifica que el Web App esté publicado.'
-        : e.message);
-    }
-    if (!res.ok) throw new Error('HTTP ' + res.status);
-    return res.json();
-  } finally { _tpEnd(); }
+    res = await fetch(`${GAS_URL}?${qs}`, { method: 'GET', redirect: 'follow' });
+  } catch(e) {
+    const isCors = e.message && (e.message.includes('fetch') || e.message.includes('CORS') || e.message.includes('network') || e.message.includes('Failed'));
+    throw new Error(isCors
+      ? 'Sin conexión al servidor GAS. Abre la app desde GitHub Pages o verifica que el Web App esté publicado.'
+      : e.message);
+  }
+  if (!res.ok) throw new Error('HTTP ' + res.status);
+  return res.json();
 }
 
 async function apiPost(action, body = {}) {
-  _tpStart();
+  const payload = JSON.stringify({ action, ...body });
+  let res;
   try {
-    const payload = JSON.stringify({ action, ...body });
-    let res;
-    try {
-      res = await fetch(GAS_URL, {
-        method: 'POST', redirect: 'follow',
-        headers: { 'Content-Type': 'text/plain' },
-        body: payload,
-      });
-    } catch(e) {
-      throw new Error(e.message && e.message.includes('fetch')
-        ? 'Sin conexión al servidor GAS. Verifica que estés en GitHub Pages.'
-        : e.message);
-    }
-    if (!res.ok) throw new Error('HTTP ' + res.status);
-    return res.json();
-  } finally { _tpEnd(); }
+    res = await fetch(GAS_URL, {
+      method: 'POST', redirect: 'follow',
+      headers: { 'Content-Type': 'text/plain' },
+      body: payload,
+    });
+  } catch(e) {
+    throw new Error(e.message && e.message.includes('fetch')
+      ? 'Sin conexión al servidor GAS. Verifica que estés en GitHub Pages.'
+      : e.message);
+  }
+  if (!res.ok) throw new Error('HTTP ' + res.status);
+  return res.json();
 }
 
 // ── UTILS ─────────────────────────────────────────────────
@@ -2116,6 +2050,8 @@ let _analisisFiltros = {
   grupo: "",
   precioMin: null,
   precioMax: null,
+  minMovido: null,      // unidades movidas mínimas (filtro nuevo)
+  minStock: null,       // stock actual mínimo (filtro nuevo)
   soloMovimiento: false,
   pagina: 1,
   porPagina: 20,
@@ -2198,7 +2134,7 @@ function renderAnalisisDashboard() {
           [365, '1 año'],
           ['custom', 'Rango...'],
         ].map(([v,l]) => `
-          <button class="btn-flat" onclick="document.querySelectorAll('.btn-flat.btn-pending').forEach(b=>b.classList.remove('btn-pending'));this.classList.add('btn-pending');anCambiarPeriodo(${typeof v==='string'?`'${v}'`:v})" style="background:${_analisisFiltros.periodoPreset===v?'var(--green)':'transparent'};border:1px solid ${_analisisFiltros.periodoPreset===v?'var(--green)':'rgba(238,240,240,0.15)'};color:${_analisisFiltros.periodoPreset===v?'#fff':'var(--muted)'};padding:7px 14px;font-size:11px;letter-spacing:1px;text-transform:uppercase;cursor:pointer;font-family:inherit">${l}</button>
+          <button onclick="anCambiarPeriodo(${typeof v==='string'?`'${v}'`:v})" style="background:${_analisisFiltros.periodoPreset===v?'var(--green)':'transparent'};border:1px solid ${_analisisFiltros.periodoPreset===v?'var(--green)':'rgba(238,240,240,0.15)'};color:${_analisisFiltros.periodoPreset===v?'#fff':'var(--muted)'};padding:7px 14px;font-size:11px;letter-spacing:1px;text-transform:uppercase;cursor:pointer;font-family:inherit">${l}</button>
         `).join('')}
         ${_analisisFiltros.periodoPreset === 'custom' ? `
           <div style="display:flex;gap:6px;align-items:center;margin-left:8px">
@@ -2238,18 +2174,24 @@ function renderAnalisisDashboard() {
         </select>
       </div>
       <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-        <input type="number" placeholder="Precio mín" value="${_analisisFiltros.precioMin||''}" oninput="anFiltrar('precioMin',this.value?parseFloat(this.value):null)" style="background:rgba(0,0,0,0.3);border:1px solid rgba(238,240,240,0.1);color:var(--text);padding:6px 10px;font-size:11px;width:110px;outline:none">
-        <input type="number" placeholder="Precio máx" value="${_analisisFiltros.precioMax||''}" oninput="anFiltrar('precioMax',this.value?parseFloat(this.value):null)" style="background:rgba(0,0,0,0.3);border:1px solid rgba(238,240,240,0.1);color:var(--text);padding:6px 10px;font-size:11px;width:110px;outline:none">
+        <input type="number" placeholder="Precio mín" value="${_analisisFiltros.precioMin||''}" oninput="anFiltrar('precioMin',this.value?parseFloat(this.value):null)" style="background:rgba(0,0,0,0.3);border:1px solid rgba(238,240,240,0.1);color:var(--text);padding:6px 10px;font-size:11px;width:100px;outline:none">
+        <input type="number" placeholder="Precio máx" value="${_analisisFiltros.precioMax||''}" oninput="anFiltrar('precioMax',this.value?parseFloat(this.value):null)" style="background:rgba(0,0,0,0.3);border:1px solid rgba(238,240,240,0.1);color:var(--text);padding:6px 10px;font-size:11px;width:100px;outline:none">
+        <input type="number" placeholder="Movido ≥" value="${_analisisFiltros.minMovido||''}" oninput="anFiltrar('minMovido',this.value?parseFloat(this.value):null)" style="background:rgba(0,0,0,0.3);border:1px solid rgba(238,240,240,0.1);color:var(--text);padding:6px 10px;font-size:11px;width:90px;outline:none" title="Mínimo de unidades movidas">
+        <input type="number" placeholder="Stock ≥" value="${_analisisFiltros.minStock||''}" oninput="anFiltrar('minStock',this.value?parseFloat(this.value):null)" style="background:rgba(0,0,0,0.3);border:1px solid rgba(238,240,240,0.1);color:var(--text);padding:6px 10px;font-size:11px;width:90px;outline:none" title="Stock actual mínimo">
         <label style="font-size:11px;color:var(--muted);display:flex;align-items:center;gap:6px;cursor:pointer">
           <input type="checkbox" ${_analisisFiltros.soloMovimiento?'checked':''} onchange="anFiltrar('soloMovimiento',this.checked)"> Solo con movimiento
         </label>
         <div style="flex:1"></div>
-        <button class="btn btn-primary" style="padding:6px 14px;font-size:10px;display:flex;align-items:center;gap:5px" onclick="anExportXLSX()" title="Excel con formato real (moneda MXN, columnas, filtros, hoja de resumen con KPIs)">
-          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="16" y2="17"/></svg>
-          Excel
+        <button onclick="anToggleModoVista()" style="background:${_modoVistaTabla==='precios'?'var(--green)':'transparent'};border:1px solid ${_modoVistaTabla==='precios'?'var(--green)':'rgba(238,240,240,0.15)'};color:${_modoVistaTabla==='precios'?'#fff':'var(--muted)'};padding:6px 14px;font-size:10px;letter-spacing:1.5px;text-transform:uppercase;cursor:pointer;font-family:inherit" title="Toggle modo Ventas / Precios">
+          ${_modoVistaTabla==='precios' ? '💰 Modo Precios' : '📊 Modo Ventas'}
         </button>
-        <button class="btn btn-ghost" style="padding:6px 14px;font-size:10px" onclick="anExportCSV()" title="CSV plano (compatible con cualquier programa)">CSV</button>
-        <button class="btn btn-ghost" style="padding:6px 14px;font-size:10px" onclick="anExportPDF()" title="PDF imprimible">PDF</button>
+        ${_modoVistaTabla === 'precios' ? `
+          <span style="font-size:10px;color:var(--muted);letter-spacing:1px">% GAN GLOBAL:</span>
+          <input type="number" min="5" step="0.5" value="${_gananciaGlobal}" onchange="anCambiarGananciaGlobal(this.value)" style="background:rgba(0,102,94,0.18);border:1px solid var(--green-lt);color:var(--green-lt);padding:6px 8px;font-size:12px;width:60px;outline:none;font-weight:500;text-align:right" title="Mínimo 5%. Aplica a filas sin % individual.">
+        ` : ''}
+        <button class="btn btn-ghost" style="padding:6px 14px;font-size:10px" onclick="anExportXLSX()" title="Excel completo con todas las columnas visibles">Excel</button>
+        <button class="btn btn-ghost" style="padding:6px 14px;font-size:10px" onclick="anExportCVAUPCs()" title="Archivo limpio para mandar a CVA pidiendo UPCs">📋 CVA UPCs</button>
+        <button class="btn btn-ghost" style="padding:6px 14px;font-size:10px" onclick="anExportPDF()">PDF</button>
         <button class="btn btn-ghost" style="padding:6px 14px;font-size:10px" onclick="anLimpiarFiltros()">Limpiar</button>
       </div>
     </div>
@@ -2264,7 +2206,7 @@ function renderAnalisisDashboard() {
         ['marcas','📊 Por marca', marcas.length],
         ['grupos','📦 Por grupo', grupos.length],
       ].map(([id,label,count]) => `
-        <button class="btn-flat btn-tab" onclick="anTab('${id}')" style="background:${_analisisFiltros.tab===id?'rgba(0,102,94,0.15)':'transparent'};border:none;border-bottom:2px solid ${_analisisFiltros.tab===id?'var(--green-lt)':'transparent'};color:${_analisisFiltros.tab===id?'var(--green-lt)':'var(--muted)'};padding:12px 18px;font-size:11px;letter-spacing:1.5px;text-transform:uppercase;cursor:pointer;white-space:nowrap;font-family:inherit">
+        <button onclick="anTab('${id}')" style="background:${_analisisFiltros.tab===id?'rgba(0,102,94,0.15)':'transparent'};border:none;border-bottom:2px solid ${_analisisFiltros.tab===id?'var(--green-lt)':'transparent'};color:${_analisisFiltros.tab===id?'var(--green-lt)':'var(--muted)'};padding:12px 18px;font-size:11px;letter-spacing:1.5px;text-transform:uppercase;cursor:pointer;white-space:nowrap;font-family:inherit">
           ${label} <span style="opacity:0.5;font-size:10px">${count}</span>
         </button>
       `).join('')}
@@ -2327,6 +2269,8 @@ function anLimpiarFiltros() {
   _analisisFiltros.grupo = "";
   _analisisFiltros.precioMin = null;
   _analisisFiltros.precioMax = null;
+  _analisisFiltros.minMovido = null;
+  _analisisFiltros.minStock = null;
   _analisisFiltros.soloMovimiento = false;
   _analisisFiltros.pagina = 1;
   renderAnalisisDashboard();
@@ -2363,6 +2307,8 @@ function anFiltrarProductos() {
   if (f.grupo) prods = prods.filter(p => p.grupo === f.grupo);
   if (f.precioMin !== null) prods = prods.filter(p => p.precio >= f.precioMin);
   if (f.precioMax !== null) prods = prods.filter(p => p.precio <= f.precioMax);
+  if (f.minMovido !== null && f.minMovido !== '') prods = prods.filter(p => (p.movido||0) >= f.minMovido);
+  if (f.minStock !== null && f.minStock !== '')   prods = prods.filter(p => (p.total||0)  >= f.minStock);
   if (f.busqueda) {
     const q = f.busqueda.toLowerCase();
     prods = prods.filter(p =>
@@ -2426,34 +2372,49 @@ function renderAnalisisTab() {
   const pag = prods.slice(inicio, inicio + f.porPagina);
   const totPag = Math.max(1, Math.ceil(total / f.porPagina));
 
-  const cols = [
-    {k:'clave',     l:'Clave',       t:'mono', w:'90px'},
-    {k:'desc',      l:'Descripción', t:'desc'},
-    {k:'marca',     l:'Marca',       t:'small'},
-    {k:'stock_base',l:`Stock ${(_analisisData.periodo && _analisisData.periodo.fecha_inicio) || ''}`, t:'num'},
-    {k:'total',     l:'Stock Hoy',   t:'num'},
-    {k:'movido',    l:'▼ Movido',    t:'mov', hi:true},
+  // Columnas BASE — siempre presentes a la izquierda
+  const colsBase = [
+    {k:'clave',     l:'Clave',       t:'mono', w:'80px'},
+    {k:'desc',      l:'Descripción', t:'desc', w:_modoVistaTabla==='precios' ? '220px' : '320px'},
+    {k:'marca',     l:'Marca',       t:'small', w:'85px'},
+    {k:'stock_base',l:`Stock Inicial`, t:'num', w:'70px'},
+    {k:'total',     l:'Stock Hoy',   t:'num', w:'70px'},
+    {k:'movido',    l:'▼ Movido',    t:'mov', hi:true, w:'85px'},
+  ];
+  // Columnas centrales — cambian según el modo (ventas vs precios)
+  const colsVentas = [
     {k:'prom_diario',l:'Prom/día',   t:'num'},
     {k:'prom_semanal',l:'Prom/sem',  t:'num'},
     {k:'prom_mensual',l:'Prom/mes',  t:'num'},
     {k:'dias_restantes',l:'Días stock', t:'dias'},
-    {k:'precio',    l:'Precio',      t:'mxn'},
-    {k:'valor_movido',l:'Valor mov', t:'mxn'},
+    {k:'precio',    l:'Precio CVA',  t:'mxn'},
+    {k:'valor_movido',l:'Valor Hoy', t:'mxn'},
   ];
+  // En modo precios, las columnas centrales son inputs/cálculos especiales,
+  // se manejan aparte vía _renderColumnasPreciosHeader_ / _renderColumnasPreciosFila_
+  const cols = _modoVistaTabla === 'precios' ? colsBase : [...colsBase, ...colsVentas];
 
   const headerHtml = cols.map(c => {
     const isSort = f.sortCol === c.k;
     const arrow = isSort ? (f.sortDir > 0 ? ' ↑' : ' ↓') : '';
     return `<th onclick="anSort('${c.k}')" style="cursor:pointer;user-select:none;${c.hi?'color:var(--green-lt);':''}${c.w?'width:'+c.w+';':''}padding:8px 10px;font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:${isSort?'var(--green-lt)':'var(--muted)'};text-align:${['num','mov','mxn','dias'].includes(c.t)?'right':'left'};border-bottom:1px solid rgba(238,240,240,0.1)">${c.l}${arrow}</th>`;
-  }).join('');
+  }).join('') + (_modoVistaTabla==='precios' ? _renderColumnasPreciosHeader_() : '');
 
   const rowsHtml = pag.map(p => {
-    return '<tr style="border-bottom:1px solid rgba(238,240,240,0.04)">' + cols.map(c => {
+    const baseCells = cols.map(c => {
       const v = p[c.k];
       let cell = '—';
       let extra = '';
       if (c.t === 'mono')  cell = `<span style="font-family:monospace;color:var(--green-lt);font-size:11px">${v||'—'}</span>`;
-      else if (c.t === 'desc') cell = `<span title="${(v||'').replace(/"/g,'&quot;')}" style="font-size:12px">${(v||'—').substring(0,60)}${v && v.length>60?'…':''}</span>`;
+      else if (c.t === 'desc') {
+        // En modo precios: wrap (no truncar tanto, multilinea OK)
+        // En modo ventas: truncar a 60 con tooltip
+        if (_modoVistaTabla === 'precios') {
+          cell = `<span title="${(v||'').replace(/"/g,'&quot;')}" style="font-size:11px;display:inline-block;white-space:normal;line-height:1.3;max-height:38px;overflow:hidden">${v||'—'}</span>`;
+        } else {
+          cell = `<span title="${(v||'').replace(/"/g,'&quot;')}" style="font-size:12px">${(v||'—').substring(0,60)}${v && v.length>60?'…':''}</span>`;
+        }
+      }
       else if (c.t === 'small') cell = `<span style="color:var(--muted);font-size:11px">${v||'—'}</span>`;
       else if (c.t === 'num') {
         cell = v !== null && v !== undefined ? Number(v).toLocaleString('es-MX') : '—';
@@ -2473,8 +2434,10 @@ function renderAnalisisTab() {
         else cell = `<span style="color:var(--muted)">${v.toLocaleString('es-MX')} d</span>`;
         extra = 'text-align:right;font-size:12px';
       }
-      return `<td style="padding:6px 10px;${extra}">${cell}</td>`;
-    }).join('') + '</tr>';
+      return `<td style="padding:6px 10px;${extra};vertical-align:${_modoVistaTabla==='precios'?'middle':'top'}">${cell}</td>`;
+    }).join('');
+    const preciosCells = _modoVistaTabla==='precios' ? _renderColumnasPreciosFila_(p) : '';
+    return '<tr style="border-bottom:1px solid rgba(238,240,240,0.04)">' + baseCells + preciosCells + '</tr>';
   }).join('');
 
   // Paginación
@@ -2492,9 +2455,9 @@ function renderAnalisisTab() {
       ${total.toLocaleString('es-MX')} productos · Mostrando ${inicio + 1}–${Math.min(inicio + f.porPagina, total)}
     </div>
     <div style="overflow-x:auto;border:1px solid rgba(238,240,240,0.06)">
-      <table style="width:100%;border-collapse:collapse;min-width:1100px">
-        <thead style="background:rgba(0,0,0,0.3)"><tr>${headerHtml}</tr></thead>
-        <tbody>${rowsHtml || '<tr><td colspan="'+cols.length+'" style="padding:30px;text-align:center;color:var(--muted)">Sin productos con estos filtros</td></tr>'}</tbody>
+      <table style="width:100%;border-collapse:collapse;min-width:${_modoVistaTabla==='precios'?'2400':'1100'}px">
+        <thead style="background:rgba(0,0,0,0.3);position:sticky;top:0"><tr>${headerHtml}</tr></thead>
+        <tbody>${rowsHtml || '<tr><td colspan="'+(cols.length + (_modoVistaTabla==='precios'?19:0))+'" style="padding:30px;text-align:center;color:var(--muted)">Sin productos con estos filtros</td></tr>'}</tbody>
       </table>
     </div>
     ${totPag > 1 ? `
@@ -2530,208 +2493,6 @@ function renderTablaSimple(items, cols) {
   </table></div>`;
 }
 
-// ── EXPORT XLSX (con formato real: moneda MXN, columnas, freeze, autofilter, KPIs) ──
-function _hasXLSX() { return typeof XLSX !== 'undefined' && XLSX.utils; }
-
-function anExportXLSX() {
-  if (!_analisisData) return;
-
-  // Si SheetJS no cargó (sin internet al cargar la página), cae a CSV
-  if (!_hasXLSX()) {
-    addLog('warn', 'SheetJS no disponible — exportando CSV', 'Verifica conexión a cdn.jsdelivr.net');
-    return anExportCSV();
-  }
-
-  const f = _analisisFiltros;
-  const k = _analisisData.kpis    || {};
-  const p = _analisisData.periodo || {};
-  const stamp = new Date().toISOString().slice(0,10);
-
-  const prods = f.tab === 'marcas' ? (_analisisData.marcas || [])
-              : f.tab === 'grupos' ? (_analisisData.grupos || [])
-              : anFiltrarProductos();
-
-  // Mapeo de columnas según el tab
-  let cols;
-  if (f.tab === 'marcas') {
-    cols = [
-      { h:'Marca',              k:'marca',         t:'text', w:28 },
-      { h:'Productos',          k:'productos',     t:'int',  w:14 },
-      { h:'Stock Total',        k:'stock_total',   t:'int',  w:14 },
-      { h:'Unidades Movidas',   k:'movido',        t:'int',  w:18 },
-      { h:'Valor Movido',       k:'valor_movido',  t:'mxn',  w:18 },
-    ];
-  } else if (f.tab === 'grupos') {
-    cols = [
-      { h:'Grupo',              k:'grupo',         t:'text', w:30 },
-      { h:'Productos',          k:'productos',     t:'int',  w:14 },
-      { h:'Stock Total',        k:'stock_total',   t:'int',  w:14 },
-      { h:'Unidades Movidas',   k:'movido',        t:'int',  w:18 },
-      { h:'Valor Movido',       k:'valor_movido',  t:'mxn',  w:18 },
-    ];
-  } else {
-    cols = [
-      { h:'Clave',              k:'clave',            t:'text', w:14 },
-      { h:'Descripción',        k:'desc',             t:'text', w:50 },
-      { h:'Marca',              k:'marca',            t:'text', w:16 },
-      { h:'Grupo',              k:'grupo',            t:'text', w:22 },
-      { h:'Stock Base',         k:'stock_base',       t:'int',  w:12 },
-      { h:'Stock Hoy',          k:'total',            t:'int',  w:12 },
-      { h:'Movido',             k:'movido',           t:'int',  w:12 },
-      { h:'Prom/día',           k:'prom_diario',      t:'dec2', w:11 },
-      { h:'Prom/semana',        k:'prom_semanal',     t:'dec2', w:12 },
-      { h:'Prom/mes',           k:'prom_mensual',     t:'dec2', w:11 },
-      { h:'Días stock',         k:'dias_restantes',   t:'int',  w:11 },
-      { h:'Precio',             k:'precio',           t:'mxn',  w:14 },
-      { h:'Valor Movido',       k:'valor_movido',     t:'mxn',  w:18 },
-      { h:'Valor Inventario',   k:'valor_inventario', t:'mxn',  w:18 },
-    ];
-  }
-
-  const fmtZ = {
-    text: '@',
-    int:  '#,##0',
-    dec2: '#,##0.00',
-    mxn:  '"$"#,##0.00',
-  };
-
-  // Estilos (xlsx-js-style)
-  const styleHead = {
-    font:      { bold:true, color:{ rgb:'FFFFFF' }, sz:11, name:'Calibri' },
-    fill:      { patternType:'solid', fgColor:{ rgb:'00665E' } },
-    alignment: { vertical:'center', horizontal:'center', wrapText:false },
-    border:    { bottom:{ style:'medium', color:{ rgb:'00403A' } } },
-  };
-  const borderLite = {
-    top:    { style:'thin', color:{ rgb:'E8E8E8' } },
-    bottom: { style:'thin', color:{ rgb:'E8E8E8' } },
-    left:   { style:'thin', color:{ rgb:'F0F0F0' } },
-    right:  { style:'thin', color:{ rgb:'F0F0F0' } },
-  };
-  const styleHi = { font:{ bold:true, color:{ rgb:'00665E' } } }; // p/ col "Movido"
-
-  // Construir matriz AoA
-  const aoa = [ cols.map(c => c.h) ];
-  prods.forEach(row => {
-    aoa.push(cols.map(c => {
-      let v = row[c.k];
-      if (v === null || v === undefined || v === '') return c.t === 'text' ? '' : null;
-      if (c.t === 'int' || c.t === 'dec2' || c.t === 'mxn') {
-        const n = Number(v);
-        return isFinite(n) ? n : null;
-      }
-      return String(v);
-    }));
-  });
-
-  const ws = XLSX.utils.aoa_to_sheet(aoa);
-
-  // Estilo de cada celda
-  for (let r = 0; r < aoa.length; r++) {
-    cols.forEach((c, ci) => {
-      const ref = XLSX.utils.encode_cell({ r, c: ci });
-      const cell = ws[ref];
-      if (!cell) return;
-      if (r === 0) {
-        cell.s = styleHead;
-      } else {
-        const baseStyle = {
-          border: borderLite,
-          alignment: { vertical:'center' },
-          ...(r % 2 === 0 ? { fill:{ patternType:'solid', fgColor:{ rgb:'FAFBFB' } } } : {}),
-        };
-        // Resaltar col "Movido"
-        if (c.k === 'movido') Object.assign(baseStyle, { font: styleHi.font });
-        cell.s = baseStyle;
-        if (fmtZ[c.t]) cell.z = fmtZ[c.t];
-        // Asegurar que sea numérico para que el formato aplique
-        if (c.t !== 'text' && cell.v != null) cell.t = 'n';
-      }
-    });
-  }
-
-  ws['!cols']       = cols.map(c => ({ wch: c.w }));
-  ws['!rows']       = [{ hpt: 24 }]; // header más alto
-  ws['!views']      = [{ state:'frozen', xSplit:0, ySplit:1 }];
-  ws['!autofilter'] = { ref: `A1:${XLSX.utils.encode_col(cols.length - 1)}${aoa.length}` };
-
-  // ── Hoja "Resumen" con KPIs y metadatos ──
-  const tabNames = { movidos:'Top Movidos', agotados:'Agotados', sin_movimiento:'Sin Movimiento', todos:'Todos', marcas:'Por Marca', grupos:'Por Grupo' };
-  const resumen = [
-    ['Análisis de Movimiento — CVA'],
-    [],
-    ['Generado',         new Date().toLocaleString('es-MX')],
-    ['Periodo',          `${p.fecha_inicio || '—'}  →  ${p.fecha_fin || '—'}`],
-    ['Días analizados',  p.dias || 0],
-    ['Vista',            tabNames[f.tab] || f.tab],
-    [],
-    ['INDICADORES'],
-    ['Total productos',      k.total_productos    || 0],
-    ['Productos activos',    k.productos_activos  || 0],
-    ['Con movimiento',       k.con_movimiento     || 0],
-    ['Sin movimiento',       k.sin_movimiento     || 0],
-    ['Agotados recientes',   k.agotados_recientes || 0],
-    ['Unidades movidas',     k.unidades_movidas   || 0],
-    ['Valor movido (MXN)',   k.valor_movido_mxn   || 0],
-    [],
-    ['FILTROS APLICADOS'],
-    ['Búsqueda',             f.busqueda || '—'],
-    ['Marca',                f.marca   || '— Todas —'],
-    ['Grupo',                f.grupo   || '— Todos —'],
-    ['Precio mínimo',        f.precioMin != null ? f.precioMin : '—'],
-    ['Precio máximo',        f.precioMax != null ? f.precioMax : '—'],
-    ['Solo con movimiento',  f.soloMovimiento ? 'Sí' : 'No'],
-    ['Ordenado por',         `${f.sortCol} ${f.sortDir < 0 ? '↓' : '↑'}`],
-    [],
-    ['Filas exportadas',     prods.length],
-  ];
-
-  const wsR = XLSX.utils.aoa_to_sheet(resumen);
-  wsR['!cols'] = [{ wch:26 }, { wch:34 }];
-
-  // Estilos del Resumen
-  const stTitle = { font:{ bold:true, sz:16, color:{ rgb:'00665E' } } };
-  const stSec   = { font:{ bold:true, sz:11, color:{ rgb:'00665E' } }, fill:{ patternType:'solid', fgColor:{ rgb:'F0F8F7' } } };
-  const stLbl   = { font:{ color:{ rgb:'666666' } } };
-  const stVal   = { font:{ bold:true, color:{ rgb:'1E2025' } }, alignment:{ horizontal:'left' } };
-
-  if (wsR['A1']) wsR['A1'].s = stTitle;
-  ['A8','A17'].forEach(ref => { if (wsR[ref]) wsR[ref].s = stSec; });
-  // Estilo a etiquetas (col A) y valores (col B) — filas 3..25
-  for (let r = 2; r < resumen.length; r++) {
-    const a = XLSX.utils.encode_cell({ r, c:0 });
-    const b = XLSX.utils.encode_cell({ r, c:1 });
-    if (wsR[a] && !wsR[a].s) wsR[a].s = stLbl;
-    if (wsR[b] && !wsR[b].s) wsR[b].s = stVal;
-  }
-  // Formato moneda para "Valor movido"
-  if (wsR['B15']) { wsR['B15'].z = '"$"#,##0.00'; wsR['B15'].t = 'n'; }
-  // Formato número para los enteros
-  ['B5','B9','B10','B11','B12','B13','B14','B26'].forEach(ref => {
-    if (wsR[ref]) { wsR[ref].z = '#,##0'; wsR[ref].t = 'n'; }
-  });
-
-  // ── Construir workbook ──
-  const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, wsR, 'Resumen');
-  XLSX.utils.book_append_sheet(wb, ws,  'Datos');
-
-  // Metadata del documento
-  wb.Props = {
-    Title:    'Análisis de Movimiento CVA',
-    Subject:  tabNames[f.tab] || f.tab,
-    Author:   'Electronics México',
-    Company:  'Electronics México · CVA Dropship',
-    CreatedDate: new Date(),
-  };
-
-  const tabSlug = { movidos:'Top-Movidos', agotados:'Agotados', sin_movimiento:'Sin-Movimiento', todos:'Todos', marcas:'Marcas', grupos:'Grupos' }[f.tab] || f.tab;
-  const filename = `CVA_Analisis_${tabSlug}_${stamp}.xlsx`;
-
-  XLSX.writeFile(wb, filename, { compression:true });
-  addLog('ok', 'XLSX exportado', `${prods.length} filas · ${filename}`);
-}
-
 function anExportCSV() {
   if (!_analisisData) return;
   const prods = _analisisFiltros.tab === 'marcas' ? (_analisisData.marcas || [])
@@ -2764,37 +2525,25 @@ function anExportCSV() {
 function anExportPDF() {
   if (!_analisisData) return;
   const w = window.open('', '_blank');
-  if (!w || w.closed || typeof w.document === 'undefined') {
-    alert('No se pudo abrir la ventana de impresión.\n\nTu navegador bloqueó el popup — autoriza popups para este sitio y vuelve a intentarlo.');
-    addLog('error', 'PDF: popup bloqueado', 'Habilita popups en el navegador para v-w04.github.io');
-    return;
-  }
+  if (!w) { alert('Permite popups para exportar PDF'); return; }
   const prods = _analisisFiltros.tab === 'marcas' ? (_analisisData.marcas || [])
               : _analisisFiltros.tab === 'grupos' ? (_analisisData.grupos || [])
               : anFiltrarProductos();
-  const p = _analisisData.periodo || {};
-  const k = _analisisData.kpis    || {};
-  // Helpers locales — antes faltaba fmtN y rompía la función entera
-  const fmtN   = (n) => (n != null ? Number(n) : 0).toLocaleString('es-MX');
+  const p = _analisisData.periodo;
+  const k = _analisisData.kpis;
   const fmtMXN = (n) => '$' + (Math.round(n||0)).toLocaleString('es-MX');
-  const safe   = (n) => (n != null ? Number(n) : 0);
 
   let tableHtml;
   if (_analisisFiltros.tab === 'marcas' || _analisisFiltros.tab === 'grupos') {
     const isMarca = _analisisFiltros.tab === 'marcas';
     tableHtml = `<table><thead><tr><th>${isMarca?'Marca':'Grupo'}</th><th>Productos</th><th>Stock</th><th>Movido</th><th>Valor</th></tr></thead><tbody>${
-      prods.map(r => `<tr><td>${isMarca?(r.marca||'—'):(r.grupo||'—')}</td><td>${fmtN(r.productos)}</td><td>${fmtN(r.stock_total)}</td><td><strong>${fmtN(r.movido)}</strong></td><td>${fmtMXN(r.valor_movido)}</td></tr>`).join('')
+      prods.map(p => `<tr><td>${isMarca?p.marca:p.grupo}</td><td>${p.productos}</td><td>${p.stock_total.toLocaleString('es-MX')}</td><td><strong>${(p.movido||0).toLocaleString('es-MX')}</strong></td><td>${fmtMXN(p.valor_movido)}</td></tr>`).join('')
     }</tbody></table>`;
   } else {
     tableHtml = `<table><thead><tr><th>Clave</th><th>Descripción</th><th>Marca</th><th>Stock Hoy</th><th>Movido</th><th>P/día</th><th>Precio</th></tr></thead><tbody>${
-      prods.slice(0, 500).map(r => `<tr><td>${r.clave||''}</td><td>${(r.desc||'').substring(0,60)}</td><td>${r.marca||''}</td><td>${fmtN(r.total)}</td><td><strong>${fmtN(r.movido)}</strong></td><td>${safe(r.prom_diario).toFixed(2)}</td><td>${fmtMXN(r.precio)}</td></tr>`).join('')
+      prods.slice(0, 500).map(p => `<tr><td>${p.clave}</td><td>${(p.desc||'').substring(0,60)}</td><td>${p.marca||''}</td><td>${p.total.toLocaleString('es-MX')}</td><td><strong>${(p.movido||0).toLocaleString('es-MX')}</strong></td><td>${p.prom_diario}</td><td>${fmtMXN(p.precio)}</td></tr>`).join('')
     }</tbody></table>`;
   }
-
-  const limitNotice = prods.length > 500
-    ? `<div style="background:#fff8e8;border-left:3px solid #C8973A;padding:8px 12px;margin-bottom:14px;font-size:10px;color:#8a6a20">Mostrando 500 de ${fmtN(prods.length)} filas. Para todas, usa Excel.</div>`
-    : '';
-
   w.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Análisis CVA</title><style>
     body{font-family:Arial,sans-serif;padding:20px;font-size:11px;color:#222}
     h1{color:#00665e;font-size:18px;margin:0 0 4px;font-weight:500}
@@ -2810,7 +2559,7 @@ function anExportPDF() {
     @media print { @page { size: landscape; margin: 1cm } }
   </style></head><body>
     <h1>Análisis de Movimiento CVA</h1>
-    <div class="meta">Periodo: ${p.fecha_inicio||'—'} → ${p.fecha_fin||'—'} · ${p.dias||0} días · Generado: ${new Date().toLocaleString('es-MX')}</div>
+    <div class="meta">Periodo: ${p.fecha_inicio} → ${p.fecha_fin} · ${p.dias} días · Generado: ${new Date().toLocaleString('es-MX')}</div>
     <div class="kpis">
       <div class="kpi"><span>Productos</span><b>${fmtN(k.total_productos)}</b></div>
       <div class="kpi"><span>Con movimiento</span><b>${fmtN(k.con_movimiento)}</b></div>
@@ -2818,7 +2567,6 @@ function anExportPDF() {
       <div class="kpi"><span>Valor movido</span><b>${fmtMXN(k.valor_movido_mxn)}</b></div>
       <div class="kpi"><span>Agotados</span><b>${fmtN(k.agotados_recientes)}</b></div>
     </div>
-    ${limitNotice}
     ${tableHtml}
     <script>setTimeout(()=>window.print(),500)<\/script>
   </body></html>`);
@@ -3094,17 +2842,6 @@ function lanzarWordCloud(grupos) {
 
 // ── INIT ──────────────────────────────────────────────────
 window.onload = () => {
-  // ── FEEDBACK CLICK GLOBAL — flash visible al tocar/clickear cualquier botón ──
-  // Garantiza feedback táctil instantáneo incluso si el navegador no muestra :active.
-  document.addEventListener('pointerdown', (e) => {
-    const el = e.target && e.target.closest && e.target.closest(
-      '.btn, .btn-flat, .sb-foot-btn, .sb-item, .pv-cta, .pv-back, .qty-btn, .marca-chip, .pv-qty-btn, .ham-btn, .header-logo'
-    );
-    if (!el || el.disabled || el.classList.contains('btn-loading')) return;
-    el.classList.add('btn-flash');
-    setTimeout(() => el.classList.remove('btn-flash'), 220);
-  }, { passive: true, capture: true });
-
   const splash     = document.getElementById('splash');
   const shell      = document.querySelector('.shell');
 
@@ -3153,6 +2890,543 @@ window.onload = () => {
 };
 
 // ── EXPONER AL SCOPE GLOBAL ───────────────────────────────
+// ════════════════════════════════════════════════════════════════
+//  MÓDULO DE PRECIOS — extensión del análisis de movimiento
+//
+//  Toggle "modo ventas / modo precios" en el dashboard. En modo
+//  precios, el grupo central de columnas (de Promedio a Valor Mov)
+//  se reemplaza por las columnas de plataformas (MELI, Walmart,
+//  Coppel, etc.) con precios calculados en vivo.
+//
+//  Persistencia: TODO se guarda en localStorage por clave de producto.
+//  Modelo extraído manualmente, color corregido, UPC dictado por CVA,
+//  % de ganancia individual — todo persiste entre sesiones.
+// ════════════════════════════════════════════════════════════════
+
+// ── ESTADO ───────────────────────────────────────────────────
+const LS_KEY_MD       = 'cva_metadata_productos_v1';
+const LS_KEY_GANANCIA = 'cva_ganancia_global_v1';
+
+let _modoVistaTabla = 'ventas';     // 'ventas' | 'precios'
+let _metadataProductos = {};        // { "MARCA-CLAVE": {modelo, color, upc, ganancia, cat_meli, peso, editado_at} }
+let _gananciaGlobal = 5;            // % default; mínimo 5
+
+function _loadMetadataLS_() {
+  try {
+    _metadataProductos = JSON.parse(localStorage.getItem(LS_KEY_MD) || '{}') || {};
+    const g = parseFloat(localStorage.getItem(LS_KEY_GANANCIA) || '5');
+    _gananciaGlobal = (g >= 5) ? g : 5;
+  } catch(e) {
+    console.warn('Metadata localStorage corrupto, reseteando:', e);
+    _metadataProductos = {};
+    _gananciaGlobal = 5;
+  }
+}
+function _saveMetadataLS_() {
+  try { localStorage.setItem(LS_KEY_MD, JSON.stringify(_metadataProductos)); } catch(e) {}
+}
+function _saveGananciaLS_() {
+  try { localStorage.setItem(LS_KEY_GANANCIA, String(_gananciaGlobal)); } catch(e) {}
+}
+function _mdKey_(p) { return (p.marca||'').toUpperCase() + '-' + (p.clave||''); }
+
+function _getMD_(p) {
+  return _metadataProductos[_mdKey_(p)] || {};
+}
+function _setMD_(p, campo, valor) {
+  const k = _mdKey_(p);
+  if (!_metadataProductos[k]) _metadataProductos[k] = {};
+  _metadataProductos[k][campo] = valor;
+  _metadataProductos[k].editado_at = new Date().toISOString();
+  _saveMetadataLS_();
+}
+
+// ── HEURÍSTICA: EXTRAER MODELO DE LA DESCRIPCIÓN ─────────────
+// Score por token: alfanumérico mixto +20, longitud 4-15 +5, no excluido
+// +10, mayúsculas +2, primer token plausible +3.
+const _MODELO_EXCLUIDAS = new Set([
+  // Specs / unidades
+  'GB','TB','MB','KB','RAM','ROM','SSD','HDD','NVME','USB','USB2','USB3','HDMI','VGA','DVI','BT','WIFI','LAN',
+  'RGB','FHD','UHD','QHD','HD','4K','8K','IPS','OLED','LED','LCD','AMOLED','MAH','MHZ','GHZ','HZ','WATT','W','KG','KW','AMP','MA','V','A',
+  // Procesadores
+  'I3','I5','I7','I9','RYZEN','INTEL','AMD','RTX','GTX','NVIDIA','ATHLON','CELERON','PENTIUM',
+  // OS
+  'WIN10','WIN11','WINDOWS','MACOS','LINUX','ANDROID','IOS','CHROMEOS','CHROME',
+  // Palabras genéricas
+  'CON','SIN','DE','EL','LA','LOS','LAS','PARA','POR','EN','Y','O','AL','UN','UNA',
+  'INALAMBRICO','INALAMBRICOS','INALAMBRICA','INALAMBRICAS','ALAMBRICO','ALAMBRICA',
+  'BLUETOOTH','OPTICO','MECANICO','GAMING','ESTUCHE','AURICULARES','AUDIFONOS','BOCINA',
+  'LAPTOP','MONITOR','TABLET','TABLETA','TELEFONO','CELULAR','SMARTPHONE','IMPRESORA','TECLADO','MOUSE',
+  'PULGADAS','PULGADA','CON','APLICA','NUEVO','NUEVA','MODELO',
+  // Colores español
+  'NEGRO','BLANCO','AZUL','ROJO','VERDE','ROSA','MORADO','AMARILLO','PLATA','PLATEADO','DORADO','ORO','GRIS','NARANJA','CAFE','MARRON','TURQUESA','BEIGE','COSMIC',
+  // Colores inglés
+  'BLACK','WHITE','BLUE','RED','GREEN','PINK','PURPLE','YELLOW','SILVER','GOLD','GRAY','GREY','ORANGE','BROWN',
+]);
+
+function _extraerModelo_(desc, marca) {
+  if (!desc) return null;
+  // Tokenizar — partir por espacios pero mantener guiones internos como parte del token
+  const tokens = desc.toUpperCase().split(/[\s,;:()\/]+/).filter(Boolean);
+  const marcaUpper = (marca||'').toUpperCase();
+
+  let best = null, bestScore = 0;
+  for (let i = 0; i < tokens.length; i++) {
+    const t = tokens[i];
+    // Quitar guiones internos para análisis pero conservar el original
+    const tBare = t.replace(/[\-\.]/g, '');
+    if (tBare.length < 3) continue;
+    if (t === marcaUpper) continue;
+    if (_MODELO_EXCLUIDAS.has(t) || _MODELO_EXCLUIDAS.has(tBare)) continue;
+    // Excluir tokens que terminan en GB/TB/MB seguido de números (ej. 8GB, 256GB)
+    if (/^\d+(GB|TB|MB|KB|MAH|MHZ|GHZ|W|KG)$/.test(t)) continue;
+    // Excluir resoluciones tipo 1920X1080
+    if (/^\d+X\d+$/.test(t)) continue;
+
+    const tieneLetras = /[A-Z]/.test(tBare);
+    const tieneNumeros = /\d/.test(tBare);
+
+    let score = 0;
+    if (tieneLetras && tieneNumeros) score += 20;
+    if (tBare.length >= 4 && tBare.length <= 15) score += 5;
+    if (/^[A-Z]/.test(tBare)) score += 2;
+    if (!/^\d+$/.test(tBare)) score += 5;
+    if (i <= 3) score += 3;
+    if (tieneLetras && !tieneNumeros) score -= 5; // solo letras = palabra
+    if (!tieneLetras && !tieneNumeros) score -= 10;
+
+    if (score > bestScore) { bestScore = score; best = t; }
+  }
+  // Umbral mínimo
+  return bestScore >= 25 ? best : null;
+}
+
+// ── HEURÍSTICA: EXTRAER COLOR DE LA DESCRIPCIÓN ───────────────
+const _COLORES_MAP = [
+  // [regex, abreviatura 3 letras]
+  [/\b(NEGRO|BLACK|NEGRA|NOIR|COSMIC[\s-]?BLACK|GRAPHITE)\b/i, 'NEG'],
+  [/\b(BLANCO|WHITE|BLANCA)\b/i, 'BLA'],
+  [/\b(AZUL|BLUE|AZUR|NAVY)\b/i, 'AZU'],
+  [/\b(ROJO|RED|ROJA|CRIMSON)\b/i, 'ROJ'],
+  [/\b(VERDE|GREEN|MINT|OLIVE)\b/i, 'VER'],
+  [/\b(AMARILLO|YELLOW|GOLDEN)\b/i, 'AMA'],
+  [/\b(PLATA|SILVER|PLATEADO|GRAY[\s-]?SILVER)\b/i, 'PLA'],
+  [/\b(GRIS|GRAY|GREY|TITANIUM)\b/i, 'GRI'],
+  [/\b(DORADO|GOLD|ORO)\b/i, 'DOR'],
+  [/\b(ROSA|PINK|ROSADO)\b/i, 'ROS'],
+  [/\b(MORADO|PURPLE|VIOLETA)\b/i, 'MOR'],
+  [/\b(NARANJA|ORANGE)\b/i, 'NAR'],
+  [/\b(CAFE|BROWN|MARRON)\b/i, 'CAF'],
+  [/\b(BEIGE|CREAM|CREMA)\b/i, 'BEI'],
+  [/\b(TURQUESA|TURQUOISE|TEAL)\b/i, 'TUR'],
+];
+function _extraerColor_(desc) {
+  if (!desc) return null;
+  for (const [re, abrev] of _COLORES_MAP) {
+    if (re.test(desc)) return abrev;
+  }
+  return null;
+}
+
+// ── MAPEO GRUPO CVA → CATEGORÍA MELI ─────────────────────────
+function _mapeoCategoriaMELI_(grupo) {
+  const g = (grupo||'').toUpperCase();
+  if (/TELEFON|CELULAR|SMARTPHONE/.test(g)) return 'Celulares y smartphones';
+  if (/AUDIO|BOCINA|AUDIFON/.test(g))       return 'Audio y video';
+  if (/MONITOR|TELEVISOR|PROYECT|TV/.test(g)) return 'Audio y video';
+  if (/CAMARA|VIDEOVIG|FOTOGRAF/.test(g))   return 'Cámaras y drones';
+  if (/COMPUTO|LAPTOP|COMPUTAD|TABLET/.test(g)) return 'Computación e impresión';
+  if (/IMPRESION|CONSUMIBLE|TONER|CARTUCH/.test(g)) return 'Computación e impresión';
+  if (/GAMING|VIDEOJUEGO|CONSOLA/.test(g))  return 'Consolas de videojuegos';
+  if (/REDES|CABLE|ACCESORIO|MEMORIA|ALMACENA|USB/.test(g)) return 'Accesorios electrónicos';
+  return 'Accesorios electrónicos';
+}
+
+// ── MAPEO GRUPO CVA → PESO DEFAULT ───────────────────────────
+function _pesoDefaultPorGrupo_(grupo) {
+  const g = (grupo||'').toUpperCase();
+  if (/MEMORIA|USB|CABLE|AUDIFON/.test(g))  return 'Hasta 0.5 Kg';
+  if (/TELEFON|CELULAR|BOCINA/.test(g))      return '0.5 a 1 kg';
+  if (/LAPTOP|TABLET/.test(g))                return '2 a 3 kg';
+  if (/MONITOR|IMPRESORA/.test(g))            return '5 a 10 kg';
+  if (/TELEVISOR|PROYECT|TV[\s-]/.test(g))    return '10 a 15 kg';
+  return '1 a 2 kg';
+}
+
+// ── COMISIONES MELI (de la tabla del cotizador) ───────────────
+// % de comisión clásica por categoría MELI
+const _COMISIONES_MELI = {
+  'Audio y video'              : 0.125,
+  'Celulares y smartphones'    : 0.11,
+  'Computación e impresión'    : 0.11,
+  'Cámaras y drones'           : 0.11,
+  'Accesorios electrónicos'    : 0.14,
+  'Consolas de videojuegos'    : 0.09,
+};
+function _comisionMELI_(cat) { return _COMISIONES_MELI[cat] || 0.14; }
+
+// ── COSTO DE ENVÍO POR PESO (MELI Mexico, aprox.) ─────────────
+const _ENVIOS_MELI = {
+  'Hasta 0.5 Kg' : 70,
+  '0.5 a 1 kg'   : 90,
+  '1 a 2 kg'     : 120,
+  '2 a 3 kg'     : 150,
+  '3 a 5 kg'     : 180,
+  '5 a 10 kg'    : 240,
+  '10 a 15 kg'   : 320,
+  '15 a 25 kg'   : 450,
+};
+function _envioMELIporPeso_(peso) { return _ENVIOS_MELI[peso] || 150; }
+
+// ── ARMADO DE SKU GENERAL ────────────────────────────────────
+// Réplica de la fórmula original pero con CLAVE_CVA en lugar de
+// últimos 4 dígitos de referencia, y `-CVA-` como separador.
+//   3 letras MARCA + "-" + MODELO + "-" + 3 letras COLOR + "-CVA-" + CLAVE_CVA
+function _calcularSKU_(marca, modelo, color, claveCVA) {
+  const m  = ((marca||'').toUpperCase()).substring(0, 3);
+  const mo = (modelo||'').toUpperCase().replace(/\s+/g, '');
+  const c  = ((color||'').toUpperCase()).substring(0, 3);
+  const k  = (claveCVA||'').toString().toUpperCase().replace(/\s+/g, '');
+  return `${m}-${mo}-${c}-CVA-${k}`.replace(/\s+/g, '');
+}
+
+// ── CÁLCULO DE PRECIO MELI CLÁSICA (la base) ─────────────────
+//   costos  = costo<=298 ?  costo*(1+comision)+33  :  costo*(1+comision)+envio
+//   precio  = costos * (1 + ganancia)
+function _calcularMELIClasica_(costo, categoria, peso, gananciaPct) {
+  if (!costo || costo <= 0) return 0;
+  const comision = _comisionMELI_(categoria);
+  const envio    = _envioMELIporPeso_(peso);
+  const costos = costo <= 298
+    ? costo * (1 + comision) + 33
+    : costo * (1 + comision) + envio;
+  return costos * (1 + (gananciaPct || 5) / 100);
+}
+
+// ── PRECIOS DERIVADOS DE LAS 11 PLATAFORMAS ──────────────────
+// roundDown a múltiplo de 10 + 9 (terminación psicológica común)
+function _r9_(n) { return Math.floor(n / 10) * 10 + 9; }
+function _calcularPreciosPlataformas_(meliClasica, costoCVA) {
+  if (!meliClasica || meliClasica <= 0) {
+    return { meli_clasica:0, meli_premium:0, walmart_clasica:0, walmart_premium:0,
+             tienda_nube:0, coppel:0, sears:0, liverpool:0, elektra:0,
+             aliexpress:0, totalplay:0, tiktok:0 };
+  }
+  const meli_clasica   = _r9_(meliClasica);
+  const meli_premium   = _r9_(meli_clasica * 1.05);
+  const walmart_clasica = meli_premium < 400
+    ? _r9_(meli_premium + 150)
+    : _r9_(meli_premium);
+  const walmart_premium = _r9_(walmart_clasica * 1.05);
+  // Tienda Nube: costo_cva * 1.16 * 1.073 + envío escalonado
+  const tn_base = (costoCVA || 0) * 1.16 * 1.073;
+  let tn_envio = 300;
+  if (tn_base <= 2000) tn_envio = 0;
+  else if (tn_base <= 3000) tn_envio = 100;
+  else if (tn_base > 15000) tn_envio = 600;
+  const tienda_nube = _r9_(tn_base + tn_envio);
+  const coppel      = walmart_premium;
+  const sears       = _r9_(walmart_premium * 1.02);
+  const liverpool   = walmart_premium + 100;
+  const elektra     = _r9_(walmart_clasica * 1.02);
+  const aliexpress  = _r9_(walmart_premium * 0.98);
+  const totalplay   = walmart_premium;
+  const tiktok      = Math.floor(meli_clasica / 10) * 10 + 9;
+  return { meli_clasica, meli_premium, walmart_clasica, walmart_premium,
+           tienda_nube, coppel, sears, liverpool, elektra,
+           aliexpress, totalplay, tiktok };
+}
+
+// ── COMPUTO DE METADATA + PRECIOS POR PRODUCTO (con cache) ───
+// Combina:
+//   1. metadata extraída automáticamente (modelo/color por heurística)
+//   2. overrides del usuario en localStorage (modelo/color/upc/ganancia editados)
+//   3. cálculo de precios con la ganancia (individual o global)
+// Devuelve un objeto enriquecido con todos los campos calculados.
+function _enriquecerProducto_(p) {
+  const md = _getMD_(p);
+  // Modelo
+  const modeloAuto = _extraerModelo_(p.desc, p.marca);
+  const modelo = md.modelo || modeloAuto || 'SINMODELO';
+  const modeloEsAuto = !md.modelo && modeloAuto && modelo === modeloAuto;
+  const modeloEsDefault = !modeloAuto && !md.modelo;
+  // Color
+  const colorAuto = _extraerColor_(p.desc);
+  const color = md.color || colorAuto || 'NEG';
+  const colorEsDefault = !colorAuto && !md.color;
+  // UPC
+  const upc = md.upc || '';
+  const upcVacio = !upc;
+  // Categoría MELI / peso
+  const catMeli = md.cat_meli || _mapeoCategoriaMELI_(p.grupo);
+  const peso    = md.peso    || _pesoDefaultPorGrupo_(p.grupo);
+  // Ganancia (individual sobreescribe global)
+  const ganancia = (md.ganancia != null) ? md.ganancia : _gananciaGlobal;
+  // SKU
+  const sku = _calcularSKU_(p.marca, modelo, color, p.clave);
+  // Precios
+  const meliBruto = _calcularMELIClasica_(p.precio, catMeli, peso, ganancia);
+  const precios   = _calcularPreciosPlataformas_(meliBruto, p.precio);
+  return {
+    ...p,
+    _modelo: modelo, _modeloEsDefault: modeloEsDefault,
+    _color: color, _colorEsDefault: colorEsDefault,
+    _upc: upc, _upcVacio: upcVacio,
+    _cat_meli: catMeli, _peso: peso, _ganancia: ganancia,
+    _sku: sku,
+    _precios: precios,
+    _gananciaIndividual: md.ganancia != null,
+  };
+}
+
+// ── HANDLERS DE INPUTS EDITABLES ─────────────────────────────
+function anEditarMD(claveCVA, marca, campo, valor) {
+  const pseudoP = { clave: claveCVA, marca: marca };
+  // Valores vacíos en algunos campos = quitar el override (vuelve al auto)
+  if ((campo === 'ganancia') && (valor === '' || valor == null)) {
+    const k = _mdKey_(pseudoP);
+    if (_metadataProductos[k]) {
+      delete _metadataProductos[k].ganancia;
+      _saveMetadataLS_();
+    }
+    renderAnalisisTab();
+    return;
+  }
+  let v = valor;
+  if (campo === 'ganancia') v = parseFloat(valor);
+  if (campo === 'upc')      v = String(valor).replace(/\D/g, ''); // solo dígitos
+  if (['modelo','color','cat_meli','peso'].includes(campo)) v = String(valor).toUpperCase().trim();
+  _setMD_(pseudoP, campo, v);
+  renderAnalisisTab();
+}
+
+function anCambiarGananciaGlobal(valor) {
+  let v = parseFloat(valor);
+  if (isNaN(v) || v < 5) v = 5;
+  _gananciaGlobal = v;
+  _saveGananciaLS_();
+  renderAnalisisTab();
+}
+
+function anToggleModoVista() {
+  _modoVistaTabla = (_modoVistaTabla === 'ventas') ? 'precios' : 'ventas';
+  renderAnalisisDashboard();
+}
+
+// Cargar localStorage al iniciar el módulo
+try { _loadMetadataLS_(); } catch(e) {}
+
+// ════════════════════════════════════════════════════════════════
+//  RENDER DE LA TABLA DE PRECIOS (modo precios)
+//  Reemplaza el bloque central de columnas en renderAnalisisTab
+// ════════════════════════════════════════════════════════════════
+
+function _renderColumnasPreciosHeader_() {
+  const cols = [
+    'Modelo','Color','UPC','Cat. MELI','Peso','SKU','% Gan',
+    'MELI Clás','MELI Prem','Wmt Clás','Wmt Prem',
+    'T. Nube','Coppel','Sears','Liverpool','Elektra','AliEx','TotalP','TikTok'
+  ];
+  return cols.map(l => `<th style="padding:8px 6px;font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--muted);text-align:left;border-bottom:1px solid rgba(238,240,240,0.1);white-space:nowrap">${l}</th>`).join('');
+}
+
+function _renderColumnasPreciosFila_(p) {
+  const e = _enriquecerProducto_(p);
+  const claveSafe = (p.clave||'').replace(/'/g, "\\'");
+  const marcaSafe = (p.marca||'').replace(/'/g, "\\'");
+  const inputBase = 'background:rgba(0,0,0,0.4);border:1px solid rgba(238,240,240,0.1);color:var(--text);padding:4px 6px;font-size:11px;outline:none;font-family:inherit;width:100%';
+  const cellBase = 'padding:4px 4px;border-right:1px solid rgba(238,240,240,0.03);vertical-align:middle';
+  const rojoBg = 'background:rgba(224,85,85,0.18);border-color:rgba(224,85,85,0.5)';
+
+  // Inputs editables
+  const inpModelo = `<input type="text" value="${e._modelo}" onchange="anEditarMD('${claveSafe}','${marcaSafe}','modelo',this.value)" style="${inputBase};${e._modeloEsDefault?rojoBg:''};min-width:90px" placeholder="Modelo">`;
+  const inpColor  = `<input type="text" value="${e._color}" onchange="anEditarMD('${claveSafe}','${marcaSafe}','color',this.value)" style="${inputBase};${e._colorEsDefault?rojoBg:''};min-width:48px;text-align:center" maxlength="3">`;
+  const inpUPC    = `<input type="text" value="${e._upc}" onchange="anEditarMD('${claveSafe}','${marcaSafe}','upc',this.value)" style="${inputBase};${e._upcVacio?rojoBg:''};min-width:130px;font-family:monospace;font-size:10px" placeholder="000000000000" maxlength="14">`;
+  const inpCatMeli= `<input type="text" value="${e._cat_meli}" onchange="anEditarMD('${claveSafe}','${marcaSafe}','cat_meli',this.value)" style="${inputBase};min-width:130px;font-size:10px">`;
+  const inpPeso   = `<input type="text" value="${e._peso}" onchange="anEditarMD('${claveSafe}','${marcaSafe}','peso',this.value)" style="${inputBase};min-width:90px;font-size:10px">`;
+  const txtSku    = `<span style="font-family:monospace;color:var(--green-lt);font-size:10px;display:inline-block;min-width:140px">${e._sku}</span>`;
+  const inpGan = `<input type="number" min="0" step="0.5" value="${e._ganancia}" onchange="anEditarMD('${claveSafe}','${marcaSafe}','ganancia',this.value)" style="${inputBase};width:50px;text-align:right;${e._gananciaIndividual?'border-color:var(--green-lt);color:var(--green-lt)':''}" title="${e._gananciaIndividual?'% individual':'% global ('+_gananciaGlobal+'%)'}">`;
+
+  const precio = (n, colorTag) => {
+    if (!n) return `<td style="${cellBase};text-align:right;color:rgba(238,240,240,0.2)">—</td>`;
+    return `<td style="${cellBase};text-align:right;font-family:Barlow Condensed,sans-serif;font-size:13px;${colorTag||''}">$${n.toLocaleString('es-MX')}</td>`;
+  };
+
+  return `
+    <td style="${cellBase}">${inpModelo}</td>
+    <td style="${cellBase}">${inpColor}</td>
+    <td style="${cellBase}">${inpUPC}</td>
+    <td style="${cellBase}">${inpCatMeli}</td>
+    <td style="${cellBase}">${inpPeso}</td>
+    <td style="${cellBase}">${txtSku}</td>
+    <td style="${cellBase};text-align:right">${inpGan}</td>
+    ${precio(e._precios.meli_clasica, 'color:var(--green-lt);font-weight:500')}
+    ${precio(e._precios.meli_premium)}
+    ${precio(e._precios.walmart_clasica)}
+    ${precio(e._precios.walmart_premium)}
+    ${precio(e._precios.tienda_nube)}
+    ${precio(e._precios.coppel)}
+    ${precio(e._precios.sears)}
+    ${precio(e._precios.liverpool)}
+    ${precio(e._precios.elektra)}
+    ${precio(e._precios.aliexpress)}
+    ${precio(e._precios.totalplay)}
+    ${precio(e._precios.tiktok)}
+  `;
+}
+
+// ════════════════════════════════════════════════════════════════
+//  EXPORT XLSX REAL — con todas las columnas según el modo activo
+// ════════════════════════════════════════════════════════════════
+async function anExportXLSX() {
+  if (!_analisisData) return;
+  // Cargar SheetJS si no está
+  if (typeof XLSX === 'undefined') {
+    await new Promise((resolve, reject) => {
+      const s = document.createElement('script');
+      s.src = 'https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js';
+      s.onload = resolve; s.onerror = reject;
+      document.head.appendChild(s);
+    }).catch(() => { alert('No se pudo cargar SheetJS, se descargará CSV en su lugar'); anExportCSV(); return; });
+  }
+  if (typeof XLSX === 'undefined') return;
+
+  const prods = anFiltrarProductos();
+  const fmtMXN = n => Number(n || 0);
+  // Header según el modo
+  const headerBase = ['Clave CVA','Descripción','Marca','Grupo','Stock Inicial','Stock Hoy','Movido','Precio CVA'];
+  const headerPrecios = ['Modelo','Color','UPC','Cat. MELI','Peso','SKU','% Gan',
+    'MELI Clás','MELI Prem','Walmart Clás','Walmart Prem',
+    'Tienda Nube','Coppel','Sears','Liverpool','Elektra','AliExpress','TotalPlay','TikTok'];
+  const headerVentas = ['Prom/día','Prom/sem','Prom/mes','Días stock','Valor Movido','Valor Inventario'];
+  const header = _modoVistaTabla === 'precios'
+    ? [...headerBase, ...headerPrecios]
+    : [...headerBase, ...headerVentas];
+
+  // Filas
+  const rows = prods.map(p => {
+    const base = [p.clave, p.desc, p.marca, p.grupo, p.stock_base||0, p.total||0, p.movido||0, fmtMXN(p.precio)];
+    if (_modoVistaTabla === 'precios') {
+      const e = _enriquecerProducto_(p);
+      return [...base,
+        e._modelo, e._color, e._upc, e._cat_meli, e._peso, e._sku, e._ganancia,
+        fmtMXN(e._precios.meli_clasica), fmtMXN(e._precios.meli_premium),
+        fmtMXN(e._precios.walmart_clasica), fmtMXN(e._precios.walmart_premium),
+        fmtMXN(e._precios.tienda_nube), fmtMXN(e._precios.coppel),
+        fmtMXN(e._precios.sears), fmtMXN(e._precios.liverpool),
+        fmtMXN(e._precios.elektra), fmtMXN(e._precios.aliexpress),
+        fmtMXN(e._precios.totalplay), fmtMXN(e._precios.tiktok),
+      ];
+    }
+    return [...base, p.prom_diario||0, p.prom_semanal||0, p.prom_mensual||0,
+      p.dias_restantes!=null?p.dias_restantes:'', fmtMXN(p.valor_movido), fmtMXN(p.valor_inventario)];
+  });
+
+  const ws = XLSX.utils.aoa_to_sheet([header, ...rows]);
+  // Header style
+  for (let c = 0; c < header.length; c++) {
+    const ref = XLSX.utils.encode_cell({r:0, c});
+    if (ws[ref]) ws[ref].s = { fill:{fgColor:{rgb:'00665E'}}, font:{color:{rgb:'FFFFFF'},bold:true}, alignment:{horizontal:'center'} };
+  }
+  // Resaltar en rojo las celdas con SINMODELO / NEG default / UPC vacío
+  if (_modoVistaTabla === 'precios') {
+    const baseLen = headerBase.length;
+    const idxModelo = baseLen + 0;
+    const idxColor  = baseLen + 1;
+    const idxUpc    = baseLen + 2;
+    rows.forEach((row, ri) => {
+      const e = _enriquecerProducto_(prods[ri]);
+      const rojo = { fill:{fgColor:{rgb:'FFD4D4'}}, font:{color:{rgb:'B30000'},bold:true} };
+      if (e._modeloEsDefault) {
+        const ref = XLSX.utils.encode_cell({r:ri+1, c:idxModelo});
+        if (ws[ref]) ws[ref].s = rojo;
+      }
+      if (e._colorEsDefault) {
+        const ref = XLSX.utils.encode_cell({r:ri+1, c:idxColor});
+        if (ws[ref]) ws[ref].s = rojo;
+      }
+      if (e._upcVacio) {
+        const ref = XLSX.utils.encode_cell({r:ri+1, c:idxUpc});
+        if (ws[ref]) ws[ref].s = rojo;
+      }
+    });
+  }
+  // Anchos de columna
+  ws['!cols'] = header.map((h, i) => ({ wch: i===1 ? 50 : Math.max(10, h.length+2) }));
+  ws['!freeze'] = { xSplit: 0, ySplit: 1 };
+
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, _modoVistaTabla === 'precios' ? 'Precios' : 'Ventas');
+  const fname = `CVA_${_modoVistaTabla==='precios'?'PRECIOS':'ANALISIS'}_${new Date().toISOString().slice(0,10)}.xlsx`;
+  XLSX.writeFile(wb, fname);
+}
+
+// ════════════════════════════════════════════════════════════════
+//  EXPORT SOLICITUD DE UPCs A CVA (archivo separado, limpio)
+//  Pide los UPCs de los productos del análisis. SIN rojos, formato
+//  profesional para mandar a CVA.
+// ════════════════════════════════════════════════════════════════
+async function anExportCVAUPCs() {
+  if (!_analisisData) return;
+  if (typeof XLSX === 'undefined') {
+    await new Promise((resolve, reject) => {
+      const s = document.createElement('script');
+      s.src = 'https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js';
+      s.onload = resolve; s.onerror = reject;
+      document.head.appendChild(s);
+    }).catch(() => alert('No se pudo cargar SheetJS'));
+  }
+  if (typeof XLSX === 'undefined') return;
+
+  const prods = anFiltrarProductos();
+  const aoa = [
+    ['Estimado equipo de CVA,'],
+    [],
+    ['Solicitamos los códigos UPC de los siguientes productos. Tenemos detectado que tendrán'],
+    ['una compra próxima por nuestra parte; agradecemos confirmar los UPC en la columna correspondiente.'],
+    [],
+    ['Atte. LEONGEM COMERCIALIZADORA (Electronics México) · Cuenta CVA 2395390'],
+    [],
+    ['Clave CVA','Nombre del producto','Marca','Stock disponible','UPC'],
+  ];
+  prods.forEach(p => {
+    aoa.push([p.clave, p.desc, p.marca, (p.total||0), '']);
+  });
+
+  const ws = XLSX.utils.aoa_to_sheet(aoa);
+
+  // Estilo del título (filas 1-6)
+  for (let r = 0; r < 6; r++) {
+    const ref = XLSX.utils.encode_cell({r, c:0});
+    if (ws[ref]) ws[ref].s = { font:{ sz: r===0?13:11, bold: r===0, color:{rgb: r===0?'00665E':'333333'} }};
+  }
+  // Estilo header (fila 8 = index 7)
+  for (let c = 0; c < 5; c++) {
+    const ref = XLSX.utils.encode_cell({r:7, c});
+    if (ws[ref]) ws[ref].s = { fill:{fgColor:{rgb:'00665E'}}, font:{color:{rgb:'FFFFFF'},bold:true,sz:11}, alignment:{horizontal:'center'} };
+  }
+  // Formato UPC: 12 ceros visualmente
+  for (let i = 0; i < prods.length; i++) {
+    const ref = XLSX.utils.encode_cell({r: 8+i, c: 4});
+    if (!ws[ref]) ws[ref] = { v: '' };
+    ws[ref].z = '000000000000'; // 12 dígitos
+    ws[ref].s = { fill:{fgColor:{rgb:'FFFCF0'}}, alignment:{horizontal:'center'}, font:{name:'Courier New', sz:11} };
+  }
+
+  ws['!cols'] = [{wch:14},{wch:60},{wch:18},{wch:12},{wch:18}];
+  ws['!freeze'] = { xSplit: 0, ySplit: 8 };
+
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Solicitud UPCs');
+  XLSX.writeFile(wb, `CVA_Solicitud_UPCs_${new Date().toISOString().slice(0,10)}.xlsx`);
+}
+
+// Exponer al window al final del Object.assign existente.
+Object.assign(window, {
+  anEditarMD, anCambiarGananciaGlobal, anToggleModoVista,
+  anExportXLSX, anExportCVAUPCs,
+});
+
 Object.assign(window, {
   toggleSidebar, openSidebar, closeSidebar, showPage,
   buscarCVA, buscarTodo, verProducto, volverATabla, limpiarBusqueda, buscarMeli, buscarMeliFila,
@@ -3168,6 +3442,5 @@ Object.assign(window, {
   exportarTodoCSV, exportarTodoPDF, exportCarritoCSV, exportCarritoPDF,
   limpiarLog, cargarSucursalesSelect, iniciarPaginaOrden, sugerirSucursalPorStock, recargarSucursales, cargarAnalisis,
   iniciarCarruselMarcas, _renderCarruselMarcas,
-  cargarAnalisis, renderAnalisisDashboard, renderAnalisisTab, anFiltrar, anTab, anSort, anLimpiarFiltros, anExportCSV, anExportXLSX, anExportPDF, anCambiarPeriodo,
-  btnLoad, btnDone, withBtn,
+  cargarAnalisis, renderAnalisisDashboard, renderAnalisisTab, anFiltrar, anTab, anSort, anLimpiarFiltros, anExportCSV, anExportPDF, anCambiarPeriodo,
 });
