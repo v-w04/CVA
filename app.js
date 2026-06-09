@@ -2080,6 +2080,11 @@ async function cargarAnalisis() {
   }
 
   _analisisData = data;
+
+  // Cargar metadata del Sheet (modelo/color/upc/ganancia editados en otros
+  // dispositivos). Si falla la red, se sigue con localStorage local.
+  try { await _loadMetadataFromSheet_(); } catch(e) {}
+
   renderAnalisisDashboard();
   addLog('ok', 'Análisis cargado', `${data.kpis.total_productos} productos · ${data.periodo.dias}d`);
 }
@@ -2182,9 +2187,15 @@ function renderAnalisisDashboard() {
           <input type="checkbox" ${_analisisFiltros.soloMovimiento?'checked':''} onchange="anFiltrar('soloMovimiento',this.checked)"> Solo con movimiento
         </label>
         <div style="flex:1"></div>
-        <button onclick="anToggleModoVista()" style="background:${_modoVistaTabla==='precios'?'var(--green)':'transparent'};border:1px solid ${_modoVistaTabla==='precios'?'var(--green)':'rgba(238,240,240,0.15)'};color:${_modoVistaTabla==='precios'?'#fff':'var(--muted)'};padding:6px 14px;font-size:10px;letter-spacing:1.5px;text-transform:uppercase;cursor:pointer;font-family:inherit" title="Toggle modo Ventas / Precios">
-          ${_modoVistaTabla==='precios' ? '💰 Modo Precios' : '📊 Modo Ventas'}
-        </button>
+        <div style="display:inline-flex;border:1px solid rgba(238,240,240,0.15);overflow:hidden">
+          ${[
+            ['ventas','📊 Ventas'],
+            ['datos','🗂 Datos'],
+            ['precios','💰 Precios'],
+          ].map(([modo, label]) => `
+            <button onclick="anSetModoVista('${modo}')" style="background:${_modoVistaTabla===modo?'var(--green)':'transparent'};border:none;color:${_modoVistaTabla===modo?'#fff':'var(--muted)'};padding:6px 12px;font-size:10px;letter-spacing:1.5px;text-transform:uppercase;cursor:pointer;font-family:inherit;border-right:${modo==='precios'?'none':'1px solid rgba(238,240,240,0.15)'}">${label}</button>
+          `).join('')}
+        </div>
         ${_modoVistaTabla === 'precios' ? `
           <span style="font-size:10px;color:var(--muted);letter-spacing:1px">% GAN GLOBAL:</span>
           <input type="number" min="5" step="0.5" value="${_gananciaGlobal}" onchange="anCambiarGananciaGlobal(this.value)" style="background:rgba(0,102,94,0.18);border:1px solid var(--green-lt);color:var(--green-lt);padding:6px 8px;font-size:12px;width:60px;outline:none;font-weight:500;text-align:right" title="Mínimo 5%. Aplica a filas sin % individual.">
@@ -2381,7 +2392,10 @@ function renderAnalisisTab() {
     {k:'total',     l:'Stock Hoy',   t:'num', w:'70px'},
     {k:'movido',    l:'▼ Movido',    t:'mov', hi:true, w:'85px'},
   ];
-  // Columnas centrales — cambian según el modo (ventas vs precios)
+  // Columnas centrales — cambian según el modo
+  //   ventas:  Prom/día, Prom/sem, Prom/mes, Días stock, Precio CVA, Valor Hoy
+  //   datos:   Modelo, Color, UPC, Cat. MELI, Peso, SKU (editables)
+  //   precios: %Gan + 12 plataformas (calculadas en vivo)
   const colsVentas = [
     {k:'prom_diario',l:'Prom/día',   t:'num'},
     {k:'prom_semanal',l:'Prom/sem',  t:'num'},
@@ -2390,15 +2404,17 @@ function renderAnalisisTab() {
     {k:'precio',    l:'Precio CVA',  t:'mxn'},
     {k:'valor_movido',l:'Valor Hoy', t:'mxn'},
   ];
-  // En modo precios, las columnas centrales son inputs/cálculos especiales,
-  // se manejan aparte vía _renderColumnasPreciosHeader_ / _renderColumnasPreciosFila_
-  const cols = _modoVistaTabla === 'precios' ? colsBase : [...colsBase, ...colsVentas];
+  // En modos datos/precios, las columnas centrales son inputs/cálculos especiales
+  // y se manejan aparte via _renderColumnas{Datos,Precios}{Header,Fila}_
+  const cols = _modoVistaTabla === 'ventas' ? [...colsBase, ...colsVentas] : colsBase;
 
   const headerHtml = cols.map(c => {
     const isSort = f.sortCol === c.k;
     const arrow = isSort ? (f.sortDir > 0 ? ' ↑' : ' ↓') : '';
     return `<th onclick="anSort('${c.k}')" style="cursor:pointer;user-select:none;${c.hi?'color:var(--green-lt);':''}${c.w?'width:'+c.w+';':''}padding:8px 10px;font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:${isSort?'var(--green-lt)':'var(--muted)'};text-align:${['num','mov','mxn','dias'].includes(c.t)?'right':'left'};border-bottom:1px solid rgba(238,240,240,0.1)">${c.l}${arrow}</th>`;
-  }).join('') + (_modoVistaTabla==='precios' ? _renderColumnasPreciosHeader_() : '');
+  }).join('')
+    + (_modoVistaTabla==='datos'   ? _renderColumnasDatosHeader_()   : '')
+    + (_modoVistaTabla==='precios' ? _renderColumnasPreciosHeader_() : '');
 
   const rowsHtml = pag.map(p => {
     const baseCells = cols.map(c => {
@@ -2407,9 +2423,9 @@ function renderAnalisisTab() {
       let extra = '';
       if (c.t === 'mono')  cell = `<span style="font-family:monospace;color:var(--green-lt);font-size:11px">${v||'—'}</span>`;
       else if (c.t === 'desc') {
-        // En modo precios: wrap (no truncar tanto, multilinea OK)
+        // En modos datos/precios: wrap (multilinea, sin truncar)
         // En modo ventas: truncar a 60 con tooltip
-        if (_modoVistaTabla === 'precios') {
+        if (_modoVistaTabla !== 'ventas') {
           cell = `<span title="${(v||'').replace(/"/g,'&quot;')}" style="font-size:11px;display:inline-block;white-space:normal;line-height:1.3;max-height:38px;overflow:hidden">${v||'—'}</span>`;
         } else {
           cell = `<span title="${(v||'').replace(/"/g,'&quot;')}" style="font-size:12px">${(v||'—').substring(0,60)}${v && v.length>60?'…':''}</span>`;
@@ -2434,10 +2450,13 @@ function renderAnalisisTab() {
         else cell = `<span style="color:var(--muted)">${v.toLocaleString('es-MX')} d</span>`;
         extra = 'text-align:right;font-size:12px';
       }
-      return `<td style="padding:6px 10px;${extra};vertical-align:${_modoVistaTabla==='precios'?'middle':'top'}">${cell}</td>`;
+      return `<td style="padding:6px 10px;${extra};vertical-align:${_modoVistaTabla!=='ventas'?'middle':'top'}">${cell}</td>`;
     }).join('');
-    const preciosCells = _modoVistaTabla==='precios' ? _renderColumnasPreciosFila_(p) : '';
-    return '<tr style="border-bottom:1px solid rgba(238,240,240,0.04)">' + baseCells + preciosCells + '</tr>';
+    const extraCells =
+        _modoVistaTabla==='datos'   ? _renderColumnasDatosFila_(p)
+      : _modoVistaTabla==='precios' ? _renderColumnasPreciosFila_(p)
+      : '';
+    return '<tr style="border-bottom:1px solid rgba(238,240,240,0.04)">' + baseCells + extraCells + '</tr>';
   }).join('');
 
   // Paginación
@@ -2455,9 +2474,9 @@ function renderAnalisisTab() {
       ${total.toLocaleString('es-MX')} productos · Mostrando ${inicio + 1}–${Math.min(inicio + f.porPagina, total)}
     </div>
     <div style="overflow-x:auto;border:1px solid rgba(238,240,240,0.06)">
-      <table style="width:100%;border-collapse:collapse;min-width:${_modoVistaTabla==='precios'?'2400':'1100'}px">
+      <table style="width:100%;border-collapse:collapse;min-width:${_modoVistaTabla==='precios'?'1800':_modoVistaTabla==='datos'?'1700':'1100'}px">
         <thead style="background:rgba(0,0,0,0.3);position:sticky;top:0"><tr>${headerHtml}</tr></thead>
-        <tbody>${rowsHtml || '<tr><td colspan="'+(cols.length + (_modoVistaTabla==='precios'?19:0))+'" style="padding:30px;text-align:center;color:var(--muted)">Sin productos con estos filtros</td></tr>'}</tbody>
+        <tbody>${rowsHtml || '<tr><td colspan="'+(cols.length + (_modoVistaTabla==='precios'?13:_modoVistaTabla==='datos'?6:0))+'" style="padding:30px;text-align:center;color:var(--muted)">Sin productos con estos filtros</td></tr>'}</tbody>
       </table>
     </div>
     ${totPag > 1 ? `
@@ -2907,7 +2926,7 @@ window.onload = () => {
 const LS_KEY_MD       = 'cva_metadata_productos_v1';
 const LS_KEY_GANANCIA = 'cva_ganancia_global_v1';
 
-let _modoVistaTabla = 'ventas';     // 'ventas' | 'precios'
+let _modoVistaTabla = 'ventas';     // 'ventas' | 'datos' | 'precios'
 let _metadataProductos = {};        // { "MARCA-CLAVE": {modelo, color, upc, ganancia, cat_meli, peso, editado_at} }
 let _gananciaGlobal = 5;            // % default; mínimo 5
 
@@ -2939,6 +2958,60 @@ function _setMD_(p, campo, valor) {
   _metadataProductos[k][campo] = valor;
   _metadataProductos[k].editado_at = new Date().toISOString();
   _saveMetadataLS_();
+  // Sincronización con Sheet — fire-and-forget, no bloquea la UI
+  _pushMetadataToSheet_(p, campo, valor);
+}
+
+// ── SINCRONIZACIÓN CON GOOGLE SHEET ────────────────────────────
+// El localStorage es cache rápida + offline; la fuente de verdad
+// vive en el Sheet (hoja METADATA_PRODUCTOS). Los cambios suben en
+// background después de cada edición. Si la red falla, el cambio
+// queda en localStorage y se reintenta en futuras sincronizaciones.
+
+// Cola de cambios pendientes de subir (si falla la red)
+let _mdPendientes = [];
+
+async function _pushMetadataToSheet_(p, campo, valor) {
+  const update = {
+    clave: p.clave || '',
+    marca: p.marca || '',
+  };
+  update[campo] = valor === '' || valor == null ? null : valor;
+  try {
+    const res = await apiPost('metadata_set', update);
+    if (res && res.ok) return true;
+    _mdPendientes.push(update);
+    return false;
+  } catch(e) {
+    console.warn('metadata sync falló, agregado a pendientes:', e.message);
+    _mdPendientes.push(update);
+    return false;
+  }
+}
+
+// Carga la metadata del Sheet al iniciar el análisis. Sheet sobreescribe
+// localStorage cuando hay diferencias (el Sheet es la fuente de verdad).
+async function _loadMetadataFromSheet_() {
+  try {
+    const res = await api('metadata_get', {});
+    if (res && res.ok && res.metadata) {
+      // Merge: Sheet pisa los campos que ya estaban en localStorage
+      Object.keys(res.metadata).forEach(k => {
+        _metadataProductos[k] = { ..._metadataProductos[k], ...res.metadata[k] };
+      });
+      _saveMetadataLS_();
+      console.log('[metadata] Cargados ' + res.total + ' productos desde Sheet');
+      // Intentar subir los pendientes si los hay
+      if (_mdPendientes.length > 0) {
+        const batch = _mdPendientes.splice(0);
+        try { await apiPost('metadata_set', { updates: batch }); } catch(e) {}
+      }
+      return res.total;
+    }
+  } catch(e) {
+    console.warn('No se pudo cargar metadata del Sheet (uso solo localStorage):', e.message);
+  }
+  return 0;
 }
 
 // ── HEURÍSTICA: EXTRAER MODELO DE LA DESCRIPCIÓN ─────────────
@@ -3182,13 +3255,15 @@ function _enriquecerProducto_(p) {
 // ── HANDLERS DE INPUTS EDITABLES ─────────────────────────────
 function anEditarMD(claveCVA, marca, campo, valor) {
   const pseudoP = { clave: claveCVA, marca: marca };
-  // Valores vacíos en algunos campos = quitar el override (vuelve al auto)
+  // Valores vacíos en algunos campos = quitar el override (vuelve al auto/global)
   if ((campo === 'ganancia') && (valor === '' || valor == null)) {
     const k = _mdKey_(pseudoP);
     if (_metadataProductos[k]) {
       delete _metadataProductos[k].ganancia;
       _saveMetadataLS_();
     }
+    // También limpiar en el Sheet (null borra el override)
+    _pushMetadataToSheet_(pseudoP, 'ganancia', null);
     renderAnalisisTab();
     return;
   }
@@ -3208,8 +3283,9 @@ function anCambiarGananciaGlobal(valor) {
   renderAnalisisTab();
 }
 
-function anToggleModoVista() {
-  _modoVistaTabla = (_modoVistaTabla === 'ventas') ? 'precios' : 'ventas';
+function anSetModoVista(modo) {
+  if (!['ventas','datos','precios'].includes(modo)) modo = 'ventas';
+  _modoVistaTabla = modo;
   renderAnalisisDashboard();
 }
 
@@ -3221,16 +3297,18 @@ try { _loadMetadataLS_(); } catch(e) {}
 //  Reemplaza el bloque central de columnas en renderAnalisisTab
 // ════════════════════════════════════════════════════════════════
 
-function _renderColumnasPreciosHeader_() {
-  const cols = [
-    'Modelo','Color','UPC','Cat. MELI','Peso','SKU','% Gan',
-    'MELI Clás','MELI Prem','Wmt Clás','Wmt Prem',
-    'T. Nube','Coppel','Sears','Liverpool','Elektra','AliEx','TotalP','TikTok'
-  ];
+// ════════════════════════════════════════════════════════════════
+//  RENDER DE COLUMNAS: MODO DATOS (Modelo, Color, UPC, Cat. MELI, Peso, SKU)
+//  Editables — para llenar y corregir la info que se guarda en
+//  localStorage + Sheet
+// ════════════════════════════════════════════════════════════════
+
+function _renderColumnasDatosHeader_() {
+  const cols = ['Modelo','Color','UPC','Cat. MELI','Peso','SKU'];
   return cols.map(l => `<th style="padding:8px 6px;font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--muted);text-align:left;border-bottom:1px solid rgba(238,240,240,0.1);white-space:nowrap">${l}</th>`).join('');
 }
 
-function _renderColumnasPreciosFila_(p) {
+function _renderColumnasDatosFila_(p) {
   const e = _enriquecerProducto_(p);
   const claveSafe = (p.clave||'').replace(/'/g, "\\'");
   const marcaSafe = (p.marca||'').replace(/'/g, "\\'");
@@ -3238,19 +3316,12 @@ function _renderColumnasPreciosFila_(p) {
   const cellBase = 'padding:4px 4px;border-right:1px solid rgba(238,240,240,0.03);vertical-align:middle';
   const rojoBg = 'background:rgba(224,85,85,0.18);border-color:rgba(224,85,85,0.5)';
 
-  // Inputs editables
-  const inpModelo = `<input type="text" value="${e._modelo}" onchange="anEditarMD('${claveSafe}','${marcaSafe}','modelo',this.value)" style="${inputBase};${e._modeloEsDefault?rojoBg:''};min-width:90px" placeholder="Modelo">`;
-  const inpColor  = `<input type="text" value="${e._color}" onchange="anEditarMD('${claveSafe}','${marcaSafe}','color',this.value)" style="${inputBase};${e._colorEsDefault?rojoBg:''};min-width:48px;text-align:center" maxlength="3">`;
-  const inpUPC    = `<input type="text" value="${e._upc}" onchange="anEditarMD('${claveSafe}','${marcaSafe}','upc',this.value)" style="${inputBase};${e._upcVacio?rojoBg:''};min-width:130px;font-family:monospace;font-size:10px" placeholder="000000000000" maxlength="14">`;
-  const inpCatMeli= `<input type="text" value="${e._cat_meli}" onchange="anEditarMD('${claveSafe}','${marcaSafe}','cat_meli',this.value)" style="${inputBase};min-width:130px;font-size:10px">`;
-  const inpPeso   = `<input type="text" value="${e._peso}" onchange="anEditarMD('${claveSafe}','${marcaSafe}','peso',this.value)" style="${inputBase};min-width:90px;font-size:10px">`;
-  const txtSku    = `<span style="font-family:monospace;color:var(--green-lt);font-size:10px;display:inline-block;min-width:140px">${e._sku}</span>`;
-  const inpGan = `<input type="number" min="0" step="0.5" value="${e._ganancia}" onchange="anEditarMD('${claveSafe}','${marcaSafe}','ganancia',this.value)" style="${inputBase};width:50px;text-align:right;${e._gananciaIndividual?'border-color:var(--green-lt);color:var(--green-lt)':''}" title="${e._gananciaIndividual?'% individual':'% global ('+_gananciaGlobal+'%)'}">`;
-
-  const precio = (n, colorTag) => {
-    if (!n) return `<td style="${cellBase};text-align:right;color:rgba(238,240,240,0.2)">—</td>`;
-    return `<td style="${cellBase};text-align:right;font-family:Barlow Condensed,sans-serif;font-size:13px;${colorTag||''}">$${n.toLocaleString('es-MX')}</td>`;
-  };
+  const inpModelo = `<input type="text" value="${e._modelo}" onchange="anEditarMD('${claveSafe}','${marcaSafe}','modelo',this.value)" style="${inputBase};${e._modeloEsDefault?rojoBg:''};min-width:120px" placeholder="Modelo">`;
+  const inpColor  = `<input type="text" value="${e._color}" onchange="anEditarMD('${claveSafe}','${marcaSafe}','color',this.value)" style="${inputBase};${e._colorEsDefault?rojoBg:''};min-width:55px;text-align:center" maxlength="3">`;
+  const inpUPC    = `<input type="text" value="${e._upc}" onchange="anEditarMD('${claveSafe}','${marcaSafe}','upc',this.value)" style="${inputBase};${e._upcVacio?rojoBg:''};min-width:140px;font-family:monospace;font-size:10px" placeholder="000000000000" maxlength="14">`;
+  const inpCatMeli= `<input type="text" value="${e._cat_meli}" onchange="anEditarMD('${claveSafe}','${marcaSafe}','cat_meli',this.value)" style="${inputBase};min-width:160px;font-size:10px">`;
+  const inpPeso   = `<input type="text" value="${e._peso}" onchange="anEditarMD('${claveSafe}','${marcaSafe}','peso',this.value)" style="${inputBase};min-width:110px;font-size:10px">`;
+  const txtSku    = `<span style="font-family:monospace;color:var(--green-lt);font-size:10px;display:inline-block;min-width:160px;white-space:nowrap">${e._sku}</span>`;
 
   return `
     <td style="${cellBase}">${inpModelo}</td>
@@ -3259,6 +3330,38 @@ function _renderColumnasPreciosFila_(p) {
     <td style="${cellBase}">${inpCatMeli}</td>
     <td style="${cellBase}">${inpPeso}</td>
     <td style="${cellBase}">${txtSku}</td>
+  `;
+}
+
+// ════════════════════════════════════════════════════════════════
+//  RENDER DE COLUMNAS: MODO PRECIOS (%Gan + 12 plataformas)
+//  Solo precios calculados — el %Gan se queda aquí para poder
+//  ajustarlo y ver los precios recalcular al instante
+// ════════════════════════════════════════════════════════════════
+
+function _renderColumnasPreciosHeader_() {
+  const cols = [
+    '% Gan','MELI Clás','MELI Prem','Wmt Clás','Wmt Prem',
+    'T. Nube','Coppel','Sears','Liverpool','Elektra','AliEx','TotalP','TikTok'
+  ];
+  return cols.map(l => `<th style="padding:8px 6px;font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--muted);text-align:right;border-bottom:1px solid rgba(238,240,240,0.1);white-space:nowrap">${l}</th>`).join('');
+}
+
+function _renderColumnasPreciosFila_(p) {
+  const e = _enriquecerProducto_(p);
+  const claveSafe = (p.clave||'').replace(/'/g, "\\'");
+  const marcaSafe = (p.marca||'').replace(/'/g, "\\'");
+  const inputBase = 'background:rgba(0,0,0,0.4);border:1px solid rgba(238,240,240,0.1);color:var(--text);padding:4px 6px;font-size:11px;outline:none;font-family:inherit;width:60px;text-align:right';
+  const cellBase = 'padding:4px 4px;border-right:1px solid rgba(238,240,240,0.03);vertical-align:middle';
+
+  const inpGan = `<input type="number" min="0" step="0.5" value="${e._ganancia}" onchange="anEditarMD('${claveSafe}','${marcaSafe}','ganancia',this.value)" style="${inputBase};${e._gananciaIndividual?'border-color:var(--green-lt);color:var(--green-lt)':''}" title="${e._gananciaIndividual?'% individual':'% global ('+_gananciaGlobal+'%)'}">`;
+
+  const precio = (n, colorTag) => {
+    if (!n) return `<td style="${cellBase};text-align:right;color:rgba(238,240,240,0.2)">—</td>`;
+    return `<td style="${cellBase};text-align:right;font-family:Barlow Condensed,sans-serif;font-size:13px;${colorTag||''}">$${n.toLocaleString('es-MX')}</td>`;
+  };
+
+  return `
     <td style="${cellBase};text-align:right">${inpGan}</td>
     ${precio(e._precios.meli_clasica, 'color:var(--green-lt);font-weight:500')}
     ${precio(e._precios.meli_premium)}
@@ -3293,33 +3396,37 @@ async function anExportXLSX() {
 
   const prods = anFiltrarProductos();
   const fmtMXN = n => Number(n || 0);
-  // Header según el modo
-  const headerBase = ['Clave CVA','Descripción','Marca','Grupo','Stock Inicial','Stock Hoy','Movido','Precio CVA'];
-  const headerPrecios = ['Modelo','Color','UPC','Cat. MELI','Peso','SKU','% Gan',
-    'MELI Clás','MELI Prem','Walmart Clás','Walmart Prem',
-    'Tienda Nube','Coppel','Sears','Liverpool','Elektra','AliExpress','TotalPlay','TikTok'];
+  // Excel SIEMPRE trae todas las columnas — los 3 modos combinados.
+  // El modo de la PWA solo controla qué vista ves en pantalla; el export
+  // se baja completo independientemente de qué modo tengas activo.
+  const headerBase   = ['Clave CVA','Descripción','Marca','Grupo','Stock Inicial','Stock Hoy','Movido','Precio CVA'];
+  const headerDatos  = ['Modelo','Color','UPC','Cat. MELI','Peso','SKU'];
+  const headerPrecios= ['% Gan','MELI Clás','MELI Prem','Walmart Clás','Walmart Prem',
+                        'Tienda Nube','Coppel','Sears','Liverpool','Elektra','AliExpress','TotalPlay','TikTok'];
   const headerVentas = ['Prom/día','Prom/sem','Prom/mes','Días stock','Valor Movido','Valor Inventario'];
-  const header = _modoVistaTabla === 'precios'
-    ? [...headerBase, ...headerPrecios]
-    : [...headerBase, ...headerVentas];
+  const header = [...headerBase, ...headerDatos, ...headerPrecios, ...headerVentas];
 
   // Filas
   const rows = prods.map(p => {
-    const base = [p.clave, p.desc, p.marca, p.grupo, p.stock_base||0, p.total||0, p.movido||0, fmtMXN(p.precio)];
-    if (_modoVistaTabla === 'precios') {
-      const e = _enriquecerProducto_(p);
-      return [...base,
-        e._modelo, e._color, e._upc, e._cat_meli, e._peso, e._sku, e._ganancia,
-        fmtMXN(e._precios.meli_clasica), fmtMXN(e._precios.meli_premium),
-        fmtMXN(e._precios.walmart_clasica), fmtMXN(e._precios.walmart_premium),
-        fmtMXN(e._precios.tienda_nube), fmtMXN(e._precios.coppel),
-        fmtMXN(e._precios.sears), fmtMXN(e._precios.liverpool),
-        fmtMXN(e._precios.elektra), fmtMXN(e._precios.aliexpress),
-        fmtMXN(e._precios.totalplay), fmtMXN(e._precios.tiktok),
-      ];
-    }
-    return [...base, p.prom_diario||0, p.prom_semanal||0, p.prom_mensual||0,
-      p.dias_restantes!=null?p.dias_restantes:'', fmtMXN(p.valor_movido), fmtMXN(p.valor_inventario)];
+    const e = _enriquecerProducto_(p);
+    return [
+      // Base (8)
+      p.clave, p.desc, p.marca, p.grupo, p.stock_base||0, p.total||0, p.movido||0, fmtMXN(p.precio),
+      // Datos (6)
+      e._modelo, e._color, e._upc, e._cat_meli, e._peso, e._sku,
+      // Precios (13)
+      e._ganancia,
+      fmtMXN(e._precios.meli_clasica), fmtMXN(e._precios.meli_premium),
+      fmtMXN(e._precios.walmart_clasica), fmtMXN(e._precios.walmart_premium),
+      fmtMXN(e._precios.tienda_nube), fmtMXN(e._precios.coppel),
+      fmtMXN(e._precios.sears), fmtMXN(e._precios.liverpool),
+      fmtMXN(e._precios.elektra), fmtMXN(e._precios.aliexpress),
+      fmtMXN(e._precios.totalplay), fmtMXN(e._precios.tiktok),
+      // Ventas (6)
+      p.prom_diario||0, p.prom_semanal||0, p.prom_mensual||0,
+      p.dias_restantes!=null?p.dias_restantes:'',
+      fmtMXN(p.valor_movido), fmtMXN(p.valor_inventario),
+    ];
   });
 
   const ws = XLSX.utils.aoa_to_sheet([header, ...rows]);
@@ -3329,35 +3436,33 @@ async function anExportXLSX() {
     if (ws[ref]) ws[ref].s = { fill:{fgColor:{rgb:'00665E'}}, font:{color:{rgb:'FFFFFF'},bold:true}, alignment:{horizontal:'center'} };
   }
   // Resaltar en rojo las celdas con SINMODELO / NEG default / UPC vacío
-  if (_modoVistaTabla === 'precios') {
-    const baseLen = headerBase.length;
-    const idxModelo = baseLen + 0;
-    const idxColor  = baseLen + 1;
-    const idxUpc    = baseLen + 2;
-    rows.forEach((row, ri) => {
-      const e = _enriquecerProducto_(prods[ri]);
-      const rojo = { fill:{fgColor:{rgb:'FFD4D4'}}, font:{color:{rgb:'B30000'},bold:true} };
-      if (e._modeloEsDefault) {
-        const ref = XLSX.utils.encode_cell({r:ri+1, c:idxModelo});
-        if (ws[ref]) ws[ref].s = rojo;
-      }
-      if (e._colorEsDefault) {
-        const ref = XLSX.utils.encode_cell({r:ri+1, c:idxColor});
-        if (ws[ref]) ws[ref].s = rojo;
-      }
-      if (e._upcVacio) {
-        const ref = XLSX.utils.encode_cell({r:ri+1, c:idxUpc});
-        if (ws[ref]) ws[ref].s = rojo;
-      }
-    });
-  }
+  // Posiciones fijas: headerBase tiene 8 columnas, así Modelo está en col 8, Color en 9, UPC en 10
+  const idxModelo = headerBase.length + 0;
+  const idxColor  = headerBase.length + 1;
+  const idxUpc    = headerBase.length + 2;
+  prods.forEach((p, ri) => {
+    const e = _enriquecerProducto_(p);
+    const rojo = { fill:{fgColor:{rgb:'FFD4D4'}}, font:{color:{rgb:'B30000'},bold:true} };
+    if (e._modeloEsDefault) {
+      const ref = XLSX.utils.encode_cell({r:ri+1, c:idxModelo});
+      if (ws[ref]) ws[ref].s = rojo;
+    }
+    if (e._colorEsDefault) {
+      const ref = XLSX.utils.encode_cell({r:ri+1, c:idxColor});
+      if (ws[ref]) ws[ref].s = rojo;
+    }
+    if (e._upcVacio) {
+      const ref = XLSX.utils.encode_cell({r:ri+1, c:idxUpc});
+      if (ws[ref]) ws[ref].s = rojo;
+    }
+  });
   // Anchos de columna
   ws['!cols'] = header.map((h, i) => ({ wch: i===1 ? 50 : Math.max(10, h.length+2) }));
   ws['!freeze'] = { xSplit: 0, ySplit: 1 };
 
   const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, _modoVistaTabla === 'precios' ? 'Precios' : 'Ventas');
-  const fname = `CVA_${_modoVistaTabla==='precios'?'PRECIOS':'ANALISIS'}_${new Date().toISOString().slice(0,10)}.xlsx`;
+  XLSX.utils.book_append_sheet(wb, ws, 'Análisis Completo');
+  const fname = `CVA_Analisis_Completo_${new Date().toISOString().slice(0,10)}.xlsx`;
   XLSX.writeFile(wb, fname);
 }
 
@@ -3423,7 +3528,7 @@ async function anExportCVAUPCs() {
 
 // Exponer al window al final del Object.assign existente.
 Object.assign(window, {
-  anEditarMD, anCambiarGananciaGlobal, anToggleModoVista,
+  anEditarMD, anCambiarGananciaGlobal, anSetModoVista,
   anExportXLSX, anExportCVAUPCs,
 });
 
