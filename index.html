@@ -1325,8 +1325,82 @@
     from { background-position: 200% 0; }
     to   { background-position: -200% 0; }
   }
+  /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+     ZOOM FAB — control de zoom flotante visible en todo momento
+     Necesario en PWA standalone (sin barra de navegador con zoom).
+     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
   /* Cursor "progress" globalmente mientras hay actividad */
   body.api-busy, body.api-busy * { cursor: progress !important; }
+
+  #zoom-fab {
+    position: fixed;
+    bottom: calc(14px + env(safe-area-inset-bottom, 0px));
+    right:  calc(14px + env(safe-area-inset-right, 0px));
+    z-index: 9998;
+    display: flex;
+    gap: 1px;
+    background: rgba(15, 17, 20, 0.88);
+    -webkit-backdrop-filter: blur(10px) saturate(120%);
+    backdrop-filter: blur(10px) saturate(120%);
+    border: 1px solid rgba(238, 240, 240, 0.08);
+    padding: 3px;
+    border-radius: 999px;
+    box-shadow: 0 6px 20px rgba(0,0,0,0.45), 0 0 0 1px rgba(0,0,0,0.3);
+    user-select: none;
+    -webkit-user-select: none;
+    font-family: 'Barlow', sans-serif;
+    transition: opacity .3s ease, transform .3s cubic-bezier(.34,1.56,.64,1);
+  }
+  #zoom-fab.zf-collapsed {
+    /* Cuando está minimizado solo se ve el ojo de zoom */
+  }
+  #zoom-fab.zf-collapsed .zoom-btn:not(#zoom-toggle) {
+    display: none;
+  }
+  .zoom-btn {
+    background: transparent;
+    border: none;
+    color: var(--text);
+    font-size: 17px;
+    font-weight: 400;
+    cursor: pointer;
+    width: 36px; height: 36px;
+    border-radius: 999px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background .15s ease, transform .1s ease, color .15s ease;
+    -webkit-tap-highlight-color: transparent;
+    font-family: inherit;
+    padding: 0;
+    line-height: 1;
+    flex-shrink: 0;
+  }
+  .zoom-btn:hover:not(:disabled) { background: rgba(0,102,94,0.28); color: var(--green-lt); }
+  .zoom-btn:active:not(:disabled) { background: var(--green-dark); transform: scale(0.88); color: #fff; }
+  .zoom-btn.zoom-label {
+    font-size: 11px;
+    letter-spacing: 0.5px;
+    min-width: 46px;
+    color: var(--green-lt);
+    font-variant-numeric: tabular-nums;
+    font-weight: 500;
+  }
+  .zoom-btn:disabled {
+    opacity: 0.28;
+    cursor: not-allowed;
+  }
+  #zoom-toggle {
+    color: var(--muted);
+    font-size: 13px;
+  }
+  #zoom-toggle:hover { color: var(--green-lt); }
+  /* Pantallas pequeñas — botones un poco más compactos */
+  @media (max-width: 480px) {
+    #zoom-fab { bottom: calc(10px + env(safe-area-inset-bottom, 0px)); right: calc(10px + env(safe-area-inset-right, 0px)); }
+    .zoom-btn { width: 34px; height: 34px; font-size: 16px; }
+    .zoom-btn.zoom-label { font-size: 10px; min-width: 40px; }
+  }
 
   /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
      BOTONES "FLAT" — período (1d/7d/30d) y tabs (movidos/etc)
@@ -1397,15 +1471,28 @@
 <!-- Barra de progreso superior — activa durante llamadas async -->
 <div id="top-progress"></div>
 
+<!-- Control de zoom flotante — sustituye al zoom del navegador en PWA standalone -->
+<div id="zoom-fab" role="group" aria-label="Control de zoom">
+  <button id="zoom-toggle" class="zoom-btn" aria-label="Minimizar control de zoom" title="Minimizar/expandir">⊟</button>
+  <button id="zoom-out"    class="zoom-btn" aria-label="Disminuir zoom" title="Zoom −">−</button>
+  <button id="zoom-reset"  class="zoom-btn zoom-label" aria-label="Resetear al 100%" title="Resetear al 100%">100%</button>
+  <button id="zoom-in"     class="zoom-btn" aria-label="Aumentar zoom" title="Zoom +">+</button>
+</div>
+
 <!-- ══ SPLASH ══ -->
 <div id="splash">
   <div id="splash-cloud"></div>
   <div id="splash-logo">
-    <img src="https://apicvaservices.grupocva.com/documentation/images/logo-fcd06fb4.png" alt="CVA" onerror="this.style.display='none'">
+    <!-- Logo de CVA — vive en el propio repo (./cva-logo.png).
+         Antes apuntaba a apicvaservices.grupocva.com pero CVA invalida ese
+         asset al actualizar su sitio de documentación. -->
+    <img src="./cva-logo.png" alt="CVA"
+         onerror="this.outerHTML='<div style=&quot;font-size:88px;font-weight:600;letter-spacing:8px;color:#fff;opacity:0.92&quot;>CVA</div>'">
     <div class="splash-by" id="splash-by" style="opacity:0;transition:opacity 0.8s ease">
       <span style="margin-right:8px">by</span>
       <img src="https://acdn-us.mitiendanube.com/stores/006/131/081/themes/common/logo-257925442-1748975905-ea5b79b9b6bd00d801280c0aee35d5251748975905-320-0.webp"
-        alt="Electronics México" onerror="this.style.display='none'"
+        alt="Electronics México"
+        onerror="this.outerHTML='<span style=&quot;font-size:14px;letter-spacing:2px;text-transform:uppercase;opacity:0.7&quot;>Electronics México</span>'"
         style="height:51px;filter:brightness(0) invert(1);opacity:0.65">
     </div>
   </div>
