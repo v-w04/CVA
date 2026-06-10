@@ -3747,8 +3747,13 @@ function _top20FiltrosTxt_() {
 
 async function anTop20Excel() {
   const secciones = _calcularReporteTop20_();
-  const totalProds = secciones.reduce((s, sec) => s + sec.productos.length, 0);
-  if (totalProds === 0) {
+  // Aplanar todos los productos de todas las secciones en UNA sola tabla vertical.
+  // En modo "marca" o "grupo", el campo Marca/Grupo del producto sirve para filtrar
+  // desde Excel (autofilter habilitado). Sin filas separadoras.
+  const productosFlat = [];
+  secciones.forEach(sec => sec.productos.forEach(p => productosFlat.push(p)));
+
+  if (productosFlat.length === 0) {
     alert('Ningún producto cumple los filtros del reporte.');
     return;
   }
@@ -3766,93 +3771,182 @@ async function anTop20Excel() {
 
   const periodo = (_analisisData && _analisisData.periodo) || {};
   const fechaGen = new Date().toLocaleString('es-MX');
-  const fmtMXN = n => Number(n || 0);
   const modoTxt = _top20Filtros.modo === 'global' ? 'GLOBAL'
                 : _top20Filtros.modo === 'marca'  ? 'POR MARCA'
                 : 'POR GRUPO';
 
-  // Encabezado profesional
+  // Encabezado profesional + agregando una línea con el resumen rápido
   const aoa = [
     [`REPORTE TOP 20 · ${modoTxt}`],
     [`Electronics México · LEONGEM COMERCIALIZADORA · Cuenta CVA 2395390`],
     [`Periodo:  ${periodo.fecha_inicio || '—'}  →  ${periodo.fecha_fin || '—'}   (${periodo.dias || 0} días)`],
     [`Filtros:  ${_top20FiltrosTxt_()}`],
+    [`Total productos en este reporte:  ${productosFlat.length}`],
     [`Generado: ${fechaGen}`],
     [],
   ];
 
-  const headersTabla = ['Clave CVA','Descripción','Marca','Grupo','Stock Hoy','Movido','Precio CVA','Valor Movido'];
-  const styleRows = []; // [{r, type:'title|sub|header'}]
+  // Encabezado de la tabla — orden pedido por el usuario:
+  //   Clave · Descripción · Marca · Grupo · Stock Hoy · Precio CVA
+  //   Unidades Solicitadas (default 1) · Total (fórmula) · UPC (al final)
+  const headersTabla = [
+    'Clave CVA', 'Descripción', 'Marca', 'Grupo',
+    'Stock Hoy', 'Precio CVA', 'Unidades Solicitadas', 'Total', 'UPC'
+  ];
+  const headerRowIdx = aoa.length; // 0-indexed
+  aoa.push(headersTabla);
 
-  secciones.forEach((sec, idx) => {
-    if (idx > 0) aoa.push([]); // separador entre secciones
-    styleRows.push({ r: aoa.length, type: 'title' });
-    aoa.push([sec.titulo]);
-    if (sec.subtitulo) {
-      styleRows.push({ r: aoa.length, type: 'sub' });
-      aoa.push([sec.subtitulo]);
-    }
-    styleRows.push({ r: aoa.length, type: 'header' });
-    aoa.push(headersTabla);
-    sec.productos.forEach(p => {
-      aoa.push([
-        p.clave || '',
-        p.desc || '',
-        p.marca || '',
-        p.grupo || '',
-        p.total || 0,
-        p.movido || 0,
-        fmtMXN(p.precio),
-        fmtMXN(p.valor_movido),
-      ]);
-    });
+  // Filas de productos — primera fila de datos está en aoa.length (después del push)
+  // En Excel (1-indexed), eso es aoa.length + 1
+  productosFlat.forEach(p => {
+    const md = _getMD_(p);
+    const upc = (md && md.upc) ? String(md.upc) : '';
+    aoa.push([
+      p.clave || '',
+      p.desc || '',
+      p.marca || '',
+      p.grupo || '',
+      p.total || 0,
+      p.precio || 0,
+      1,           // Unidades Solicitadas — default editable
+      null,        // Total — se llena con fórmula abajo
+      upc,
+    ]);
   });
 
   const ws = XLSX.utils.aoa_to_sheet(aoa);
 
-  // Estilos del encabezado profesional (filas 0-4)
-  for (let r = 0; r <= 4; r++) {
+  // ── Estilos del encabezado profesional (filas 0-5) ──
+  ws['!merges'] = ws['!merges'] || [];
+  for (let r = 0; r <= 5; r++) {
     const ref = XLSX.utils.encode_cell({ r, c: 0 });
     if (ws[ref]) ws[ref].s = {
       font: { sz: r === 0 ? 14 : 11, bold: r === 0, color: { rgb: r === 0 ? '00665E' : '333333' } },
     };
-  }
-  // Merge de las filas 0-4 (todas las cols 0..7)
-  ws['!merges'] = ws['!merges'] || [];
-  for (let r = 0; r <= 4; r++) {
-    ws['!merges'].push({ s: { r, c: 0 }, e: { r, c: 7 } });
+    // Merge filas del encabezado para que abarquen toda la tabla (9 cols)
+    ws['!merges'].push({ s: { r, c: 0 }, e: { r, c: 8 } });
   }
 
-  // Estilos de secciones
-  styleRows.forEach(({ r, type }) => {
-    if (type === 'title') {
-      const ref = XLSX.utils.encode_cell({ r, c: 0 });
-      if (ws[ref]) ws[ref].s = {
-        fill: { fgColor: { rgb: '00665E' } },
-        font: { color: { rgb: 'FFFFFF' }, bold: true, sz: 12 },
-        alignment: { horizontal: 'left', vertical: 'center' },
+  // ── Header de tabla (fondo verde, blanco) ──
+  for (let c = 0; c < headersTabla.length; c++) {
+    const ref = XLSX.utils.encode_cell({ r: headerRowIdx, c });
+    if (ws[ref]) ws[ref].s = {
+      fill: { fgColor: { rgb: '00665E' } },
+      font: { color: { rgb: 'FFFFFF' }, bold: true, sz: 10 },
+      alignment: { horizontal: 'center', vertical: 'center' },
+    };
+  }
+
+  // ── Insertar fórmulas vivas para "Total" y aplicar formato a columnas ──
+  // Total = Precio CVA × Unidades Solicitadas (columnas F y G, índice 5 y 6)
+  // En Excel (1-indexed):  F={excelRow}  G={excelRow}  → Total en H={excelRow}
+  const moneyFmt = '"$"#,##0.00';
+
+  productosFlat.forEach((p, i) => {
+    const r = headerRowIdx + 1 + i;          // 0-indexed row del producto
+    const excelRow = r + 1;                  // 1-indexed para fórmulas
+    // Precio CVA (col F = index 5) → formato moneda
+    const precioRef = XLSX.utils.encode_cell({ r, c: 5 });
+    if (ws[precioRef]) {
+      ws[precioRef].z = moneyFmt;
+      ws[precioRef].s = { numFmt: moneyFmt, alignment: { horizontal: 'right' } };
+    }
+    // Unidades Solicitadas (col G = index 6) — centro
+    const uniRef = XLSX.utils.encode_cell({ r, c: 6 });
+    if (ws[uniRef]) {
+      ws[uniRef].s = {
+        alignment: { horizontal: 'center' },
+        font: { bold: true, color: { rgb: '00665E' } },
+        fill: { fgColor: { rgb: 'F0F7F6' } },  // fondo verde tenue para indicar que es editable
       };
-      ws['!merges'].push({ s: { r, c: 0 }, e: { r, c: 7 } });
-    } else if (type === 'sub') {
-      const ref = XLSX.utils.encode_cell({ r, c: 0 });
-      if (ws[ref]) ws[ref].s = {
-        font: { italic: true, sz: 10, color: { rgb: '666666' } },
+    }
+    // Total (col H = index 7) — FÓRMULA en vivo
+    const totalRef = XLSX.utils.encode_cell({ r, c: 7 });
+    ws[totalRef] = {
+      t: 'n',
+      f: `F${excelRow}*G${excelRow}`,
+      z: moneyFmt,
+      s: { numFmt: moneyFmt, alignment: { horizontal: 'right' }, font: { bold: true } },
+    };
+    // Stock Hoy — formato número simple
+    const stockRef = XLSX.utils.encode_cell({ r, c: 4 });
+    if (ws[stockRef]) {
+      ws[stockRef].z = '#,##0';
+      ws[stockRef].s = { numFmt: '#,##0', alignment: { horizontal: 'right' } };
+    }
+    // UPC (col I = index 8) — formato texto monospace
+    const upcRef = XLSX.utils.encode_cell({ r, c: 8 });
+    if (ws[upcRef]) {
+      ws[upcRef].s = {
+        font: { name: 'Courier New', sz: 10 },
+        alignment: { horizontal: 'center' },
       };
-      ws['!merges'].push({ s: { r, c: 0 }, e: { r, c: 7 } });
-    } else if (type === 'header') {
-      for (let c = 0; c < headersTabla.length; c++) {
-        const ref = XLSX.utils.encode_cell({ r, c });
-        if (ws[ref]) ws[ref].s = {
-          fill: { fgColor: { rgb: '2D5A57' } },
-          font: { color: { rgb: 'FFFFFF' }, bold: true, sz: 10 },
-          alignment: { horizontal: 'center' },
+    }
+    // Zebra striping para mejor lectura
+    if (i % 2 === 1) {
+      ['A','B','C','D','E','F','G','H','I'].forEach(col => {
+        const ref = col + excelRow;
+        if (!ws[ref]) return;
+        const existing = ws[ref].s || {};
+        ws[ref].s = {
+          ...existing,
+          fill: existing.fill || { fgColor: { rgb: 'FAFAFA' } },
         };
-      }
+      });
     }
   });
 
-  // Anchos de columna
-  ws['!cols'] = [{ wch: 14 }, { wch: 55 }, { wch: 18 }, { wch: 22 }, { wch: 10 }, { wch: 10 }, { wch: 12 }, { wch: 14 }];
+  // ── Total general al final (fila después de todos los productos) ──
+  const totalRowIdx = headerRowIdx + 1 + productosFlat.length;
+  const firstDataExcelRow = headerRowIdx + 2; // 1-indexed primera fila de datos
+  const lastDataExcelRow  = totalRowIdx;       // 1-indexed última fila de datos
+  // Agregar fila vacía + fila total con fórmula SUM
+  ws[XLSX.utils.encode_cell({ r: totalRowIdx, c: 6 })] = {
+    t: 's', v: 'TOTAL GENERAL:',
+    s: { font: { bold: true, color: { rgb: '00665E' } }, alignment: { horizontal: 'right' } },
+  };
+  ws[XLSX.utils.encode_cell({ r: totalRowIdx, c: 7 })] = {
+    t: 'n',
+    f: `SUM(H${firstDataExcelRow}:H${lastDataExcelRow})`,
+    z: moneyFmt,
+    s: {
+      numFmt: moneyFmt,
+      font: { bold: true, sz: 12, color: { rgb: '00665E' } },
+      fill: { fgColor: { rgb: 'F0F7F6' } },
+      alignment: { horizontal: 'right' },
+      border: { top: { style: 'medium', color: { rgb: '00665E' } } },
+    },
+  };
+
+  // ── Auto-filter sobre la tabla — el usuario puede filtrar desde Excel ──
+  ws['!autofilter'] = {
+    ref: XLSX.utils.encode_range({
+      s: { r: headerRowIdx, c: 0 },
+      e: { r: headerRowIdx + productosFlat.length, c: 8 },
+    }),
+  };
+
+  // ── Congelar header de tabla ──
+  ws['!freeze'] = { xSplit: 0, ySplit: headerRowIdx + 1 };
+
+  // ── Anchos de columna ──
+  ws['!cols'] = [
+    { wch: 14 },   // Clave
+    { wch: 55 },   // Descripción
+    { wch: 18 },   // Marca
+    { wch: 22 },   // Grupo
+    { wch: 11 },   // Stock Hoy
+    { wch: 13 },   // Precio CVA
+    { wch: 13 },   // Unidades Solicitadas
+    { wch: 14 },   // Total
+    { wch: 16 },   // UPC
+  ];
+
+  // ── Actualizar el rango del sheet para que SheetJS reconozca todas las celdas ──
+  ws['!ref'] = XLSX.utils.encode_range({
+    s: { r: 0, c: 0 },
+    e: { r: totalRowIdx, c: 8 },
+  });
 
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, 'Top 20');
