@@ -1563,7 +1563,7 @@
   </div>
   <div class="sb-nav">
     <div class="sb-section-label">CVA</div>
-    <div class="sb-item active" id="nav-buscar" onclick="showPage('buscar')">
+    <div class="sb-item" id="nav-buscar" onclick="showPage('buscar')">
       <div class="sb-item-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><line x1="16.5" y1="16.5" x2="22" y2="22"/></svg></div>
       <div class="sb-item-label"><div class="sb-item-name">Buscar Productos</div><div class="sb-item-sub">Catálogo en tiempo real</div></div>
       <div class="sb-item-arrow"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg></div>
@@ -1579,7 +1579,7 @@
       <div class="sb-item-label"><div class="sb-item-name">Pedidos CVA</div><div class="sb-item-sub">Historial y guías</div></div>
       <div class="sb-item-arrow"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg></div>
     </div>
-    <div class="sb-item" id="nav-analisis" onclick="showPage('analisis')">
+    <div class="sb-item active" id="nav-analisis" onclick="showPage('analisis')">
       <div class="sb-item-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg></div>
       <div class="sb-item-label"><div class="sb-item-name">Análisis de Stock</div><div class="sb-item-sub">Rotación y movimiento</div></div>
       <div class="sb-item-arrow"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg></div>
@@ -1660,7 +1660,7 @@
     <div class="main">
 
       <!-- ══ PAGE: BUSCAR ══ -->
-      <div class="page active" id="page-buscar">
+      <div class="page" id="page-buscar">
         <div class="page-header">
           <div class="page-rule"></div>
           <div class="page-title">Buscar Productos</div>
@@ -1921,7 +1921,7 @@
       </div>
 
       <!-- ══ PAGE: ANÁLISIS ══ -->
-      <div class="page" id="page-analisis">
+      <div class="page active" id="page-analisis">
         <div class="page-header">
           <div class="page-rule"></div>
           <div class="page-title">Análisis de Movimiento</div>
@@ -2180,6 +2180,13 @@
         .catch(err => console.warn('⚠️ SW falló:', err));
     });
   }
+
+  // La página inicial es "Análisis de Movimiento" (en lugar de Búsqueda).
+  // Como las clases .active ya están en el HTML, showPage no se ejecuta solo
+  // — disparamos manualmente la carga del análisis.
+  window.addEventListener('load', () => {
+    try { cargarAnalisis(); } catch(e) { console.warn('Init análisis:', e); }
+  });
 </script>
 </body>
 </html>
