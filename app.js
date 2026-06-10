@@ -2106,8 +2106,11 @@ function renderAnalisisDashboard() {
       const old = document.getElementById(id);
       if (old) old.innerHTML = '';
     });
-    // Buscar el contenedor de kpis
-    const kpiGrid = page.querySelector('.grid-3');
+    // Limpiar el placeholder "Calculando análisis…" del contenedor original
+    const oldContent = document.getElementById('analisis-content');
+    if (oldContent) oldContent.innerHTML = '';
+    // Buscar el contenedor de kpis (busca por id moderno, fallback a la clase legacy)
+    const kpiGrid = document.getElementById('analisis-kpis') || page.querySelector('.grid-3');
     if (kpiGrid && kpiGrid.parentNode) {
       kpiGrid.parentNode.insertBefore(dash, kpiGrid.nextSibling);
     } else {
