@@ -2223,6 +2223,37 @@ function renderAnalisisDashboard() {
       </div>
     </div>
 
+    <!-- Reporte Top 20 — pre-armado descargable -->
+    <div style="padding:18px 0;margin-bottom:14px;border-top:1px solid rgba(238,240,240,0.04);border-bottom:1px solid rgba(238,240,240,0.04)">
+      <div style="display:flex;align-items:center;gap:18px;flex-wrap:wrap">
+        <div style="display:flex;flex-direction:column;line-height:1.2">
+          <span style="font-size:9px;color:var(--muted);letter-spacing:2.5px;text-transform:uppercase">Reporte</span>
+          <span style="font-family:Barlow Condensed,sans-serif;font-size:22px;color:var(--text);font-weight:500;letter-spacing:1px">TOP 20</span>
+        </div>
+        <div style="width:1px;height:32px;background:rgba(238,240,240,0.1)"></div>
+        <div style="display:flex;gap:10px;align-items:center">
+          <label style="font-size:9px;color:var(--muted);letter-spacing:1.5px;text-transform:uppercase">Stock ≥</label>
+          <input type="number" placeholder="—" value="${_top20Filtros.stockMin != null ? _top20Filtros.stockMin : ''}" oninput="anTop20SetFiltro('stockMin', this.value)" style="background:transparent;border:none;border-bottom:1px solid rgba(238,240,240,0.12);color:var(--text);padding:5px 4px;font-size:13px;width:70px;outline:none;font-family:Barlow Condensed,sans-serif;text-align:right">
+          <label style="font-size:9px;color:var(--muted);letter-spacing:1.5px;text-transform:uppercase;margin-left:8px">Movido ≥</label>
+          <input type="number" placeholder="—" value="${_top20Filtros.movMin != null ? _top20Filtros.movMin : ''}" oninput="anTop20SetFiltro('movMin', this.value)" style="background:transparent;border:none;border-bottom:1px solid rgba(238,240,240,0.12);color:var(--text);padding:5px 4px;font-size:13px;width:70px;outline:none;font-family:Barlow Condensed,sans-serif;text-align:right">
+        </div>
+        <div style="width:1px;height:32px;background:rgba(238,240,240,0.1)"></div>
+        <div style="display:inline-flex;gap:0;align-items:center">
+          ${[
+            ['global','Global'],
+            ['marca','Por marca'],
+            ['grupo','Por grupo'],
+          ].map(([modo, label]) => {
+            const active = _top20Filtros.modo === modo;
+            return `<button onclick="anTop20SetModo('${modo}')" style="background:transparent;border:none;border-bottom:1.5px solid ${active?'var(--green-lt)':'transparent'};color:${active?'var(--text)':'var(--muted)'};padding:6px 14px;font-size:10px;letter-spacing:2px;text-transform:uppercase;cursor:pointer;font-family:inherit;transition:color 0.2s, border-color 0.2s;${active?'font-weight:500':''}">${label}</button>`;
+          }).join('')}
+        </div>
+        <div style="flex:1"></div>
+        <button class="btn-cockpit" onclick="anTop20Excel()" title="Descargar reporte como Excel">Excel</button>
+        <button class="btn-cockpit" onclick="anTop20PDF()" title="Imprimir / guardar como PDF">PDF</button>
+      </div>
+    </div>
+
     <!-- Tabs -->
     <div style="display:flex;gap:0;margin-bottom:0;border-bottom:1px solid rgba(238,240,240,0.08);overflow-x:auto">
       ${[
@@ -3555,6 +3586,304 @@ async function anExportCVAUPCs() {
 }
 
 // Exponer al window al final del Object.assign existente.
+// ════════════════════════════════════════════════════════════════
+//  REPORTE TOP 20 — pre-armados con filtros propios
+//
+//  Genera reportes profesionales (XLSX o PDF) del top 20 de productos
+//  más movidos. Tiene 3 modos:
+//   - GLOBAL: top 20 del catálogo completo
+//   - POR MARCA: top 20 por cada marca activa
+//   - POR GRUPO: top 20 por cada grupo (categoría CVA)
+//
+//  Los filtros stockMin/movMin son INDEPENDIENTES de los filtros
+//  del dashboard — solo se respeta el periodo activo (porque sin
+//  periodo no hay cálculo de "movido").
+//  Todas las marcas/grupos se incluyen (las que tengan menos de 20
+//  productos salen con los que tengan, no se filtran por cardinalidad).
+// ════════════════════════════════════════════════════════════════
+
+let _top20Filtros = { stockMin: null, movMin: null, modo: 'global' };
+
+function anTop20SetModo(modo) {
+  _top20Filtros.modo = modo;
+  renderAnalisisDashboard();
+}
+function anTop20SetFiltro(campo, valor) {
+  _top20Filtros[campo] = (valor === '' || valor == null) ? null : parseFloat(valor);
+}
+
+// Calcula las secciones del reporte. Devuelve un array de
+// { titulo, subtitulo, productos } — siempre al menos un elemento.
+function _calcularReporteTop20_() {
+  const productos = (_analisisData && _analisisData.productos) || [];
+  const f = _top20Filtros;
+
+  // Filtros base: solo productos con movimiento real, y los filtros opcionales
+  let lista = productos.filter(p => {
+    if (!p.tiene_movimiento || (p.movido || 0) === 0) return false;
+    if (f.stockMin != null && (p.total || 0) < f.stockMin) return false;
+    if (f.movMin   != null && (p.movido || 0) < f.movMin) return false;
+    return true;
+  });
+
+  // Orden global por movido descendente
+  lista.sort((a, b) => (b.movido || 0) - (a.movido || 0));
+
+  if (f.modo === 'global') {
+    return [{
+      titulo: 'TOP 20 GLOBAL',
+      subtitulo: `${lista.length} productos califican · top 20 mostrados`,
+      productos: lista.slice(0, 20),
+    }];
+  }
+
+  // Agrupar por marca o grupo
+  const campo = f.modo === 'marca' ? 'marca' : 'grupo';
+  const agrup = {};
+  lista.forEach(p => {
+    const key = (p[campo] || '(Sin ' + campo + ')').toString();
+    if (!agrup[key]) agrup[key] = [];
+    agrup[key].push(p);
+  });
+
+  // Ordenar grupos por su total de movimiento (más activos arriba)
+  return Object.keys(agrup).map(k => {
+    const top = agrup[k].slice(0, 20);
+    const totalMov = agrup[k].reduce((s, p) => s + (p.movido || 0), 0);
+    return {
+      titulo: k.toUpperCase(),
+      subtitulo: `${agrup[k].length} producto${agrup[k].length !== 1 ? 's' : ''} · ${totalMov.toLocaleString('es-MX')} unidades movidas total`,
+      productos: top,
+    };
+  }).sort((a, b) => {
+    // Sort grupos por unidades movidas (extraído del subtitulo no es seguro,
+    // mejor calcularlo aquí de nuevo)
+    const aMov = a.productos.reduce((s, p) => s + (p.movido || 0), 0);
+    const bMov = b.productos.reduce((s, p) => s + (p.movido || 0), 0);
+    return bMov - aMov;
+  });
+}
+
+function _top20FiltrosTxt_() {
+  const f = _top20Filtros;
+  const parts = [];
+  if (f.stockMin != null) parts.push(`Stock ≥ ${f.stockMin}`);
+  if (f.movMin   != null) parts.push(`Movido ≥ ${f.movMin}`);
+  return parts.length ? parts.join(' · ') : '(sin filtros adicionales)';
+}
+
+async function anTop20Excel() {
+  const secciones = _calcularReporteTop20_();
+  const totalProds = secciones.reduce((s, sec) => s + sec.productos.length, 0);
+  if (totalProds === 0) {
+    alert('Ningún producto cumple los filtros del reporte.');
+    return;
+  }
+
+  // Cargar SheetJS si no está
+  if (typeof XLSX === 'undefined') {
+    await new Promise((resolve, reject) => {
+      const s = document.createElement('script');
+      s.src = 'https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js';
+      s.onload = resolve; s.onerror = reject;
+      document.head.appendChild(s);
+    }).catch(() => alert('No se pudo cargar SheetJS'));
+  }
+  if (typeof XLSX === 'undefined') return;
+
+  const periodo = (_analisisData && _analisisData.periodo) || {};
+  const fechaGen = new Date().toLocaleString('es-MX');
+  const fmtMXN = n => Number(n || 0);
+  const modoTxt = _top20Filtros.modo === 'global' ? 'GLOBAL'
+                : _top20Filtros.modo === 'marca'  ? 'POR MARCA'
+                : 'POR GRUPO';
+
+  // Encabezado profesional
+  const aoa = [
+    [`REPORTE TOP 20 · ${modoTxt}`],
+    [`Electronics México · LEONGEM COMERCIALIZADORA · Cuenta CVA 2395390`],
+    [`Periodo:  ${periodo.fecha_inicio || '—'}  →  ${periodo.fecha_fin || '—'}   (${periodo.dias || 0} días)`],
+    [`Filtros:  ${_top20FiltrosTxt_()}`],
+    [`Generado: ${fechaGen}`],
+    [],
+  ];
+
+  const headersTabla = ['Clave CVA','Descripción','Marca','Grupo','Stock Hoy','Movido','Precio CVA','Valor Movido'];
+  const styleRows = []; // [{r, type:'title|sub|header'}]
+
+  secciones.forEach((sec, idx) => {
+    if (idx > 0) aoa.push([]); // separador entre secciones
+    styleRows.push({ r: aoa.length, type: 'title' });
+    aoa.push([sec.titulo]);
+    if (sec.subtitulo) {
+      styleRows.push({ r: aoa.length, type: 'sub' });
+      aoa.push([sec.subtitulo]);
+    }
+    styleRows.push({ r: aoa.length, type: 'header' });
+    aoa.push(headersTabla);
+    sec.productos.forEach(p => {
+      aoa.push([
+        p.clave || '',
+        p.desc || '',
+        p.marca || '',
+        p.grupo || '',
+        p.total || 0,
+        p.movido || 0,
+        fmtMXN(p.precio),
+        fmtMXN(p.valor_movido),
+      ]);
+    });
+  });
+
+  const ws = XLSX.utils.aoa_to_sheet(aoa);
+
+  // Estilos del encabezado profesional (filas 0-4)
+  for (let r = 0; r <= 4; r++) {
+    const ref = XLSX.utils.encode_cell({ r, c: 0 });
+    if (ws[ref]) ws[ref].s = {
+      font: { sz: r === 0 ? 14 : 11, bold: r === 0, color: { rgb: r === 0 ? '00665E' : '333333' } },
+    };
+  }
+  // Merge de las filas 0-4 (todas las cols 0..7)
+  ws['!merges'] = ws['!merges'] || [];
+  for (let r = 0; r <= 4; r++) {
+    ws['!merges'].push({ s: { r, c: 0 }, e: { r, c: 7 } });
+  }
+
+  // Estilos de secciones
+  styleRows.forEach(({ r, type }) => {
+    if (type === 'title') {
+      const ref = XLSX.utils.encode_cell({ r, c: 0 });
+      if (ws[ref]) ws[ref].s = {
+        fill: { fgColor: { rgb: '00665E' } },
+        font: { color: { rgb: 'FFFFFF' }, bold: true, sz: 12 },
+        alignment: { horizontal: 'left', vertical: 'center' },
+      };
+      ws['!merges'].push({ s: { r, c: 0 }, e: { r, c: 7 } });
+    } else if (type === 'sub') {
+      const ref = XLSX.utils.encode_cell({ r, c: 0 });
+      if (ws[ref]) ws[ref].s = {
+        font: { italic: true, sz: 10, color: { rgb: '666666' } },
+      };
+      ws['!merges'].push({ s: { r, c: 0 }, e: { r, c: 7 } });
+    } else if (type === 'header') {
+      for (let c = 0; c < headersTabla.length; c++) {
+        const ref = XLSX.utils.encode_cell({ r, c });
+        if (ws[ref]) ws[ref].s = {
+          fill: { fgColor: { rgb: '2D5A57' } },
+          font: { color: { rgb: 'FFFFFF' }, bold: true, sz: 10 },
+          alignment: { horizontal: 'center' },
+        };
+      }
+    }
+  });
+
+  // Anchos de columna
+  ws['!cols'] = [{ wch: 14 }, { wch: 55 }, { wch: 18 }, { wch: 22 }, { wch: 10 }, { wch: 10 }, { wch: 12 }, { wch: 14 }];
+
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Top 20');
+  XLSX.writeFile(wb, `CVA_Top20_${_top20Filtros.modo}_${new Date().toISOString().slice(0,10)}.xlsx`);
+}
+
+function anTop20PDF() {
+  const secciones = _calcularReporteTop20_();
+  const totalProds = secciones.reduce((s, sec) => s + sec.productos.length, 0);
+  if (totalProds === 0) {
+    alert('Ningún producto cumple los filtros del reporte.');
+    return;
+  }
+
+  const w = window.open('', '_blank');
+  if (!w) { alert('Permite popups para exportar PDF'); return; }
+  const periodo = (_analisisData && _analisisData.periodo) || {};
+  const fechaGen = new Date().toLocaleString('es-MX');
+  const fmtMXN = (n) => '$' + (Math.round(n || 0)).toLocaleString('es-MX');
+  const modoTxt = _top20Filtros.modo === 'global' ? 'Global'
+                : _top20Filtros.modo === 'marca'  ? 'Por Marca'
+                : 'Por Grupo';
+
+  const seccionesHtml = secciones.map(sec => `
+    <div class="seccion">
+      <div class="sec-titulo">${sec.titulo}</div>
+      ${sec.subtitulo ? `<div class="sec-sub">${sec.subtitulo}</div>` : ''}
+      <table>
+        <thead><tr>
+          <th>Clave</th>
+          <th>Descripción</th>
+          <th>Marca</th>
+          <th>Grupo</th>
+          <th class="r">Stock</th>
+          <th class="r">Movido</th>
+          <th class="r">Precio CVA</th>
+          <th class="r">Valor Mov.</th>
+        </tr></thead>
+        <tbody>${
+          sec.productos.map(p => `
+            <tr>
+              <td class="mono">${p.clave || ''}</td>
+              <td>${(p.desc || '').substring(0, 70)}</td>
+              <td>${p.marca || ''}</td>
+              <td>${p.grupo || ''}</td>
+              <td class="r">${(p.total || 0).toLocaleString('es-MX')}</td>
+              <td class="r mov">${(p.movido || 0).toLocaleString('es-MX')}</td>
+              <td class="r">${fmtMXN(p.precio)}</td>
+              <td class="r">${fmtMXN(p.valor_movido)}</td>
+            </tr>
+          `).join('')
+        }</tbody>
+      </table>
+    </div>
+  `).join('');
+
+  w.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8">
+    <title>Top 20 ${modoTxt} · CVA</title>
+    <style>
+      body { font-family: Arial, sans-serif; padding: 20px 28px; font-size: 11px; color: #222; }
+      .header-block { border-bottom: 2px solid #00665e; padding-bottom: 14px; margin-bottom: 22px; }
+      h1 { color: #00665e; font-size: 22px; margin: 0 0 4px; font-weight: 500; letter-spacing: 1px; }
+      h1 .modo { color: #666; font-size: 14px; letter-spacing: 2px; text-transform: uppercase; margin-left: 8px; }
+      .empresa { font-size: 11px; color: #555; margin-bottom: 8px; }
+      .meta { font-size: 10px; color: #888; line-height: 1.6; }
+      .meta b { color: #444; font-weight: 500; }
+      .seccion { margin-bottom: 28px; page-break-inside: avoid; }
+      .sec-titulo { background: #00665e; color: #fff; padding: 8px 14px; font-size: 12px; letter-spacing: 1.5px; text-transform: uppercase; font-weight: 500; }
+      .sec-sub { background: #f0f7f6; padding: 6px 14px; font-size: 10px; color: #666; font-style: italic; }
+      table { width: 100%; border-collapse: collapse; font-size: 10px; margin-top: 0; }
+      th { background: #2d5a57; color: #fff; padding: 6px 8px; text-align: left; font-size: 9px; letter-spacing: 1px; text-transform: uppercase; }
+      th.r { text-align: right; }
+      td { padding: 5px 8px; border-bottom: 1px solid #eee; vertical-align: top; }
+      td.r { text-align: right; font-variant-numeric: tabular-nums; }
+      td.mono { font-family: 'Courier New', monospace; color: #00665e; font-weight: 500; }
+      td.mov { color: #00665e; font-weight: 600; }
+      tr:nth-child(even) { background: #fafafa; }
+      .footer { margin-top: 30px; padding-top: 14px; border-top: 1px solid #eee; font-size: 9px; color: #888; text-align: center; letter-spacing: 1px; }
+      @media print {
+        @page { size: landscape; margin: 1cm; }
+        .seccion { page-break-inside: avoid; }
+      }
+    </style></head><body>
+    <div class="header-block">
+      <h1>Reporte Top 20 <span class="modo">· ${modoTxt}</span></h1>
+      <div class="empresa">Electronics México · LEONGEM COMERCIALIZADORA · Cuenta CVA 2395390</div>
+      <div class="meta">
+        <b>Periodo:</b> ${periodo.fecha_inicio || '—'} → ${periodo.fecha_fin || '—'} (${periodo.dias || 0} días) ·
+        <b>Filtros:</b> ${_top20FiltrosTxt_()} ·
+        <b>Generado:</b> ${fechaGen}
+      </div>
+    </div>
+    ${seccionesHtml}
+    <div class="footer">Documento generado automáticamente desde el panel de Análisis CVA · Electronics México</div>
+    <script>setTimeout(()=>window.print(), 500);</script>
+  </body></html>`);
+  w.document.close();
+}
+
+// Exponer al window
+Object.assign(window, {
+  anTop20SetModo, anTop20SetFiltro, anTop20Excel, anTop20PDF,
+});
+
 Object.assign(window, {
   anEditarMD, anCambiarGananciaGlobal, anSetModoVista,
   anExportXLSX, anExportCVAUPCs,
