@@ -2182,10 +2182,11 @@
   }
 
   // La página inicial es "Análisis de Movimiento" (en lugar de Búsqueda).
-  // Como las clases .active ya están en el HTML, showPage no se ejecuta solo
-  // — disparamos manualmente la carga del análisis.
+  // Llamamos showPage explícitamente para forzar el cambio aunque el HTML
+  // venga con otra página marcada como active (por ejemplo desde caché vieja
+  // del service worker). showPage limpia .active de todas y dispara cargarAnalisis().
   window.addEventListener('load', () => {
-    try { cargarAnalisis(); } catch(e) { console.warn('Init análisis:', e); }
+    try { showPage('analisis'); } catch(e) { console.warn('Init análisis:', e); }
   });
 </script>
 </body>

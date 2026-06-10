@@ -1,5 +1,5 @@
 // CVA Dropship Service Worker
-const CACHE_NAME = "cva-dropship-v1";
+const CACHE_NAME = "cva-dropship-v2";
 const ASSETS = [
   "./",
   "./index.html",
