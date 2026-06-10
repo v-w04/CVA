@@ -2060,8 +2060,24 @@ let _analisisFiltros = {
 };
 
 async function cargarAnalisis() {
-  const cont = document.getElementById('analisis-content') || document.getElementById('analisis-top-movidos');
-  if (cont) cont.innerHTML = '<div style="padding:40px;text-align:center;color:var(--muted);font-size:11px;letter-spacing:2px;text-transform:uppercase"><span class="spin"></span>Calculando análisis…</div>';
+  // Si ya existe el dashboard, mostramos un loading SUTIL en la esquina sin
+  // destruir lo que está visible. El usuario sigue viendo sus datos mientras
+  // se actualiza en segundo plano. Si es la primera carga, el placeholder
+  // del HTML original se queda hasta que renderAnalisisDashboard lo limpia.
+  const existingDash = document.getElementById('analisis-dashboard');
+  if (existingDash) {
+    let badge = document.getElementById('anal-loading-badge');
+    if (!badge) {
+      badge = document.createElement('div');
+      badge.id = 'anal-loading-badge';
+      badge.style.cssText = 'position:fixed;top:78px;right:24px;background:rgba(0,102,94,0.95);color:#fff;padding:10px 18px;font-size:10px;letter-spacing:2px;text-transform:uppercase;z-index:1000;display:flex;align-items:center;gap:10px;border-left:2px solid var(--green-lt);box-shadow:0 4px 14px rgba(0,0,0,0.4)';
+      badge.innerHTML = '<span class="spin" style="width:12px;height:12px"></span> Recalculando…';
+      document.body.appendChild(badge);
+    }
+  } else {
+    const cont = document.getElementById('analisis-content') || document.getElementById('analisis-top-movidos');
+    if (cont) cont.innerHTML = '<div style="padding:60px;text-align:center;color:var(--muted);font-size:11px;letter-spacing:2px;text-transform:uppercase"><span class="spin"></span>Calculando análisis…</div>';
+  }
 
   // Construir params según preset o custom
   const f = _analisisFiltros;
@@ -2074,7 +2090,10 @@ async function cargarAnalisis() {
   }
 
   const data = await api('analisis_movimiento', params);
+  const badge = document.getElementById('anal-loading-badge');
+  if (badge) badge.remove();
   if (!data.ok) {
+    const cont = document.getElementById('analisis-content');
     if (cont) alert_(cont, '✖ ' + (data.error || 'Error'), 'error');
     return;
   }
@@ -2130,127 +2149,181 @@ function renderAnalisisDashboard() {
   const fmtN = (n) => (n != null ? n : 0).toLocaleString('es-MX');
 
   dash.innerHTML = `
-    <!-- Selector de Periodo -->
-    <div style="padding:14px 0 18px 0;margin-bottom:14px;border-bottom:1px solid rgba(238,240,240,0.08)">
-      <div style="display:flex;gap:4px;flex-wrap:wrap;align-items:center">
-        <span style="font-size:10px;color:var(--muted);letter-spacing:2px;text-transform:uppercase;margin-right:14px">Comparar contra</span>
+    <!-- Selector de Periodo - Panel con fondo sutil -->
+    <div style="background:rgba(0,0,0,0.22);border:1px solid rgba(238,240,240,0.06);padding:16px 20px;margin-bottom:14px">
+      <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
+        <span style="font-size:9px;color:var(--muted);letter-spacing:2.5px;text-transform:uppercase;margin-right:14px;display:flex;align-items:center;height:32px">⏱ Periodo</span>
         ${[
           [1,   'Ayer'],
           [7,   '7 días'],
           [30,  '30 días'],
           [90,  '3 meses'],
           [365, '1 año'],
-          ['custom', 'Rango...'],
+          ['custom', 'Rango…'],
         ].map(([v,l]) => {
           const active = _analisisFiltros.periodoPreset===v;
-          return `<button onclick="anCambiarPeriodo(${typeof v==='string'?`'${v}'`:v})" style="background:transparent;border:none;border-bottom:2px solid ${active?'var(--green-lt)':'transparent'};color:${active?'var(--text)':'var(--muted)'};padding:8px 14px 7px 14px;font-size:11px;letter-spacing:1.5px;text-transform:uppercase;cursor:pointer;font-family:inherit;transition:color 0.2s ease, border-color 0.2s ease;${active?'font-weight:500':''}">${l}</button>`;
+          return `<button onclick="anCambiarPeriodo(${typeof v==='string'?`'${v}'`:v})" style="background:${active?'var(--green)':'rgba(255,255,255,0.03)'};border:1px solid ${active?'var(--green-lt)':'rgba(238,240,240,0.1)'};color:${active?'#fff':'var(--muted)'};padding:8px 18px;font-size:10px;letter-spacing:1.8px;text-transform:uppercase;cursor:pointer;font-family:inherit;transition:all 0.18s ease;${active?'font-weight:500':''}">${l}</button>`;
         }).join('')}
         ${_analisisFiltros.periodoPreset === 'custom' ? `
-          <div style="display:flex;gap:6px;align-items:center;margin-left:14px">
-            <input type="date" value="${_analisisFiltros.fechaDesde||''}" onchange="_analisisFiltros.fechaDesde=this.value;cargarAnalisis()" style="background:transparent;border:none;border-bottom:1px solid rgba(238,240,240,0.15);color:var(--text);padding:6px 4px;font-size:11px;outline:none">
+          <div style="display:flex;gap:6px;align-items:center;margin-left:14px;padding-left:14px;border-left:1px solid rgba(238,240,240,0.1)">
+            <input type="date" value="${_analisisFiltros.fechaDesde||''}" onchange="_analisisFiltros.fechaDesde=this.value;cargarAnalisis()" style="background:rgba(0,0,0,0.3);border:1px solid rgba(238,240,240,0.12);color:var(--text);padding:7px 10px;font-size:11px;outline:none">
             <span style="color:var(--muted);font-size:11px">→</span>
-            <input type="date" value="${_analisisFiltros.fechaHasta||''}" onchange="_analisisFiltros.fechaHasta=this.value;cargarAnalisis()" style="background:transparent;border:none;border-bottom:1px solid rgba(238,240,240,0.15);color:var(--text);padding:6px 4px;font-size:11px;outline:none">
+            <input type="date" value="${_analisisFiltros.fechaHasta||''}" onchange="_analisisFiltros.fechaHasta=this.value;cargarAnalisis()" style="background:rgba(0,0,0,0.3);border:1px solid rgba(238,240,240,0.12);color:var(--text);padding:7px 10px;font-size:11px;outline:none">
           </div>
         ` : ''}
       </div>
     </div>
 
-    <!-- Banner Periodo Actual -->
-    <div style="padding:16px 0 16px 18px;border-left:1px solid var(--green);margin-bottom:24px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px">
-      <div style="font-size:11px;color:var(--muted);letter-spacing:1.5px">
-        <span style="text-transform:uppercase;opacity:0.6;margin-right:8px">Periodo</span>
-        <strong style="color:var(--text);font-weight:400">${p.fecha_inicio || '—'}</strong>
-        <span style="margin:0 6px;opacity:0.4">→</span>
-        <strong style="color:var(--text);font-weight:400">${p.fecha_fin || '—'}</strong>
-        <span style="opacity:0.4;margin-left:10px">${p.dias} días · ${p.snapshots_validos} snapshots</span>
+    <!-- Banner Periodo Actual - panel con acento verde + barra visual -->
+    <div style="background:linear-gradient(90deg, rgba(0,102,94,0.12) 0%, rgba(0,102,94,0.04) 60%, transparent 100%);border-left:3px solid var(--green-lt);padding:18px 22px;margin-bottom:22px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:14px">
+      <div>
+        <div style="font-size:9px;color:var(--muted);letter-spacing:2.5px;text-transform:uppercase;margin-bottom:6px">Periodo analizado</div>
+        <div style="display:flex;align-items:center;gap:14px;font-family:Barlow Condensed,sans-serif">
+          <span style="font-size:20px;color:var(--text);font-weight:500;letter-spacing:0.5px">${p.fecha_inicio || '—'}</span>
+          <div style="width:60px;height:2px;background:linear-gradient(90deg, var(--green-lt), rgba(103,184,175,0.3));position:relative">
+            <span style="position:absolute;left:-3px;top:-3px;width:8px;height:8px;background:var(--green-lt);border-radius:50%"></span>
+            <span style="position:absolute;right:-3px;top:-3px;width:8px;height:8px;background:rgba(103,184,175,0.5);border-radius:50%"></span>
+          </div>
+          <span style="font-size:20px;color:var(--text);font-weight:500;letter-spacing:0.5px">${p.fecha_fin || '—'}</span>
+          <span style="font-size:11px;color:var(--muted);letter-spacing:1.5px;margin-left:8px;font-family:inherit">${p.dias} días · ${p.snapshots_validos} snapshots</span>
+        </div>
       </div>
-      <div style="font-size:11px;color:var(--green-lt);letter-spacing:2px;text-transform:uppercase;font-weight:400">
-        <span style="font-family:Barlow Condensed,sans-serif;font-size:16px;letter-spacing:0;font-weight:500">${fmtN(k.unidades_movidas)}</span>
-        <span style="opacity:0.6;margin:0 4px">unidades</span>
-        <span style="opacity:0.3;margin:0 8px">/</span>
-        <span style="font-family:Barlow Condensed,sans-serif;font-size:16px;letter-spacing:0;font-weight:500">${fmtMXN(k.valor_movido_mxn)}</span>
-        <span style="opacity:0.6;margin-left:4px">valor</span>
+      <div style="text-align:right">
+        <div style="font-size:9px;color:var(--muted);letter-spacing:2.5px;text-transform:uppercase;margin-bottom:6px">Total movimiento</div>
+        <div style="display:flex;align-items:baseline;gap:18px;justify-content:flex-end">
+          <div>
+            <span style="font-family:Barlow Condensed,sans-serif;font-size:22px;color:var(--green-lt);font-weight:500">${fmtN(k.unidades_movidas)}</span>
+            <span style="font-size:10px;color:var(--muted);letter-spacing:1.5px;text-transform:uppercase;margin-left:4px">unidades</span>
+          </div>
+          <span style="opacity:0.3">/</span>
+          <div>
+            <span style="font-family:Barlow Condensed,sans-serif;font-size:22px;color:var(--green-lt);font-weight:500">${fmtMXN(k.valor_movido_mxn)}</span>
+            <span style="font-size:10px;color:var(--muted);letter-spacing:1.5px;text-transform:uppercase;margin-left:4px">valor</span>
+          </div>
+        </div>
       </div>
     </div>
 
     <!-- Filtros -->
-    <!-- Filtros: estilo cockpit, sin caja, líneas finas -->
-    <div style="padding:6px 0 22px 0;margin-bottom:18px;border-bottom:1px solid rgba(238,240,240,0.06)">
-      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:14px;margin-bottom:14px">
-        <input id="anal-busqueda" placeholder="Buscar clave, descripción…" value="${_analisisFiltros.busqueda}" oninput="anFiltrar('busqueda',this.value)" style="background:transparent;border:none;border-bottom:1px solid rgba(238,240,240,0.12);color:var(--text);padding:8px 4px;font-size:12px;outline:none;font-family:inherit;letter-spacing:0.5px">
-        <select id="anal-marca" onchange="anFiltrar('marca',this.value)" style="background:transparent;border:none;border-bottom:1px solid rgba(238,240,240,0.12);color:var(--text);padding:8px 4px;font-size:12px;outline:none;font-family:inherit">
-          <option value="">Todas las marcas</option>
-          ${marcas.slice(0,80).map(m => `<option value="${m.marca}" ${_analisisFiltros.marca===m.marca?'selected':''}>${m.marca} (${m.productos})</option>`).join('')}
-        </select>
-        <select id="anal-grupo" onchange="anFiltrar('grupo',this.value)" style="background:transparent;border:none;border-bottom:1px solid rgba(238,240,240,0.12);color:var(--text);padding:8px 4px;font-size:12px;outline:none;font-family:inherit">
-          <option value="">Todos los grupos</option>
-          ${grupos.slice(0,80).map(g => `<option value="${g.grupo}" ${_analisisFiltros.grupo===g.grupo?'selected':''}>${g.grupo} (${g.productos})</option>`).join('')}
-        </select>
-        <select id="anal-porpag" onchange="anFiltrar('porPagina',parseInt(this.value))" style="background:transparent;border:none;border-bottom:1px solid rgba(238,240,240,0.12);color:var(--text);padding:8px 4px;font-size:12px;outline:none;font-family:inherit">
-          ${[10,20,50,100,250,500,1000,9999].map(n => `<option value="${n}" ${_analisisFiltros.porPagina===n?'selected':''}>${n>=9999?'Todos':n+' / pág'}</option>`).join('')}
-        </select>
+    <!-- Filtros del Dashboard - Panel cockpit -->
+    <div style="background:rgba(0,0,0,0.22);border:1px solid rgba(238,240,240,0.06);padding:18px 20px;margin-bottom:14px">
+      <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:14px">
+        <span style="font-size:9px;color:var(--muted);letter-spacing:2.5px;text-transform:uppercase">⛯ Filtros del dashboard</span>
+        <span style="font-size:9px;color:rgba(238,240,240,0.3);letter-spacing:1px;text-transform:uppercase">Acumulables</span>
       </div>
-      <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">
-        <input type="number" placeholder="Precio mín" value="${_analisisFiltros.precioMin||''}" oninput="anFiltrar('precioMin',this.value?parseFloat(this.value):null)" style="background:transparent;border:none;border-bottom:1px solid rgba(238,240,240,0.12);color:var(--text);padding:6px 4px;font-size:11px;width:100px;outline:none">
-        <input type="number" placeholder="Precio máx" value="${_analisisFiltros.precioMax||''}" oninput="anFiltrar('precioMax',this.value?parseFloat(this.value):null)" style="background:transparent;border:none;border-bottom:1px solid rgba(238,240,240,0.12);color:var(--text);padding:6px 4px;font-size:11px;width:100px;outline:none">
-        <input type="number" placeholder="Movido ≥" value="${_analisisFiltros.minMovido||''}" oninput="anFiltrar('minMovido',this.value?parseFloat(this.value):null)" style="background:transparent;border:none;border-bottom:1px solid rgba(238,240,240,0.12);color:var(--text);padding:6px 4px;font-size:11px;width:90px;outline:none" title="Mínimo de unidades movidas">
-        <input type="number" placeholder="Stock ≥" value="${_analisisFiltros.minStock||''}" oninput="anFiltrar('minStock',this.value?parseFloat(this.value):null)" style="background:transparent;border:none;border-bottom:1px solid rgba(238,240,240,0.12);color:var(--text);padding:6px 4px;font-size:11px;width:90px;outline:none" title="Stock actual mínimo">
-        <label style="font-size:11px;color:var(--muted);display:flex;align-items:center;gap:6px;cursor:pointer;letter-spacing:0.5px">
-          <input type="checkbox" ${_analisisFiltros.soloMovimiento?'checked':''} onchange="anFiltrar('soloMovimiento',this.checked)"> Solo con movimiento
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:14px;margin-bottom:14px">
+        <div>
+          <label style="display:block;font-size:9px;color:var(--muted);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:5px">Búsqueda</label>
+          <input id="anal-busqueda" placeholder="Clave, descripción…" value="${_analisisFiltros.busqueda}" oninput="anFiltrar('busqueda',this.value)" style="width:100%;box-sizing:border-box;background:rgba(0,0,0,0.4);border:1px solid rgba(238,240,240,0.1);color:var(--text);padding:9px 12px;font-size:12px;outline:none;font-family:inherit">
+        </div>
+        <div>
+          <label style="display:block;font-size:9px;color:var(--muted);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:5px">Marca</label>
+          <select id="anal-marca" onchange="anFiltrar('marca',this.value)" style="width:100%;box-sizing:border-box;background:rgba(0,0,0,0.4);border:1px solid rgba(238,240,240,0.1);color:var(--text);padding:9px 12px;font-size:12px;outline:none;font-family:inherit">
+            <option value="">Todas las marcas</option>
+            ${marcas.slice(0,80).map(m => `<option value="${m.marca}" ${_analisisFiltros.marca===m.marca?'selected':''}>${m.marca} (${m.productos})</option>`).join('')}
+          </select>
+        </div>
+        <div>
+          <label style="display:block;font-size:9px;color:var(--muted);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:5px">Grupo</label>
+          <select id="anal-grupo" onchange="anFiltrar('grupo',this.value)" style="width:100%;box-sizing:border-box;background:rgba(0,0,0,0.4);border:1px solid rgba(238,240,240,0.1);color:var(--text);padding:9px 12px;font-size:12px;outline:none;font-family:inherit">
+            <option value="">Todos los grupos</option>
+            ${grupos.slice(0,80).map(g => `<option value="${g.grupo}" ${_analisisFiltros.grupo===g.grupo?'selected':''}>${g.grupo} (${g.productos})</option>`).join('')}
+          </select>
+        </div>
+        <div>
+          <label style="display:block;font-size:9px;color:var(--muted);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:5px">Por página</label>
+          <select id="anal-porpag" onchange="anFiltrar('porPagina',parseInt(this.value))" style="width:100%;box-sizing:border-box;background:rgba(0,0,0,0.4);border:1px solid rgba(238,240,240,0.1);color:var(--text);padding:9px 12px;font-size:12px;outline:none;font-family:inherit">
+            ${[10,20,50,100,250,500,1000,9999].map(n => `<option value="${n}" ${_analisisFiltros.porPagina===n?'selected':''}>${n>=9999?'Todos':n+' / pág'}</option>`).join('')}
+          </select>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(4,1fr) auto;gap:14px;align-items:end">
+        <div>
+          <label style="display:block;font-size:9px;color:var(--muted);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:5px">Precio mín</label>
+          <input type="number" placeholder="—" value="${_analisisFiltros.precioMin||''}" oninput="anFiltrar('precioMin',this.value?parseFloat(this.value):null)" style="width:100%;box-sizing:border-box;background:rgba(0,0,0,0.4);border:1px solid rgba(238,240,240,0.1);color:var(--text);padding:9px 12px;font-size:12px;outline:none">
+        </div>
+        <div>
+          <label style="display:block;font-size:9px;color:var(--muted);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:5px">Precio máx</label>
+          <input type="number" placeholder="—" value="${_analisisFiltros.precioMax||''}" oninput="anFiltrar('precioMax',this.value?parseFloat(this.value):null)" style="width:100%;box-sizing:border-box;background:rgba(0,0,0,0.4);border:1px solid rgba(238,240,240,0.1);color:var(--text);padding:9px 12px;font-size:12px;outline:none">
+        </div>
+        <div>
+          <label style="display:block;font-size:9px;color:var(--muted);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:5px">Movido ≥</label>
+          <input type="number" placeholder="—" value="${_analisisFiltros.minMovido||''}" oninput="anFiltrar('minMovido',this.value?parseFloat(this.value):null)" style="width:100%;box-sizing:border-box;background:rgba(0,0,0,0.4);border:1px solid rgba(238,240,240,0.1);color:var(--text);padding:9px 12px;font-size:12px;outline:none" title="Unidades movidas mínimas">
+        </div>
+        <div>
+          <label style="display:block;font-size:9px;color:var(--muted);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:5px">Stock ≥</label>
+          <input type="number" placeholder="—" value="${_analisisFiltros.minStock||''}" oninput="anFiltrar('minStock',this.value?parseFloat(this.value):null)" style="width:100%;box-sizing:border-box;background:rgba(0,0,0,0.4);border:1px solid rgba(238,240,240,0.1);color:var(--text);padding:9px 12px;font-size:12px;outline:none" title="Stock actual mínimo">
+        </div>
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:11px;color:var(--muted);letter-spacing:0.5px;padding-bottom:9px">
+          <input type="checkbox" ${_analisisFiltros.soloMovimiento?'checked':''} onchange="anFiltrar('soloMovimiento',this.checked)" style="accent-color:var(--green-lt);width:14px;height:14px;cursor:pointer"> Solo con movimiento
         </label>
-        <div style="flex:1"></div>
-        <!-- Modo de visualización — underline minimal -->
-        <div style="display:inline-flex;gap:0;align-items:center">
+      </div>
+    </div>
+
+    <!-- Barra de modos y acciones - panel separado -->
+    <div style="background:rgba(0,0,0,0.22);border:1px solid rgba(238,240,240,0.06);padding:14px 20px;margin-bottom:14px;display:flex;gap:16px;align-items:center;flex-wrap:wrap">
+      <div>
+        <span style="font-size:9px;color:var(--muted);letter-spacing:2.5px;text-transform:uppercase;margin-right:14px">Vista</span>
+        <div style="display:inline-flex;gap:0;align-items:center;border:1px solid rgba(238,240,240,0.1)">
           ${[
             ['ventas','Ventas'],
             ['datos','Datos'],
             ['precios','Precios'],
-          ].map(([modo, label]) => {
+          ].map(([modo, label], i) => {
             const active = _modoVistaTabla===modo;
-            return `<button onclick="anSetModoVista('${modo}')" style="background:transparent;border:none;border-bottom:1.5px solid ${active?'var(--green-lt)':'transparent'};color:${active?'var(--text)':'var(--muted)'};padding:6px 14px;font-size:10px;letter-spacing:2px;text-transform:uppercase;cursor:pointer;font-family:inherit;transition:color 0.2s, border-color 0.2s;${active?'font-weight:500':''}">${label}</button>`;
+            return `<button onclick="anSetModoVista('${modo}')" style="background:${active?'var(--green)':'transparent'};border:none;${i<2?'border-right:1px solid rgba(238,240,240,0.1);':''}color:${active?'#fff':'var(--muted)'};padding:8px 18px;font-size:10px;letter-spacing:2px;text-transform:uppercase;cursor:pointer;font-family:inherit;transition:all 0.18s ease;${active?'font-weight:500':''}">${label}</button>`;
           }).join('')}
         </div>
-        ${_modoVistaTabla === 'precios' ? `
-          <div style="display:flex;align-items:center;gap:8px;margin-left:10px;padding-left:14px;border-left:1px solid rgba(238,240,240,0.1)">
-            <span style="font-size:9px;color:var(--muted);letter-spacing:2px;text-transform:uppercase">% Gan global</span>
-            <input type="number" min="5" step="0.5" value="${_gananciaGlobal}" onchange="anCambiarGananciaGlobal(this.value)" style="background:transparent;border:none;border-bottom:1px solid var(--green-lt);color:var(--green-lt);padding:4px 4px;font-size:14px;width:48px;outline:none;font-weight:500;text-align:right;font-family:Barlow Condensed,sans-serif" title="Mínimo 5%. Aplica a filas sin % individual.">
-          </div>
-        ` : ''}
-        <button class="btn-cockpit" onclick="anExportXLSX()" title="Excel completo con todas las columnas">Excel</button>
-        <button class="btn-cockpit" onclick="anExportCVAUPCs()" title="Archivo limpio para CVA pidiendo UPCs">CVA UPCs</button>
-        <button class="btn-cockpit" onclick="anExportPDF()">PDF</button>
-        <button class="btn-cockpit btn-cockpit-muted" onclick="anLimpiarFiltros()">Limpiar</button>
       </div>
+      ${_modoVistaTabla === 'precios' ? `
+        <div style="display:flex;align-items:center;gap:10px;padding-left:18px;border-left:1px solid rgba(238,240,240,0.1)">
+          <span style="font-size:9px;color:var(--muted);letter-spacing:2px;text-transform:uppercase">% Gan global</span>
+          <input type="number" min="5" step="0.5" value="${_gananciaGlobal}" onchange="anCambiarGananciaGlobal(this.value)" style="background:rgba(0,102,94,0.2);border:1px solid var(--green-lt);color:var(--green-lt);padding:6px 8px;font-size:14px;width:56px;outline:none;font-weight:500;text-align:right;font-family:Barlow Condensed,sans-serif" title="Mínimo 5%. Aplica a filas sin % individual.">
+        </div>
+      ` : ''}
+      <div style="flex:1"></div>
+      <span style="font-size:9px;color:var(--muted);letter-spacing:2.5px;text-transform:uppercase">Exportar</span>
+      <button onclick="anExportXLSX()" style="background:rgba(255,255,255,0.04);border:1px solid rgba(238,240,240,0.15);color:var(--text);padding:8px 16px;font-size:10px;letter-spacing:1.8px;text-transform:uppercase;cursor:pointer;font-family:inherit;transition:all 0.18s ease" onmouseover="this.style.borderColor='var(--green-lt)';this.style.color='var(--green-lt)'" onmouseout="this.style.borderColor='rgba(238,240,240,0.15)';this.style.color='var(--text)'" title="Excel completo con todas las columnas">📊 Excel</button>
+      <button onclick="anExportCVAUPCs()" style="background:rgba(255,255,255,0.04);border:1px solid rgba(238,240,240,0.15);color:var(--text);padding:8px 16px;font-size:10px;letter-spacing:1.8px;text-transform:uppercase;cursor:pointer;font-family:inherit;transition:all 0.18s ease" onmouseover="this.style.borderColor='var(--green-lt)';this.style.color='var(--green-lt)'" onmouseout="this.style.borderColor='rgba(238,240,240,0.15)';this.style.color='var(--text)'" title="Archivo limpio para CVA pidiendo UPCs">📋 CVA UPCs</button>
+      <button onclick="anExportPDF()" style="background:rgba(255,255,255,0.04);border:1px solid rgba(238,240,240,0.15);color:var(--text);padding:8px 16px;font-size:10px;letter-spacing:1.8px;text-transform:uppercase;cursor:pointer;font-family:inherit;transition:all 0.18s ease" onmouseover="this.style.borderColor='var(--green-lt)';this.style.color='var(--green-lt)'" onmouseout="this.style.borderColor='rgba(238,240,240,0.15)';this.style.color='var(--text)'">📄 PDF</button>
+      <button onclick="anLimpiarFiltros()" style="background:transparent;border:1px solid rgba(238,240,240,0.1);color:var(--muted);padding:8px 16px;font-size:10px;letter-spacing:1.8px;text-transform:uppercase;cursor:pointer;font-family:inherit;transition:all 0.18s ease" onmouseover="this.style.borderColor='rgba(224,85,85,0.5)';this.style.color='#e05555'" onmouseout="this.style.borderColor='rgba(238,240,240,0.1)';this.style.color='var(--muted)'">✕ Limpiar</button>
     </div>
 
-    <!-- Reporte Top 20 — pre-armado descargable -->
-    <div style="padding:18px 0;margin-bottom:14px;border-top:1px solid rgba(238,240,240,0.04);border-bottom:1px solid rgba(238,240,240,0.04)">
-      <div style="display:flex;align-items:center;gap:18px;flex-wrap:wrap">
+    <!-- Reporte Top 20 — panel destacado con acento verde -->
+    <div style="background:linear-gradient(135deg, rgba(0,102,94,0.08) 0%, rgba(0,0,0,0.22) 100%);border:1px solid rgba(103,184,175,0.18);padding:18px 22px;margin-bottom:16px">
+      <div style="display:flex;align-items:center;gap:20px;flex-wrap:wrap">
         <div style="display:flex;flex-direction:column;line-height:1.2">
-          <span style="font-size:9px;color:var(--muted);letter-spacing:2.5px;text-transform:uppercase">Reporte</span>
-          <span style="font-family:Barlow Condensed,sans-serif;font-size:22px;color:var(--text);font-weight:500;letter-spacing:1px">TOP 20</span>
+          <span style="font-size:9px;color:var(--green-lt);letter-spacing:2.5px;text-transform:uppercase;font-weight:500">⭐ Reporte</span>
+          <span style="font-family:Barlow Condensed,sans-serif;font-size:24px;color:var(--text);font-weight:500;letter-spacing:1px">TOP 20</span>
         </div>
-        <div style="width:1px;height:32px;background:rgba(238,240,240,0.1)"></div>
-        <div style="display:flex;gap:10px;align-items:center">
-          <label style="font-size:9px;color:var(--muted);letter-spacing:1.5px;text-transform:uppercase">Stock ≥</label>
-          <input type="number" placeholder="—" value="${_top20Filtros.stockMin != null ? _top20Filtros.stockMin : ''}" oninput="anTop20SetFiltro('stockMin', this.value)" style="background:transparent;border:none;border-bottom:1px solid rgba(238,240,240,0.12);color:var(--text);padding:5px 4px;font-size:13px;width:70px;outline:none;font-family:Barlow Condensed,sans-serif;text-align:right">
-          <label style="font-size:9px;color:var(--muted);letter-spacing:1.5px;text-transform:uppercase;margin-left:8px">Movido ≥</label>
-          <input type="number" placeholder="—" value="${_top20Filtros.movMin != null ? _top20Filtros.movMin : ''}" oninput="anTop20SetFiltro('movMin', this.value)" style="background:transparent;border:none;border-bottom:1px solid rgba(238,240,240,0.12);color:var(--text);padding:5px 4px;font-size:13px;width:70px;outline:none;font-family:Barlow Condensed,sans-serif;text-align:right">
+        <div style="width:1px;height:42px;background:rgba(103,184,175,0.2)"></div>
+        <div style="display:flex;gap:12px;align-items:end">
+          <div>
+            <label style="display:block;font-size:9px;color:var(--muted);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:5px">Stock ≥</label>
+            <input type="number" placeholder="—" value="${_top20Filtros.stockMin != null ? _top20Filtros.stockMin : ''}" oninput="anTop20SetFiltro('stockMin', this.value)" style="background:rgba(0,0,0,0.4);border:1px solid rgba(238,240,240,0.1);color:var(--text);padding:8px 10px;font-size:13px;width:90px;outline:none;font-family:Barlow Condensed,sans-serif;text-align:right">
+          </div>
+          <div>
+            <label style="display:block;font-size:9px;color:var(--muted);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:5px">Movido ≥</label>
+            <input type="number" placeholder="—" value="${_top20Filtros.movMin != null ? _top20Filtros.movMin : ''}" oninput="anTop20SetFiltro('movMin', this.value)" style="background:rgba(0,0,0,0.4);border:1px solid rgba(238,240,240,0.1);color:var(--text);padding:8px 10px;font-size:13px;width:90px;outline:none;font-family:Barlow Condensed,sans-serif;text-align:right">
+          </div>
         </div>
-        <div style="width:1px;height:32px;background:rgba(238,240,240,0.1)"></div>
-        <div style="display:inline-flex;gap:0;align-items:center">
-          ${[
-            ['global','Global'],
-            ['marca','Por marca'],
-            ['grupo','Por grupo'],
-          ].map(([modo, label]) => {
-            const active = _top20Filtros.modo === modo;
-            return `<button onclick="anTop20SetModo('${modo}')" style="background:transparent;border:none;border-bottom:1.5px solid ${active?'var(--green-lt)':'transparent'};color:${active?'var(--text)':'var(--muted)'};padding:6px 14px;font-size:10px;letter-spacing:2px;text-transform:uppercase;cursor:pointer;font-family:inherit;transition:color 0.2s, border-color 0.2s;${active?'font-weight:500':''}">${label}</button>`;
-          }).join('')}
+        <div style="width:1px;height:42px;background:rgba(103,184,175,0.2)"></div>
+        <div>
+          <label style="display:block;font-size:9px;color:var(--muted);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:5px">Agrupar por</label>
+          <div style="display:inline-flex;gap:0;align-items:center;border:1px solid rgba(238,240,240,0.1)">
+            ${[
+              ['global','Global'],
+              ['marca','Por marca'],
+              ['grupo','Por grupo'],
+            ].map(([modo, label], i) => {
+              const active = _top20Filtros.modo === modo;
+              return `<button onclick="anTop20SetModo('${modo}')" style="background:${active?'var(--green)':'transparent'};border:none;${i<2?'border-right:1px solid rgba(238,240,240,0.1);':''}color:${active?'#fff':'var(--muted)'};padding:8px 16px;font-size:10px;letter-spacing:2px;text-transform:uppercase;cursor:pointer;font-family:inherit;transition:all 0.18s ease;${active?'font-weight:500':''}">${label}</button>`;
+            }).join('')}
+          </div>
         </div>
         <div style="flex:1"></div>
-        <button class="btn-cockpit" onclick="anTop20Excel()" title="Descargar reporte como Excel">Excel</button>
-        <button class="btn-cockpit" onclick="anTop20PDF()" title="Imprimir / guardar como PDF">PDF</button>
+        <button onclick="anTop20Excel()" style="background:rgba(0,102,94,0.2);border:1px solid var(--green-lt);color:var(--green-lt);padding:10px 20px;font-size:10px;letter-spacing:2px;text-transform:uppercase;cursor:pointer;font-family:inherit;font-weight:500;transition:all 0.18s ease" onmouseover="this.style.background='var(--green)';this.style.color='#fff'" onmouseout="this.style.background='rgba(0,102,94,0.2)';this.style.color='var(--green-lt)'" title="Descargar como Excel">📊 Excel</button>
+        <button onclick="anTop20PDF()" style="background:rgba(0,102,94,0.2);border:1px solid var(--green-lt);color:var(--green-lt);padding:10px 20px;font-size:10px;letter-spacing:2px;text-transform:uppercase;cursor:pointer;font-family:inherit;font-weight:500;transition:all 0.18s ease" onmouseover="this.style.background='var(--green)';this.style.color='#fff'" onmouseout="this.style.background='rgba(0,102,94,0.2)';this.style.color='var(--green-lt)'" title="Imprimir / guardar como PDF">📄 PDF</button>
       </div>
     </div>
 
