@@ -2291,7 +2291,7 @@ function renderAnalisisDashboard() {
 
     <!-- Reporte Top 20 — panel destacado con acento verde -->
     <div style="background:linear-gradient(135deg, rgba(0,102,94,0.08) 0%, rgba(0,0,0,0.22) 100%);border:1px solid rgba(103,184,175,0.18);padding:18px 22px;margin-bottom:16px">
-      <div style="display:flex;align-items:center;gap:20px;flex-wrap:wrap">
+      <div style="display:flex;align-items:center;gap:18px;flex-wrap:wrap;margin-bottom:12px">
         <div style="display:flex;flex-direction:column;line-height:1.2">
           <span style="font-size:9px;color:var(--green-lt);letter-spacing:2.5px;text-transform:uppercase;font-weight:500">⭐ Reporte</span>
           <span style="font-family:Barlow Condensed,sans-serif;font-size:24px;color:var(--text);font-weight:500;letter-spacing:1px">TOP 20</span>
@@ -2305,6 +2305,10 @@ function renderAnalisisDashboard() {
           <div>
             <label style="display:block;font-size:9px;color:var(--muted);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:5px">Movido ≥</label>
             <input type="number" placeholder="—" value="${_top20Filtros.movMin != null ? _top20Filtros.movMin : ''}" oninput="anTop20SetFiltro('movMin', this.value)" style="background:rgba(0,0,0,0.4);border:1px solid rgba(238,240,240,0.1);color:var(--text);padding:8px 10px;font-size:13px;width:90px;outline:none;font-family:Barlow Condensed,sans-serif;text-align:right">
+          </div>
+          <div>
+            <label style="display:block;font-size:9px;color:var(--muted);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:5px">% Gan reporte</label>
+            <input type="number" min="0" step="0.5" placeholder="${_gananciaGlobal} (global)" value="${_top20Filtros.ganancia != null ? _top20Filtros.ganancia : ''}" oninput="anTop20SetFiltro('ganancia', this.value)" style="background:rgba(0,102,94,0.18);border:1px solid var(--green-lt);color:var(--green-lt);padding:8px 10px;font-size:13px;width:120px;outline:none;font-family:Barlow Condensed,sans-serif;text-align:right;font-weight:500" title="% Ganancia para el reporte Top 20. Si lo dejas vacío usa el % Gan Global del dashboard.">
           </div>
         </div>
         <div style="width:1px;height:42px;background:rgba(103,184,175,0.2)"></div>
@@ -2324,6 +2328,18 @@ function renderAnalisisDashboard() {
         <div style="flex:1"></div>
         <button onclick="anTop20Excel()" style="background:rgba(0,102,94,0.2);border:1px solid var(--green-lt);color:var(--green-lt);padding:10px 20px;font-size:10px;letter-spacing:2px;text-transform:uppercase;cursor:pointer;font-family:inherit;font-weight:500;transition:all 0.18s ease" onmouseover="this.style.background='var(--green)';this.style.color='#fff'" onmouseout="this.style.background='rgba(0,102,94,0.2)';this.style.color='var(--green-lt)'" title="Descargar como Excel">📊 Excel</button>
         <button onclick="anTop20PDF()" style="background:rgba(0,102,94,0.2);border:1px solid var(--green-lt);color:var(--green-lt);padding:10px 20px;font-size:10px;letter-spacing:2px;text-transform:uppercase;cursor:pointer;font-family:inherit;font-weight:500;transition:all 0.18s ease" onmouseover="this.style.background='var(--green)';this.style.color='#fff'" onmouseout="this.style.background='rgba(0,102,94,0.2)';this.style.color='var(--green-lt)'" title="Imprimir / guardar como PDF">📄 PDF</button>
+      </div>
+      <!-- Contador en vivo del reporte actual -->
+      <div style="font-size:10px;color:var(--muted);letter-spacing:2px;text-transform:uppercase;padding-top:8px;border-top:1px dashed rgba(103,184,175,0.15)">
+        <span style="margin-right:8px">📊 Reporte actual generará</span>
+        <span id="top20-contador">${(() => {
+          const secciones = _calcularReporteTop20_();
+          const total = secciones.reduce((s, sec) => s + sec.productos.length, 0);
+          if (_top20Filtros.modo === 'global') {
+            return `<span style="color:var(--green-lt);font-family:Barlow Condensed,sans-serif;font-size:18px;font-weight:500">${total}</span> <span style="color:var(--muted)">productos</span>`;
+          }
+          return `<span style="color:var(--green-lt);font-family:Barlow Condensed,sans-serif;font-size:18px;font-weight:500">${total}</span> <span style="color:var(--muted)">productos · </span><span style="color:var(--green-lt);font-family:Barlow Condensed,sans-serif;font-size:18px;font-weight:500">${secciones.length}</span> <span style="color:var(--muted)">${_top20Filtros.modo === 'marca' ? 'marcas' : 'grupos'}</span>`;
+        })()}</span>
       </div>
     </div>
 
@@ -3675,7 +3691,7 @@ async function anExportCVAUPCs() {
 //  productos salen con los que tengan, no se filtran por cardinalidad).
 // ════════════════════════════════════════════════════════════════
 
-let _top20Filtros = { stockMin: null, movMin: null, modo: 'global' };
+let _top20Filtros = { stockMin: null, movMin: null, modo: 'global', ganancia: null };
 
 function anTop20SetModo(modo) {
   _top20Filtros.modo = modo;
@@ -3683,6 +3699,28 @@ function anTop20SetModo(modo) {
 }
 function anTop20SetFiltro(campo, valor) {
   _top20Filtros[campo] = (valor === '' || valor == null) ? null : parseFloat(valor);
+  // Re-render del dashboard si afecta el contador visible
+  if (campo === 'stockMin' || campo === 'movMin') {
+    // No re-render porque solo afecta el archivo exportado, no la PWA.
+    // El contador del dashboard se actualizará en el siguiente render natural.
+    // Para mostrar el conteo en vivo sin re-renderizar todo, actualizamos solo
+    // el span del contador.
+    _top20ActualizarContador_();
+  }
+}
+
+// Actualiza solo el span del contador sin re-render completo del dashboard
+function _top20ActualizarContador_() {
+  const span = document.getElementById('top20-contador');
+  if (!span) return;
+  const secciones = _calcularReporteTop20_();
+  const total = secciones.reduce((s, sec) => s + sec.productos.length, 0);
+  const modo = _top20Filtros.modo;
+  if (modo === 'global') {
+    span.innerHTML = `<span style="color:var(--green-lt);font-family:Barlow Condensed,sans-serif;font-size:18px;font-weight:500">${total}</span> <span style="color:var(--muted)">productos</span>`;
+  } else {
+    span.innerHTML = `<span style="color:var(--green-lt);font-family:Barlow Condensed,sans-serif;font-size:18px;font-weight:500">${total}</span> <span style="color:var(--muted)">productos · </span><span style="color:var(--green-lt);font-family:Barlow Condensed,sans-serif;font-size:18px;font-weight:500">${secciones.length}</span> <span style="color:var(--muted)">${modo === 'marca' ? 'marcas' : 'grupos'}</span>`;
+  }
 }
 
 // Calcula las secciones del reporte. Devuelve un array de
@@ -3775,29 +3813,33 @@ async function anTop20Excel() {
                 : _top20Filtros.modo === 'marca'  ? 'POR MARCA'
                 : 'POR GRUPO';
 
-  // Encabezado profesional + agregando una línea con el resumen rápido
+  // % de ganancia a usar: el del Top 20 si está, sino el global
+  const gananciaUsar = _top20Filtros.ganancia != null ? _top20Filtros.ganancia : _gananciaGlobal;
+
+  // Encabezado profesional
   const aoa = [
     [`REPORTE TOP 20 · ${modoTxt}`],
     [`Electronics México · LEONGEM COMERCIALIZADORA · Cuenta CVA 2395390`],
     [`Periodo:  ${periodo.fecha_inicio || '—'}  →  ${periodo.fecha_fin || '—'}   (${periodo.dias || 0} días)`],
     [`Filtros:  ${_top20FiltrosTxt_()}`],
-    [`Total productos en este reporte:  ${productosFlat.length}`],
+    [`% Ganancia base: ${gananciaUsar}%  (editable por fila en columna G)`],
+    [`Total productos en este reporte:  ${productosFlat.length}${secciones.length > 1 ? `  ·  ${secciones.length} ${_top20Filtros.modo === 'marca' ? 'marcas' : 'grupos'} analizadas` : ''}`],
     [`Generado: ${fechaGen}`],
     [],
   ];
 
-  // Encabezado de la tabla — orden pedido por el usuario:
-  //   Clave · Descripción · Marca · Grupo · Stock Hoy · Precio CVA
-  //   Unidades Solicitadas (default 1) · Total (fórmula) · UPC (al final)
+  // Encabezado de tabla — 11 columnas:
+  //   A=Clave  B=Descripción  C=Marca  D=Grupo  E=Stock  F=Precio CVA
+  //   G=% Gan  H=Precio MELI (fórmula)  I=Unidades  J=Total (fórmula)  K=UPC
   const headersTabla = [
     'Clave CVA', 'Descripción', 'Marca', 'Grupo',
-    'Stock Hoy', 'Precio CVA', 'Unidades Solicitadas', 'Total', 'UPC'
+    'Stock Hoy', 'Precio CVA', '% Gan', 'Precio MELI Clás.',
+    'Unidades Solicitadas', 'Total Pedido CVA', 'UPC'
   ];
-  const headerRowIdx = aoa.length; // 0-indexed
+  const headerRowIdx = aoa.length;
   aoa.push(headersTabla);
 
-  // Filas de productos — primera fila de datos está en aoa.length (después del push)
-  // En Excel (1-indexed), eso es aoa.length + 1
+  // Filas de productos
   productosFlat.forEach(p => {
     const md = _getMD_(p);
     const upc = (md && md.upc) ? String(md.upc) : '';
@@ -3808,26 +3850,30 @@ async function anTop20Excel() {
       p.grupo || '',
       p.total || 0,
       p.precio || 0,
-      1,           // Unidades Solicitadas — default editable
-      null,        // Total — se llena con fórmula abajo
+      gananciaUsar,   // % Gan editable
+      null,           // Precio MELI — fórmula viva
+      1,              // Unidades Solicitadas
+      null,           // Total — fórmula viva
       upc,
     ]);
   });
 
   const ws = XLSX.utils.aoa_to_sheet(aoa);
 
-  // ── Estilos del encabezado profesional (filas 0-5) ──
+  const moneyFmt = '"$"#,##0.00';
+  const lastHeaderCol = 10; // 0-indexed: K = 10 (11 columnas)
+
+  // ── Estilos del encabezado profesional ──
   ws['!merges'] = ws['!merges'] || [];
-  for (let r = 0; r <= 5; r++) {
+  for (let r = 0; r < headerRowIdx; r++) {
     const ref = XLSX.utils.encode_cell({ r, c: 0 });
     if (ws[ref]) ws[ref].s = {
       font: { sz: r === 0 ? 14 : 11, bold: r === 0, color: { rgb: r === 0 ? '00665E' : '333333' } },
     };
-    // Merge filas del encabezado para que abarquen toda la tabla (9 cols)
-    ws['!merges'].push({ s: { r, c: 0 }, e: { r, c: 8 } });
+    ws['!merges'].push({ s: { r, c: 0 }, e: { r, c: lastHeaderCol } });
   }
 
-  // ── Header de tabla (fondo verde, blanco) ──
+  // ── Header de tabla ──
   for (let c = 0; c < headersTabla.length; c++) {
     const ref = XLSX.utils.encode_cell({ r: headerRowIdx, c });
     if (ws[ref]) ws[ref].s = {
@@ -3837,54 +3883,89 @@ async function anTop20Excel() {
     };
   }
 
-  // ── Insertar fórmulas vivas para "Total" y aplicar formato a columnas ──
-  // Total = Precio CVA × Unidades Solicitadas (columnas F y G, índice 5 y 6)
-  // En Excel (1-indexed):  F={excelRow}  G={excelRow}  → Total en H={excelRow}
-  const moneyFmt = '"$"#,##0.00';
-
+  // ── Calcular comisión y envío por producto, insertar fórmulas y formato ──
   productosFlat.forEach((p, i) => {
-    const r = headerRowIdx + 1 + i;          // 0-indexed row del producto
-    const excelRow = r + 1;                  // 1-indexed para fórmulas
-    // Precio CVA (col F = index 5) → formato moneda
+    const r = headerRowIdx + 1 + i;          // 0-indexed row
+    const excelRow = r + 1;                   // 1-indexed para fórmulas
+
+    // Para la fórmula MELI necesitamos comisión (decimal) y envío ($) por producto.
+    // Los calculamos basándonos en categoría MELI y peso del producto (heurística + metadata).
+    const e = _enriquecerProducto_(p);
+    const comision = _comisionMELI_(e._cat_meli);   // ej 0.125
+    const envio    = _envioMELIporPeso_(e._peso);   // ej 90
+
+    // Precio CVA (col F = index 5) — moneda
     const precioRef = XLSX.utils.encode_cell({ r, c: 5 });
     if (ws[precioRef]) {
       ws[precioRef].z = moneyFmt;
       ws[precioRef].s = { numFmt: moneyFmt, alignment: { horizontal: 'right' } };
     }
-    // Unidades Solicitadas (col G = index 6) — centro
-    const uniRef = XLSX.utils.encode_cell({ r, c: 6 });
+
+    // % Gan (col G = index 6) — editable con fondo verde tenue
+    const ganRef = XLSX.utils.encode_cell({ r, c: 6 });
+    if (ws[ganRef]) {
+      ws[ganRef].s = {
+        alignment: { horizontal: 'center' },
+        font: { bold: true, color: { rgb: '00665E' } },
+        fill: { fgColor: { rgb: 'F0F7F6' } },
+      };
+    }
+
+    // Precio MELI (col H = index 7) — FÓRMULA viva
+    // costos = SI Precio<=298: Precio*(1+comision)+33
+    //          SI NO:           Precio*(1+comision)+envío
+    // Precio MELI = costos * (1 + %Gan/100)
+    const meliRef = XLSX.utils.encode_cell({ r, c: 7 });
+    ws[meliRef] = {
+      t: 'n',
+      f: `IF(F${excelRow}<=298, F${excelRow}*(1+${comision})+33, F${excelRow}*(1+${comision})+${envio}) * (1+G${excelRow}/100)`,
+      z: moneyFmt,
+      s: {
+        numFmt: moneyFmt,
+        alignment: { horizontal: 'right' },
+        font: { bold: true, color: { rgb: '00665E' } },
+        fill: { fgColor: { rgb: 'E8F5F4' } },
+      },
+    };
+
+    // Unidades Solicitadas (col I = index 8) — editable
+    const uniRef = XLSX.utils.encode_cell({ r, c: 8 });
     if (ws[uniRef]) {
       ws[uniRef].s = {
         alignment: { horizontal: 'center' },
         font: { bold: true, color: { rgb: '00665E' } },
-        fill: { fgColor: { rgb: 'F0F7F6' } },  // fondo verde tenue para indicar que es editable
+        fill: { fgColor: { rgb: 'F0F7F6' } },
       };
     }
-    // Total (col H = index 7) — FÓRMULA en vivo
-    const totalRef = XLSX.utils.encode_cell({ r, c: 7 });
+
+    // Total Pedido CVA (col J = index 9) — FÓRMULA Precio CVA × Unidades
+    const totalRef = XLSX.utils.encode_cell({ r, c: 9 });
     ws[totalRef] = {
       t: 'n',
-      f: `F${excelRow}*G${excelRow}`,
+      f: `F${excelRow}*I${excelRow}`,
       z: moneyFmt,
       s: { numFmt: moneyFmt, alignment: { horizontal: 'right' }, font: { bold: true } },
     };
-    // Stock Hoy — formato número simple
+
+    // Stock Hoy
     const stockRef = XLSX.utils.encode_cell({ r, c: 4 });
     if (ws[stockRef]) {
       ws[stockRef].z = '#,##0';
       ws[stockRef].s = { numFmt: '#,##0', alignment: { horizontal: 'right' } };
     }
-    // UPC (col I = index 8) — formato texto monospace
-    const upcRef = XLSX.utils.encode_cell({ r, c: 8 });
+
+    // UPC (col K = index 10)
+    const upcRef = XLSX.utils.encode_cell({ r, c: 10 });
     if (ws[upcRef]) {
       ws[upcRef].s = {
         font: { name: 'Courier New', sz: 10 },
         alignment: { horizontal: 'center' },
       };
     }
-    // Zebra striping para mejor lectura
+
+    // Zebra striping
     if (i % 2 === 1) {
-      ['A','B','C','D','E','F','G','H','I'].forEach(col => {
+      ['A','B','C','D','E','F','G','H','I','J','K'].forEach(col => {
         const ref = col + excelRow;
         if (!ws[ref]) return;
         const existing = ws[ref].s || {};
@@ -3896,18 +3977,18 @@ async function anTop20Excel() {
     }
   });
 
-  // ── Total general al final (fila después de todos los productos) ──
+  // ── Fila de totales generales al final ──
   const totalRowIdx = headerRowIdx + 1 + productosFlat.length;
-  const firstDataExcelRow = headerRowIdx + 2; // 1-indexed primera fila de datos
-  const lastDataExcelRow  = totalRowIdx;       // 1-indexed última fila de datos
-  // Agregar fila vacía + fila total con fórmula SUM
-  ws[XLSX.utils.encode_cell({ r: totalRowIdx, c: 6 })] = {
+  const firstDataExcelRow = headerRowIdx + 2;
+  const lastDataExcelRow  = totalRowIdx;
+
+  ws[XLSX.utils.encode_cell({ r: totalRowIdx, c: 8 })] = {
     t: 's', v: 'TOTAL GENERAL:',
     s: { font: { bold: true, color: { rgb: '00665E' } }, alignment: { horizontal: 'right' } },
   };
-  ws[XLSX.utils.encode_cell({ r: totalRowIdx, c: 7 })] = {
+  ws[XLSX.utils.encode_cell({ r: totalRowIdx, c: 9 })] = {
     t: 'n',
-    f: `SUM(H${firstDataExcelRow}:H${lastDataExcelRow})`,
+    f: `SUM(J${firstDataExcelRow}:J${lastDataExcelRow})`,
     z: moneyFmt,
     s: {
       numFmt: moneyFmt,
@@ -3918,11 +3999,11 @@ async function anTop20Excel() {
     },
   };
 
-  // ── Auto-filter sobre la tabla — el usuario puede filtrar desde Excel ──
+  // ── Auto-filter ──
   ws['!autofilter'] = {
     ref: XLSX.utils.encode_range({
       s: { r: headerRowIdx, c: 0 },
-      e: { r: headerRowIdx + productosFlat.length, c: 8 },
+      e: { r: headerRowIdx + productosFlat.length, c: lastHeaderCol },
     }),
   };
 
@@ -3935,17 +4016,19 @@ async function anTop20Excel() {
     { wch: 55 },   // Descripción
     { wch: 18 },   // Marca
     { wch: 22 },   // Grupo
-    { wch: 11 },   // Stock Hoy
+    { wch: 11 },   // Stock
     { wch: 13 },   // Precio CVA
-    { wch: 13 },   // Unidades Solicitadas
-    { wch: 14 },   // Total
+    { wch: 9 },    // % Gan
+    { wch: 15 },   // Precio MELI
+    { wch: 13 },   // Unidades
+    { wch: 16 },   // Total
     { wch: 16 },   // UPC
   ];
 
-  // ── Actualizar el rango del sheet para que SheetJS reconozca todas las celdas ──
+  // ── Actualizar rango total del sheet ──
   ws['!ref'] = XLSX.utils.encode_range({
     s: { r: 0, c: 0 },
-    e: { r: totalRowIdx, c: 8 },
+    e: { r: totalRowIdx, c: lastHeaderCol },
   });
 
   const wb = XLSX.utils.book_new();
