@@ -1584,6 +1584,11 @@
       <div class="sb-item-label"><div class="sb-item-name">Análisis de Stock</div><div class="sb-item-sub">Rotación y movimiento</div></div>
       <div class="sb-item-arrow"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg></div>
     </div>
+    <div class="sb-item" id="nav-invodoo" onclick="showPage('invodoo')">
+      <div class="sb-item-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg></div>
+      <div class="sb-item-label"><div class="sb-item-name">Inventario Odoo</div><div class="sb-item-sub">Control de exposición</div></div>
+      <div class="sb-item-arrow"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg></div>
+    </div>
     <div class="sb-section-label">Sistema</div>
     <div class="sb-item" id="nav-sync" onclick="showPage('sync')">
       <div class="sb-item-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/></svg></div>
@@ -1961,6 +1966,18 @@
         <div style="display:flex;gap:10px;margin-top:24px;padding-top:18px;border-top:1px solid rgba(238,240,240,0.06)">
           <button class="btn btn-ghost" onclick="cargarAnalisis()" style="font-size:11px">↻ Actualizar datos</button>
           <span style="color:var(--muted);font-size:11px;align-self:center">Datos se actualizan diariamente a las 2am · Sync automático</span>
+        </div>
+      </div>
+
+      <!-- ══ PAGE: INVENTARIO ODOO ══ -->
+      <div class="page" id="page-invodoo">
+        <div class="page-header">
+          <div class="page-rule"></div>
+          <div class="page-title">Inventario Odoo</div>
+          <div class="page-sub">Control de exposición · qué % del stock CVA publicas en marketplaces</div>
+        </div>
+        <div id="invodoo-content">
+          <div style="padding:40px;text-align:center;color:var(--muted);font-size:11px;letter-spacing:2px;text-transform:uppercase"><span class="spin"></span>Cargando inventario…</div>
         </div>
       </div>
 

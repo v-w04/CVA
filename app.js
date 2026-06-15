@@ -38,6 +38,7 @@ function showPage(id) {
   if (id === 'pedidos') setTimeout(() => { try { cargarPedidos();      } catch(e) {} }, 100);
   if (id === 'orden')   setTimeout(() => { try { iniciarPaginaOrden(); } catch(e) {} }, 100);
   if (id === 'analisis') setTimeout(() => { try { cargarAnalisis();    } catch(e) {} }, 100);
+  if (id === 'invodoo')  setTimeout(() => { try { cargarInvOdoo();     } catch(e) {} }, 100);
 }
 
 window.addEventListener('popstate', e => {
@@ -3529,6 +3530,17 @@ function _renderColumnasPreciosFila_(p) {
 // ════════════════════════════════════════════════════════════════
 //  EXPORT XLSX REAL — con todas las columnas según el modo activo
 // ════════════════════════════════════════════════════════════════
+
+// UPC con padding a 12 dígitos (ceros a la izquierda), como texto.
+// Si viene vacío devuelve ''. Si trae más de 12 dígitos (EAN-13/14) lo respeta.
+// Se usa en todos los exports para que Excel muestre el UPC completo
+// sin comerse los ceros iniciales.
+function _upc12_(upc) {
+  const limpio = String(upc || '').replace(/\D/g, '');
+  if (!limpio) return '';
+  return limpio.length < 12 ? limpio.padStart(12, '0') : limpio;
+}
+
 async function anExportXLSX() {
   if (!_analisisData) return;
   // Cargar SheetJS si no está
@@ -3561,7 +3573,7 @@ async function anExportXLSX() {
       // Base (8)
       p.clave, p.desc, p.marca, p.grupo, p.stock_base||0, p.total||0, p.movido||0, fmtMXN(p.precio),
       // Datos (6)
-      e._modelo, e._color, e._upc, e._cat_meli, e._peso, e._sku,
+      e._modelo, e._color, _upc12_(e._upc), e._cat_meli, e._peso, e._sku,
       // Precios (13)
       e._ganancia,
       fmtMXN(e._precios.meli_clasica), fmtMXN(e._precios.meli_premium),
@@ -3842,7 +3854,7 @@ async function anTop20Excel() {
   // Filas de productos
   productosFlat.forEach(p => {
     const md = _getMD_(p);
-    const upc = (md && md.upc) ? String(md.upc) : '';
+    const upc = _upc12_(md && md.upc);
     aoa.push([
       p.clave || '',
       p.desc || '',
@@ -4155,4 +4167,232 @@ Object.assign(window, {
   limpiarLog, cargarSucursalesSelect, iniciarPaginaOrden, sugerirSucursalPorStock, recargarSucursales, cargarAnalisis,
   iniciarCarruselMarcas, _renderCarruselMarcas,
   cargarAnalisis, renderAnalisisDashboard, renderAnalisisTab, anFiltrar, anTab, anSort, anLimpiarFiltros, anExportCSV, anExportPDF, anCambiarPeriodo,
+});
+// ════════════════════════════════════════════════════════════════
+//  INVENTARIO ODOO — control de exposición de stock a marketplaces
+//
+//  Lista de claves CVA que quieres publicar en Odoo. Para cada una:
+//   - Stock CVA real (suc + cedis) actualizado
+//   - % a aplicar (global del módulo o override por fila)
+//   - Stock para Odoo = stock × % redondeado abajo
+//
+//  Los datos viven en la hoja INVENTARIO_ODOO del Sheet. Otro sheet
+//  externo lee con IMPORTRANGE y alimenta Odoo. Trigger cada 10 min
+//  fuerza recálculo de las fórmulas para datos frescos.
+// ════════════════════════════════════════════════════════════════
+
+let _invOdooData = { items: [], pct_global: 20 };
+let _invOdooFiltro = '';
+
+async function cargarInvOdoo() {
+  const cont = document.getElementById('invodoo-content');
+  if (!cont) return;
+
+  cont.innerHTML = '<div style="padding:60px;text-align:center;color:var(--muted);font-size:11px;letter-spacing:2px;text-transform:uppercase"><span class="spin"></span>Consultando inventario…</div>';
+
+  const data = await api('inv_odoo_list');
+  if (!data.ok) {
+    cont.innerHTML = `
+      <div style="padding:40px;text-align:center">
+        <div style="color:#e05555;font-size:13px;margin-bottom:14px">⚠ ${data.error || 'Error'}</div>
+        <div style="color:var(--muted);font-size:11px;letter-spacing:1.5px;line-height:1.8">
+          Crea primero la hoja desde el editor del Sheet:<br>
+          <span style="color:var(--green-lt)">🛠 MIS HERRAMIENTAS → 📦 Crear hoja INVENTARIO_ODOO</span>
+        </div>
+      </div>`;
+    return;
+  }
+
+  _invOdooData = data;
+  renderInvOdoo();
+}
+
+function renderInvOdoo() {
+  const cont = document.getElementById('invodoo-content');
+  if (!cont) return;
+  const d = _invOdooData;
+  const items = d.items || [];
+
+  // Filtro de búsqueda en cliente
+  const f = (_invOdooFiltro || '').trim().toUpperCase();
+  const itemsFil = f
+    ? items.filter(it => (it.clave || '').toUpperCase().includes(f)
+        || (it.desc || '').toUpperCase().includes(f)
+        || (it.marca || '').toUpperCase().includes(f))
+    : items;
+
+  // KPIs
+  const totalProductos = items.length;
+  const totalStockCVA  = items.reduce((s, it) => s + (it.stock_cva || 0), 0);
+  const totalStockOdoo = items.reduce((s, it) => s + (it.stock_odoo || 0), 0);
+
+  cont.innerHTML = `
+    <!-- KPIs estilo cockpit -->
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:0;margin-bottom:24px;padding:18px 0;border-top:1px solid rgba(238,240,240,0.06);border-bottom:1px solid rgba(238,240,240,0.06)">
+      <div style="padding:6px 24px;border-right:1px solid rgba(238,240,240,0.06)">
+        <div style="font-size:9px;color:var(--muted);letter-spacing:2.5px;text-transform:uppercase;margin-bottom:6px">Productos</div>
+        <div style="font-family:Barlow Condensed,sans-serif;font-size:32px;font-weight:500;color:var(--text);line-height:1">${totalProductos}</div>
+        <div style="font-size:9px;color:var(--muted);letter-spacing:2px;text-transform:uppercase;margin-top:4px;opacity:0.7">en inventario</div>
+      </div>
+      <div style="padding:6px 24px;border-right:1px solid rgba(238,240,240,0.06)">
+        <div style="font-size:9px;color:var(--muted);letter-spacing:2.5px;text-transform:uppercase;margin-bottom:6px">Stock CVA total</div>
+        <div style="font-family:Barlow Condensed,sans-serif;font-size:32px;font-weight:500;color:var(--text);line-height:1">${totalStockCVA.toLocaleString('es-MX')}</div>
+        <div style="font-size:9px;color:var(--muted);letter-spacing:2px;text-transform:uppercase;margin-top:4px;opacity:0.7">unidades reales</div>
+      </div>
+      <div style="padding:6px 24px;border-right:1px solid rgba(238,240,240,0.06)">
+        <div style="font-size:9px;color:var(--muted);letter-spacing:2.5px;text-transform:uppercase;margin-bottom:6px">Stock Odoo expuesto</div>
+        <div style="font-family:Barlow Condensed,sans-serif;font-size:32px;font-weight:500;color:var(--green-lt);line-height:1">${totalStockOdoo.toLocaleString('es-MX')}</div>
+        <div style="font-size:9px;color:var(--muted);letter-spacing:2px;text-transform:uppercase;margin-top:4px;opacity:0.7">a publicar</div>
+      </div>
+      <div style="padding:6px 24px">
+        <div style="font-size:9px;color:var(--muted);letter-spacing:2.5px;text-transform:uppercase;margin-bottom:6px">% Global</div>
+        <div style="display:flex;align-items:baseline;gap:6px">
+          <input type="number" min="0" max="100" step="1" value="${d.pct_global}" id="invodoo-pct-global"
+            onchange="anInvOdooSetGlobalPct(this.value)"
+            style="background:rgba(0,102,94,0.18);border:1px solid var(--green-lt);color:var(--green-lt);padding:4px 8px;font-size:30px;width:90px;outline:none;font-weight:500;text-align:right;font-family:Barlow Condensed,sans-serif">
+          <span style="font-family:Barlow Condensed,sans-serif;font-size:24px;color:var(--green-lt);font-weight:500">%</span>
+        </div>
+        <div style="font-size:9px;color:var(--muted);letter-spacing:2px;text-transform:uppercase;margin-top:4px;opacity:0.7">default por fila</div>
+      </div>
+    </div>
+
+    <!-- Acciones -->
+    <div style="background:rgba(0,0,0,0.22);border:1px solid rgba(238,240,240,0.06);padding:16px 20px;margin-bottom:14px">
+      <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap">
+        <div>
+          <label style="display:block;font-size:9px;color:var(--muted);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:5px">Buscar</label>
+          <input type="text" placeholder="Clave, descripción, marca…" value="${_invOdooFiltro}" oninput="_invOdooFiltro=this.value;renderInvOdoo()" style="background:rgba(0,0,0,0.4);border:1px solid rgba(238,240,240,0.1);color:var(--text);padding:9px 12px;font-size:12px;width:300px;outline:none;font-family:inherit">
+        </div>
+        <div style="flex:1"></div>
+        <button onclick="anInvOdooRefrescar()" style="background:rgba(255,255,255,0.04);border:1px solid rgba(238,240,240,0.15);color:var(--text);padding:9px 18px;font-size:10px;letter-spacing:1.8px;text-transform:uppercase;cursor:pointer;font-family:inherit;transition:all 0.18s ease" onmouseover="this.style.borderColor='var(--green-lt)';this.style.color='var(--green-lt)'" onmouseout="this.style.borderColor='rgba(238,240,240,0.15)';this.style.color='var(--text)'">↻ Refrescar stock</button>
+      </div>
+    </div>
+
+    <!-- Panel agregar claves -->
+    <div style="background:linear-gradient(135deg, rgba(0,102,94,0.08) 0%, rgba(0,0,0,0.22) 100%);border:1px solid rgba(103,184,175,0.18);padding:18px 22px;margin-bottom:16px">
+      <div style="font-size:10px;color:var(--green-lt);letter-spacing:2.5px;text-transform:uppercase;margin-bottom:10px;font-weight:500">＋ Agregar productos</div>
+      <div style="display:flex;gap:14px;align-items:flex-start">
+        <textarea id="invodoo-textarea" placeholder="Pega las claves CVA aquí, una por línea o separadas por coma. Ejemplos:&#10;NOT-10569&#10;HD-3090&#10;KB-812" rows="3" style="flex:1;background:rgba(0,0,0,0.4);border:1px solid rgba(238,240,240,0.1);color:var(--text);padding:10px 14px;font-size:12px;outline:none;font-family:inherit;resize:vertical;min-height:80px"></textarea>
+        <button onclick="anInvOdooAgregar()" style="background:rgba(0,102,94,0.2);border:1px solid var(--green-lt);color:var(--green-lt);padding:12px 24px;font-size:10px;letter-spacing:2px;text-transform:uppercase;cursor:pointer;font-family:inherit;font-weight:500;transition:all 0.18s ease;align-self:stretch" onmouseover="this.style.background='var(--green)';this.style.color='#fff'" onmouseout="this.style.background='rgba(0,102,94,0.2)';this.style.color='var(--green-lt)'">＋ Agregar</button>
+      </div>
+    </div>
+
+    <!-- Tabla -->
+    <div style="font-size:10px;color:var(--muted);margin-bottom:14px;letter-spacing:2px;text-transform:uppercase">
+      <span style="font-family:Barlow Condensed,sans-serif;font-size:14px;color:var(--text);letter-spacing:0;font-weight:500">${itemsFil.length}</span>
+      <span style="opacity:0.6;margin:0 6px">${itemsFil.length === items.length ? 'productos' : `de ${items.length} productos`}</span>
+    </div>
+    <div style="overflow-x:auto;border-top:1px solid rgba(238,240,240,0.04);border-bottom:1px solid rgba(238,240,240,0.04)">
+      <table style="width:100%;border-collapse:collapse;min-width:1100px">
+        <thead><tr>
+          ${[
+            ['Clave', '100px', 'left'],
+            ['Descripción', 'auto', 'left'],
+            ['Marca', '110px', 'left'],
+            ['UPC', '120px', 'center'],
+            ['Stock CVA', '90px', 'right'],
+            ['% Override', '110px', 'center'],
+            ['Stock Odoo', '110px', 'right'],
+            ['', '40px', 'center'],
+          ].map(([l,w,a]) => `<th style="width:${w};padding:12px 10px;text-align:${a};background:transparent;border-bottom:1px solid rgba(238,240,240,0.1);font-size:9px;color:rgba(238,240,240,0.5);font-weight:500;letter-spacing:2px;text-transform:uppercase;white-space:nowrap">${l}</th>`).join('')}
+        </tr></thead>
+        <tbody>${
+          itemsFil.length === 0
+            ? `<tr><td colspan="8" style="padding:40px;text-align:center;color:var(--muted);letter-spacing:1.5px;text-transform:uppercase;font-size:10px">${items.length === 0 ? 'Inventario vacío. Pega claves arriba para empezar.' : 'Sin resultados para este filtro'}</td></tr>`
+            : itemsFil.map(it => {
+                const pctUsado = it.pct_override != null ? it.pct_override : d.pct_global;
+                const upcVacio = !it.upc;
+                return `
+                <tr class="cva-row" style="border-bottom:1px solid rgba(238,240,240,0.04)">
+                  <td style="padding:10px;font-family:monospace;font-size:11px;color:var(--green-lt);font-weight:500">${it.clave}</td>
+                  <td style="padding:10px;font-size:11px;color:var(--text)">${it.desc || '<span style="color:#e05555;font-style:italic">⚠ no encontrado en SYNC_CVA</span>'}</td>
+                  <td style="padding:10px;font-size:11px;color:var(--muted)">${it.marca || '—'}</td>
+                  <td style="padding:10px;text-align:center;font-family:monospace;font-size:11px;color:${upcVacio ? '#e05555' : 'var(--text)'};${upcVacio ? 'font-style:italic' : ''}">${it.upc || 'sin UPC'}</td>
+                  <td style="padding:10px;text-align:right;font-family:Barlow Condensed,sans-serif;font-size:15px;color:var(--text);font-weight:500">${(it.stock_cva || 0).toLocaleString('es-MX')}</td>
+                  <td style="padding:10px;text-align:center">
+                    <input type="number" min="0" max="100" step="1" placeholder="${d.pct_global}" value="${it.pct_override != null ? it.pct_override : ''}"
+                      onchange="anInvOdooSetPct('${it.clave}', this.value)"
+                      style="background:${it.pct_override != null ? 'rgba(0,102,94,0.2)' : 'rgba(0,0,0,0.3)'};border:1px solid ${it.pct_override != null ? 'var(--green-lt)' : 'rgba(238,240,240,0.1)'};color:${it.pct_override != null ? 'var(--green-lt)' : 'var(--text)'};padding:6px 8px;font-size:12px;width:70px;outline:none;text-align:center;font-family:Barlow Condensed,sans-serif;font-weight:500">
+                  </td>
+                  <td style="padding:10px;text-align:right;font-family:Barlow Condensed,sans-serif;font-size:17px;color:var(--green-lt);font-weight:500;background:rgba(0,102,94,0.04)">${(it.stock_odoo || 0).toLocaleString('es-MX')}</td>
+                  <td style="padding:10px;text-align:center">
+                    <button onclick="anInvOdooRemover('${it.clave}')" style="background:transparent;border:none;color:var(--muted);cursor:pointer;font-size:14px;padding:4px 8px;line-height:1" onmouseover="this.style.color='#e05555'" onmouseout="this.style.color='var(--muted)'" title="Eliminar del inventario">✕</button>
+                  </td>
+                </tr>`;
+              }).join('')
+        }</tbody>
+      </table>
+    </div>
+
+    <!-- Tip -->
+    <div style="margin-top:24px;padding:18px 22px;background:rgba(0,0,0,0.18);border-left:2px solid var(--green-lt);font-size:11px;color:var(--muted);line-height:1.8">
+      <div style="color:var(--green-lt);font-weight:500;letter-spacing:1.5px;text-transform:uppercase;font-size:10px;margin-bottom:8px">🔗 Conectar este inventario a Odoo</div>
+      Desde el sheet que alimenta Odoo, usa esta fórmula para traer los datos en tiempo real:<br>
+      <code style="display:inline-block;margin-top:6px;background:rgba(0,0,0,0.4);padding:6px 10px;font-family:monospace;font-size:11px;color:var(--text)">=IMPORTRANGE("URL_de_tu_sheet_principal";"INVENTARIO_ODOO!A:G")</code><br>
+      <span style="opacity:0.7">El sheet se refresca automáticamente cada 10 min si activaste el trigger desde el menú de Sheets.</span>
+    </div>
+  `;
+}
+
+async function anInvOdooAgregar() {
+  const ta = document.getElementById('invodoo-textarea');
+  if (!ta) return;
+  const claves = ta.value.split(/[\s,;\n]+/).map(s => s.trim()).filter(Boolean);
+  if (claves.length === 0) {
+    alert('Pega al menos una clave CVA.');
+    return;
+  }
+  const r = await api('inv_odoo_add', { claves: claves.join(',') });
+  if (!r.ok) { alert('Error: ' + (r.error || 'desconocido')); return; }
+  ta.value = '';
+  let msg = `✅ Agregadas: ${r.agregadas}`;
+  if (r.duplicadas > 0) msg += `\n⚠ Ya estaban: ${r.duplicadas}`;
+  addLog('ok', 'Inventario Odoo', msg);
+  await cargarInvOdoo();
+}
+
+async function anInvOdooRemover(clave) {
+  if (!confirm(`Eliminar ${clave} del inventario?`)) return;
+  const r = await api('inv_odoo_remove', { clave });
+  if (!r.ok) { alert('Error: ' + (r.error || 'desconocido')); return; }
+  addLog('ok', 'Inventario Odoo', 'Eliminado: ' + clave);
+  await cargarInvOdoo();
+}
+
+async function anInvOdooSetPct(clave, pct) {
+  const valor = pct === '' ? '' : parseFloat(pct);
+  if (pct !== '' && (isNaN(valor) || valor < 0 || valor > 100)) {
+    alert('Valor inválido — debe estar entre 0 y 100');
+    cargarInvOdoo();
+    return;
+  }
+  const r = await api('inv_odoo_set_pct', { clave, pct: pct === '' ? '' : valor });
+  if (!r.ok) { alert('Error: ' + (r.error || 'desconocido')); return; }
+  // Esperar a que las fórmulas recalculen + recargar
+  setTimeout(() => cargarInvOdoo(), 600);
+}
+
+async function anInvOdooSetGlobalPct(pct) {
+  const n = parseFloat(pct);
+  if (isNaN(n) || n < 0 || n > 100) {
+    alert('Valor inválido — debe estar entre 0 y 100');
+    cargarInvOdoo();
+    return;
+  }
+  const r = await api('inv_odoo_set_global_pct', { pct: n });
+  if (!r.ok) { alert('Error: ' + (r.error || 'desconocido')); return; }
+  setTimeout(() => cargarInvOdoo(), 600);
+}
+
+async function anInvOdooRefrescar() {
+  const r = await api('inv_odoo_refresh');
+  if (!r.ok) { alert('Error: ' + (r.error || 'desconocido')); return; }
+  addLog('ok', 'Inventario Odoo', 'Refrescado');
+  await cargarInvOdoo();
+}
+
+Object.assign(window, {
+  cargarInvOdoo, renderInvOdoo,
+  anInvOdooAgregar, anInvOdooRemover,
+  anInvOdooSetPct, anInvOdooSetGlobalPct, anInvOdooRefrescar,
 });
