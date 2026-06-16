@@ -4268,12 +4268,11 @@ function renderInvOdoo() {
       </div>
     </div>
 
-    <!-- Panel agregar claves -->
+    <!-- Panel informativo: el inventario se llena solo desde SKU -->
     <div style="background:linear-gradient(135deg, rgba(0,102,94,0.08) 0%, rgba(0,0,0,0.22) 100%);border:1px solid rgba(103,184,175,0.18);padding:18px 22px;margin-bottom:16px">
-      <div style="font-size:10px;color:var(--green-lt);letter-spacing:2.5px;text-transform:uppercase;margin-bottom:10px;font-weight:500">＋ Agregar productos</div>
-      <div style="display:flex;gap:14px;align-items:flex-start">
-        <textarea id="invodoo-textarea" placeholder="Pega las claves CVA aquí, una por línea o separadas por coma. Ejemplos:&#10;NOT-10569&#10;HD-3090&#10;KB-812" rows="3" style="flex:1;background:rgba(0,0,0,0.4);border:1px solid rgba(238,240,240,0.1);color:var(--text);padding:10px 14px;font-size:12px;outline:none;font-family:inherit;resize:vertical;min-height:80px"></textarea>
-        <button onclick="anInvOdooAgregar()" style="background:rgba(0,102,94,0.2);border:1px solid var(--green-lt);color:var(--green-lt);padding:12px 24px;font-size:10px;letter-spacing:2px;text-transform:uppercase;cursor:pointer;font-family:inherit;font-weight:500;transition:all 0.18s ease;align-self:stretch" onmouseover="this.style.background='var(--green)';this.style.color='#fff'" onmouseout="this.style.background='rgba(0,102,94,0.2)';this.style.color='var(--green-lt)'">＋ Agregar</button>
+      <div style="font-size:10px;color:var(--green-lt);letter-spacing:2.5px;text-transform:uppercase;margin-bottom:8px;font-weight:500">ℹ Llenado automático desde SKU</div>
+      <div style="font-size:12px;color:var(--muted);line-height:1.7">
+        Los productos aparecen aquí automáticamente cuando importas sus UPCs en la hoja <strong style="color:var(--text)">UPC_IMPORT</strong>. Para quitar uno del inventario Odoo, elimínalo de la hoja <strong style="color:var(--text)">SKU</strong>. El <strong style="color:var(--green-lt)">Precio MELI</strong> también es dinámico — depende de <strong style="color:var(--text)">CONFIG_MELI</strong> (tabla de comisiones, envíos y % ganancia) y se recalcula al instante cuando cambias esos valores.
       </div>
     </div>
 
@@ -4283,7 +4282,7 @@ function renderInvOdoo() {
       <span style="opacity:0.6;margin:0 6px">${itemsFil.length === items.length ? 'productos' : `de ${items.length} productos`}</span>
     </div>
     <div style="overflow-x:auto;border-top:1px solid rgba(238,240,240,0.04);border-bottom:1px solid rgba(238,240,240,0.04)">
-      <table style="width:100%;border-collapse:collapse;min-width:1100px">
+      <table style="width:100%;border-collapse:collapse;min-width:1200px">
         <thead><tr>
           ${[
             ['Clave', '100px', 'left'],
@@ -4293,15 +4292,16 @@ function renderInvOdoo() {
             ['Stock CVA', '90px', 'right'],
             ['% Override', '110px', 'center'],
             ['Stock Odoo', '110px', 'right'],
-            ['', '40px', 'center'],
+            ['Precio MELI', '110px', 'right'],
           ].map(([l,w,a]) => `<th style="width:${w};padding:12px 10px;text-align:${a};background:transparent;border-bottom:1px solid rgba(238,240,240,0.1);font-size:9px;color:rgba(238,240,240,0.5);font-weight:500;letter-spacing:2px;text-transform:uppercase;white-space:nowrap">${l}</th>`).join('')}
         </tr></thead>
         <tbody>${
           itemsFil.length === 0
-            ? `<tr><td colspan="8" style="padding:40px;text-align:center;color:var(--muted);letter-spacing:1.5px;text-transform:uppercase;font-size:10px">${items.length === 0 ? 'Inventario vacío. Pega claves arriba para empezar.' : 'Sin resultados para este filtro'}</td></tr>`
+            ? `<tr><td colspan="8" style="padding:40px;text-align:center;color:var(--muted);letter-spacing:1.5px;text-transform:uppercase;font-size:10px">${items.length === 0 ? 'Inventario vacío. Importa UPCs primero para que aparezcan aquí.' : 'Sin resultados para este filtro'}</td></tr>`
             : itemsFil.map(it => {
                 const pctUsado = it.pct_override != null ? it.pct_override : d.pct_global;
                 const upcVacio = !it.upc;
+                const precioMeli = it.precio_meli || 0;
                 return `
                 <tr class="cva-row" style="border-bottom:1px solid rgba(238,240,240,0.04)">
                   <td style="padding:10px;font-family:monospace;font-size:11px;color:var(--green-lt);font-weight:500">${it.clave}</td>
@@ -4315,9 +4315,7 @@ function renderInvOdoo() {
                       style="background:${it.pct_override != null ? 'rgba(0,102,94,0.2)' : 'rgba(0,0,0,0.3)'};border:1px solid ${it.pct_override != null ? 'var(--green-lt)' : 'rgba(238,240,240,0.1)'};color:${it.pct_override != null ? 'var(--green-lt)' : 'var(--text)'};padding:6px 8px;font-size:12px;width:70px;outline:none;text-align:center;font-family:Barlow Condensed,sans-serif;font-weight:500">
                   </td>
                   <td style="padding:10px;text-align:right;font-family:Barlow Condensed,sans-serif;font-size:17px;color:var(--green-lt);font-weight:500;background:rgba(0,102,94,0.04)">${(it.stock_odoo || 0).toLocaleString('es-MX')}</td>
-                  <td style="padding:10px;text-align:center">
-                    <button onclick="anInvOdooRemover('${it.clave}')" style="background:transparent;border:none;color:var(--muted);cursor:pointer;font-size:14px;padding:4px 8px;line-height:1" onmouseover="this.style.color='#e05555'" onmouseout="this.style.color='var(--muted)'" title="Eliminar del inventario">✕</button>
-                  </td>
+                  <td style="padding:10px;text-align:right;font-family:Barlow Condensed,sans-serif;font-size:15px;color:#f0c040;font-weight:500">$${Math.round(precioMeli).toLocaleString('es-MX')}</td>
                 </tr>`;
               }).join('')
         }</tbody>
@@ -4328,7 +4326,7 @@ function renderInvOdoo() {
     <div style="margin-top:24px;padding:18px 22px;background:rgba(0,0,0,0.18);border-left:2px solid var(--green-lt);font-size:11px;color:var(--muted);line-height:1.8">
       <div style="color:var(--green-lt);font-weight:500;letter-spacing:1.5px;text-transform:uppercase;font-size:10px;margin-bottom:8px">🔗 Conectar este inventario a Odoo</div>
       Desde el sheet que alimenta Odoo, usa esta fórmula para traer los datos en tiempo real:<br>
-      <code style="display:inline-block;margin-top:6px;background:rgba(0,0,0,0.4);padding:6px 10px;font-family:monospace;font-size:11px;color:var(--text)">=IMPORTRANGE("URL_de_tu_sheet_principal";"INVENTARIO_ODOO!A:G")</code><br>
+      <code style="display:inline-block;margin-top:6px;background:rgba(0,0,0,0.4);padding:6px 10px;font-family:monospace;font-size:11px;color:var(--text)">=IMPORTRANGE("URL_de_tu_sheet_principal";"INVENTARIO_ODOO!A:H")</code><br>
       <span style="opacity:0.7">El sheet se refresca automáticamente cada 10 min si activaste el trigger desde el menú de Sheets.</span>
     </div>
   `;
