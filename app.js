@@ -3020,8 +3020,8 @@ window.onload = () => {
     setTimeout(()=>splash.remove(),900);
   }, 7500);
 
-  try { document.querySelectorAll('.page').forEach(p=>p.classList.remove('active')); const pg=document.getElementById('page-buscar'); if(pg) pg.classList.add('active'); const nav=document.getElementById('nav-buscar'); if(nav) nav.classList.add('active'); const exist=document.getElementById('s-exist'); if(exist&&!exist.value) exist.value='3'; } catch(e) {}
-  try { history.replaceState({page:'buscar'},'',''); } catch(e) {}
+  try { document.querySelectorAll('.page').forEach(p=>p.classList.remove('active')); const pg=document.getElementById('page-tablero'); if(pg) pg.classList.add('active'); document.body.classList.add('in-tablero'); const exist=document.getElementById('s-exist'); if(exist&&!exist.value) exist.value='3'; } catch(e) {}
+  try { history.replaceState({page:'tablero'},'',''); } catch(e) {}
   try { toggleFleteFields(); } catch(e) {}
   try { poblarSelectEstados(); } catch(e) {}
   try { renderCarrito(); } catch(e) {}
@@ -4447,3 +4447,125 @@ function cargarExportar() {
   `;
 }
 Object.assign(window, { cargarExportar });
+
+// ════════════════════════════════════════════════════════════════
+//  TABLERO — animación de fondo: red de puntos sutil
+//  Solo corre cuando estás en page-tablero; se pausa al salir para
+//  no gastar CPU.
+// ════════════════════════════════════════════════════════════════
+(function() {
+  let _tabAnimRAF = null;
+  let _tabAnimPoints = [];
+  let _tabAnimCanvas = null;
+  let _tabAnimCtx = null;
+  let _tabAnimW = 0, _tabAnimH = 0;
+
+  function tabAnimInit() {
+    _tabAnimCanvas = document.getElementById('tab-bg-canvas');
+    if (!_tabAnimCanvas) return;
+    _tabAnimCtx = _tabAnimCanvas.getContext('2d');
+    tabAnimResize();
+    // Generar puntos
+    const N = Math.max(28, Math.floor(_tabAnimW / 36));
+    _tabAnimPoints = [];
+    for (let i = 0; i < N; i++) {
+      _tabAnimPoints.push({
+        x: Math.random() * _tabAnimW,
+        y: Math.random() * _tabAnimH,
+        vx: (Math.random() - 0.5) * 0.25,
+        vy: (Math.random() - 0.5) * 0.25,
+        r: Math.random() * 1.4 + 0.6,
+      });
+    }
+    tabAnimLoop();
+  }
+
+  function tabAnimResize() {
+    if (!_tabAnimCanvas) return;
+    const rect = _tabAnimCanvas.getBoundingClientRect();
+    const dpr = window.devicePixelRatio || 1;
+    _tabAnimW = rect.width;
+    _tabAnimH = rect.height;
+    _tabAnimCanvas.width  = _tabAnimW * dpr;
+    _tabAnimCanvas.height = _tabAnimH * dpr;
+    _tabAnimCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  }
+
+  function tabAnimLoop() {
+    if (!_tabAnimCtx || !_tabAnimCanvas) return;
+    // Si el tablero ya no está activo, pausamos
+    const isActive = document.body.classList.contains('in-tablero');
+    if (!isActive) {
+      _tabAnimRAF = null;
+      return;
+    }
+    _tabAnimCtx.clearRect(0, 0, _tabAnimW, _tabAnimH);
+
+    // Mover puntos
+    _tabAnimPoints.forEach(p => {
+      p.x += p.vx;
+      p.y += p.vy;
+      if (p.x < 0 || p.x > _tabAnimW) p.vx *= -1;
+      if (p.y < 0 || p.y > _tabAnimH) p.vy *= -1;
+    });
+
+    // Líneas entre puntos cercanos (entramado)
+    for (let i = 0; i < _tabAnimPoints.length; i++) {
+      for (let j = i + 1; j < _tabAnimPoints.length; j++) {
+        const a = _tabAnimPoints[i], b = _tabAnimPoints[j];
+        const dx = a.x - b.x, dy = a.y - b.y;
+        const d2 = dx*dx + dy*dy;
+        if (d2 < 16000) {
+          const opacity = (1 - d2 / 16000) * 0.35;
+          _tabAnimCtx.strokeStyle = 'rgba(103,184,175,' + opacity + ')';
+          _tabAnimCtx.lineWidth = 0.6;
+          _tabAnimCtx.beginPath();
+          _tabAnimCtx.moveTo(a.x, a.y);
+          _tabAnimCtx.lineTo(b.x, b.y);
+          _tabAnimCtx.stroke();
+        }
+      }
+    }
+
+    // Dibujar puntos
+    _tabAnimPoints.forEach(p => {
+      _tabAnimCtx.fillStyle = 'rgba(103,184,175,0.7)';
+      _tabAnimCtx.beginPath();
+      _tabAnimCtx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+      _tabAnimCtx.fill();
+    });
+
+    _tabAnimRAF = requestAnimationFrame(tabAnimLoop);
+  }
+
+  function tabAnimStart() {
+    if (_tabAnimRAF) return;  // ya está corriendo
+    if (!_tabAnimCanvas) tabAnimInit();
+    else { tabAnimResize(); tabAnimLoop(); }
+  }
+
+  // Re-inicializar al cambiar tamaño de ventana
+  window.addEventListener('resize', () => {
+    if (document.body.classList.contains('in-tablero')) {
+      tabAnimResize();
+    }
+  });
+
+  // Hook al showPage: cuando vamos al tablero, arranca; cuando salimos, se pausa solo
+  const _origShowPage = window.showPage;
+  if (typeof _origShowPage === 'function') {
+    window.showPage = function(id) {
+      _origShowPage(id);
+      if (id === 'tablero') {
+        setTimeout(tabAnimStart, 50);
+      }
+    };
+  }
+
+  // Inicio al cargar (cuando ya está el DOM)
+  window.addEventListener('load', () => {
+    setTimeout(() => {
+      if (document.body.classList.contains('in-tablero')) tabAnimStart();
+    }, 100);
+  });
+})();
