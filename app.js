@@ -4547,26 +4547,409 @@ Object.assign(window, {
 });
 
 // ════════════════════════════════════════════════════════════════
-//  EXPORTAR DATOS (stub mínimo)
-//  La implementación completa va en la siguiente iteración: textarea
-//  para pegar claves CVA + generar Excel/PDF como Top 20.
-//  Por ahora solo muestra un placeholder para que la card del tablero
-//  no te lleve a una página en blanco.
+//  EXPORTAR DATOS
+//
+//  Pegas claves CVA en un textarea, las parseo, busco cada producto,
+//  muestro preview en tabla y exportas Excel/PDF con el mismo formato
+//  del Top 20 (incluyendo columna Modelo, rojo si dice "SIN MODELO").
+//
+//  Reusa las funciones del Top 20 — solo cambia el dataset de entrada.
 // ════════════════════════════════════════════════════════════════
+let _exportarProductos = [];   // los productos cargados desde CVA
+let _exportarGanancia = 15;    // % default
+
 function cargarExportar() {
   const cont = document.getElementById('exportar-content');
   if (!cont) return;
   cont.innerHTML = `
-    <div style="background:rgba(255,255,255,0.025);border:1px solid rgba(238,240,240,0.08);padding:40px 24px;text-align:center">
-      <div style="font-family:'Barlow Condensed',sans-serif;font-size:22px;letter-spacing:3px;color:var(--green-lt);margin-bottom:12px">PRÓXIMAMENTE</div>
-      <div style="color:var(--text-2);font-size:12px;letter-spacing:1px;line-height:1.6;max-width:520px;margin:0 auto">
-        Pegarás las claves CVA en un área de texto y te generaré un Excel/PDF<br>
-        con el mismo formato del Top 20 (incluyendo columna Modelo).
+    <div style="max-width:1100px;margin:0 auto">
+      <!-- ── Input area ── -->
+      <div style="background:rgba(255,255,255,0.025);border:1px solid rgba(238,240,240,0.08);padding:22px;margin-bottom:18px">
+        <div style="font-size:11px;letter-spacing:2px;color:var(--text-2);text-transform:uppercase;margin-bottom:10px">Claves CVA</div>
+        <div style="font-size:11.5px;color:var(--text-3);margin-bottom:12px;line-height:1.5">
+          Pega las claves CVA (una por línea, separadas por coma, espacio o tab).<br>
+          Ej: <span style="color:var(--green-lt);font-family:monospace">RAM-4626 RAM-4681 SSD-1234</span>
+        </div>
+        <textarea id="export-claves" rows="6"
+          placeholder="RAM-4626&#10;RAM-4681&#10;SSD-1234&#10;..."
+          style="width:100%;background:rgba(0,0,0,0.4);border:1px solid rgba(238,240,240,0.1);color:var(--text);padding:12px 14px;font-family:'Courier New',monospace;font-size:13px;letter-spacing:1px;line-height:1.5;outline:none;resize:vertical;box-sizing:border-box"></textarea>
+
+        <div style="display:flex;align-items:center;gap:14px;margin-top:14px;flex-wrap:wrap">
+          <div style="display:flex;align-items:center;gap:8px">
+            <span style="font-size:10px;letter-spacing:2px;color:var(--muted);text-transform:uppercase">% Ganancia</span>
+            <input type="number" id="export-gan" value="${_exportarGanancia}" min="0" step="0.5"
+              style="background:rgba(0,102,94,0.18);border:1px solid var(--green-lt);color:var(--green-lt);padding:6px 10px;font-size:13px;width:80px;outline:none;font-family:'Barlow Condensed',sans-serif;text-align:right;font-weight:500">
+          </div>
+          <button onclick="exportarBuscar()" class="btn"
+            style="background:var(--green);color:#fff;border:1px solid var(--green-lt);padding:9px 22px;font-size:11px;letter-spacing:2px;text-transform:uppercase;cursor:pointer;font-family:inherit;font-weight:500;border-radius:3px">
+            Buscar productos
+          </button>
+          <button onclick="exportarLimpiar()" class="btn btn-ghost"
+            style="padding:9px 18px;font-size:11px;letter-spacing:2px;text-transform:uppercase">
+            Limpiar
+          </button>
+        </div>
       </div>
+
+      <!-- ── Resultado ── -->
+      <div id="export-resultado"></div>
     </div>
   `;
 }
-Object.assign(window, { cargarExportar });
+
+function _parseClaves_(texto) {
+  // Acepta separadores: salto de línea, coma, espacio, tab, punto y coma
+  return (texto || '')
+    .split(/[\s,;]+/)
+    .map(c => c.trim().toUpperCase())
+    .filter(c => c.length > 0 && c.length < 30);
+}
+
+async function exportarBuscar() {
+  const ta = document.getElementById('export-claves');
+  const cont = document.getElementById('export-resultado');
+  if (!ta || !cont) return;
+  const claves = _parseClaves_(ta.value);
+  if (claves.length === 0) {
+    cont.innerHTML = `<div class="alert alert-warn" style="padding:14px;margin:8px 0">Pega al menos una clave CVA.</div>`;
+    return;
+  }
+  // Tomar % ganancia
+  const ganInput = document.getElementById('export-gan');
+  _exportarGanancia = parseFloat(ganInput?.value) || 15;
+
+  // Deduplicar
+  const unicas = [...new Set(claves)];
+  cont.innerHTML = `<div style="padding:20px;text-align:center;color:var(--muted);font-size:11px;letter-spacing:1.5px;text-transform:uppercase"><span class="spin"></span> Buscando ${unicas.length} producto${unicas.length === 1 ? '' : 's'}…</div>`;
+
+  // Llamar a cva_producto por cada clave (en paralelo, throttled a 3)
+  const productos = [];
+  const errores = [];
+  const _MAX = 3;
+  let idx = 0;
+
+  async function _worker() {
+    while (idx < unicas.length) {
+      const i = idx++;
+      const clave = unicas[i];
+      try {
+        const data = await api('cva_producto', { clave });
+        if (data && data.ok && data.producto) {
+          productos.push(data.producto);
+        } else {
+          errores.push({ clave, error: data?.error || 'no encontrado' });
+        }
+      } catch(e) {
+        errores.push({ clave, error: e.message });
+      }
+      // Update progress
+      const done = i + 1;
+      const cont = document.getElementById('export-resultado');
+      if (cont && cont.querySelector('.spin')) {
+        cont.innerHTML = `<div style="padding:20px;text-align:center;color:var(--muted);font-size:11px;letter-spacing:1.5px;text-transform:uppercase"><span class="spin"></span> Buscando ${done}/${unicas.length}…</div>`;
+      }
+    }
+  }
+  await Promise.all(Array.from({length: Math.min(_MAX, unicas.length)}, _worker));
+
+  _exportarProductos = productos;
+
+  // Render resultado
+  _renderExportResultado_(productos, errores);
+}
+
+function _renderExportResultado_(productos, errores) {
+  const cont = document.getElementById('export-resultado');
+  if (!cont) return;
+  if (productos.length === 0) {
+    cont.innerHTML = `
+      <div class="alert alert-warn" style="padding:16px;margin:8px 0">
+        Ninguno de los productos pudo cargarse. Verifica las claves.
+        ${errores.length ? `<div style="margin-top:10px;font-size:10px;font-family:monospace;color:var(--muted)">${errores.slice(0,10).map(e => e.clave + ': ' + e.error).join('<br>')}</div>` : ''}
+      </div>`;
+    return;
+  }
+
+  cont.innerHTML = `
+    <div style="background:rgba(0,102,94,0.08);border:1px solid rgba(103,184,175,0.2);padding:14px 18px;margin-bottom:16px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px">
+      <div>
+        <span style="font-family:'Barlow Condensed',sans-serif;font-size:22px;color:var(--green-lt);font-weight:500">${productos.length}</span>
+        <span style="font-size:11px;color:var(--text-2);letter-spacing:1px;text-transform:uppercase;margin-left:6px">producto${productos.length===1?'':'s'} encontrado${productos.length===1?'':'s'}</span>
+        ${errores.length ? `<span style="font-size:11px;color:rgba(255,180,0,0.8);letter-spacing:1px;text-transform:uppercase;margin-left:12px">⚠ ${errores.length} no encontrado${errores.length===1?'':'s'}</span>` : ''}
+      </div>
+      <div style="display:flex;gap:8px">
+        <button onclick="exportarExcel()" class="btn"
+          style="background:var(--green);color:#fff;border:1px solid var(--green-lt);padding:8px 16px;font-size:10px;letter-spacing:2px;text-transform:uppercase;cursor:pointer;font-family:inherit;font-weight:500;border-radius:3px;display:inline-flex;align-items:center;gap:6px">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          Excel
+        </button>
+        <button onclick="exportarPDF()" class="btn btn-ghost"
+          style="padding:8px 16px;font-size:10px;letter-spacing:2px;text-transform:uppercase;display:inline-flex;align-items:center;gap:6px">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+          PDF
+        </button>
+      </div>
+    </div>
+
+    <div style="overflow-x:auto;border:1px solid rgba(238,240,240,0.06)">
+      <table style="width:100%;border-collapse:collapse;min-width:900px">
+        <thead><tr style="background:rgba(0,102,94,0.18)">
+          <th style="padding:9px 12px;font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:var(--text);text-align:left">Clave</th>
+          <th style="padding:9px 12px;font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:var(--text);text-align:left">Descripción</th>
+          <th style="padding:9px 12px;font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:var(--text);text-align:left">Marca</th>
+          <th style="padding:9px 12px;font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:var(--text);text-align:center">Modelo</th>
+          <th style="padding:9px 12px;font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:var(--text);text-align:right">Stock</th>
+          <th style="padding:9px 12px;font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:var(--text);text-align:right">Precio CVA</th>
+        </tr></thead>
+        <tbody>${productos.map(p => {
+          const md = _getMD_({ clave: p.clave, marca: p.marca });
+          const modelo = (md && md.modelo) ? String(md.modelo).toUpperCase() : 'SIN MODELO';
+          const esSinModelo = !md?.modelo || modelo.includes('SIN MODELO');
+          const stock = (p.disponible || 0) + (p.disponibleCD || 0);
+          const precio = p.moneda === 'Dolares' ? (p.precio * (p.tipo_cambio || 17.5)) : p.precio;
+          return `<tr style="border-bottom:1px solid rgba(238,240,240,0.04)">
+            <td style="padding:8px 12px;font-family:monospace;color:var(--green-lt);font-size:11px">${p.clave}</td>
+            <td style="padding:8px 12px;font-size:11.5px">${(p.descripcion || '').substring(0,60)}${(p.descripcion||'').length>60?'…':''}</td>
+            <td style="padding:8px 12px;font-size:11px;color:var(--text-2)">${p.marca || ''}</td>
+            <td style="padding:8px 12px;font-size:11px;text-align:center;${esSinModelo?'background:#e05555;color:#fff;font-weight:700':''}">${modelo}</td>
+            <td style="padding:8px 12px;font-size:13px;text-align:right;font-family:'Barlow Condensed',sans-serif">${stock.toLocaleString('es-MX')}</td>
+            <td style="padding:8px 12px;font-size:12px;text-align:right;color:var(--green-lt);font-family:'Barlow Condensed',sans-serif">$${Math.round(precio).toLocaleString('es-MX')}</td>
+          </tr>`;
+        }).join('')}</tbody>
+      </table>
+    </div>
+
+    ${errores.length ? `
+      <details style="margin-top:14px;background:rgba(255,180,0,0.06);border:1px solid rgba(255,180,0,0.18);padding:10px 14px">
+        <summary style="cursor:pointer;font-size:11px;letter-spacing:1px;text-transform:uppercase;color:rgba(255,180,0,0.9)">⚠ ${errores.length} clave${errores.length===1?'':'s'} no encontrada${errores.length===1?'':'s'}</summary>
+        <div style="margin-top:8px;font-size:10px;font-family:monospace;color:var(--text-2);max-height:120px;overflow-y:auto">${errores.map(e => `${e.clave} — ${e.error}`).join('<br>')}</div>
+      </details>` : ''}
+  `;
+}
+
+function exportarLimpiar() {
+  const ta = document.getElementById('export-claves');
+  if (ta) ta.value = '';
+  const cont = document.getElementById('export-resultado');
+  if (cont) cont.innerHTML = '';
+  _exportarProductos = [];
+}
+
+// ─── EXCEL ───
+async function exportarExcel() {
+  if (_exportarProductos.length === 0) { alert('Primero busca los productos.'); return; }
+  if (typeof XLSX === 'undefined') {
+    await new Promise((resolve, reject) => {
+      const s = document.createElement('script');
+      s.src = 'https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js';
+      s.onload = resolve; s.onerror = reject;
+      document.head.appendChild(s);
+    }).catch(() => alert('No se pudo cargar SheetJS'));
+  }
+  if (typeof XLSX === 'undefined') return;
+
+  const productos = _exportarProductos;
+  const gananciaUsar = _exportarGanancia;
+  const fechaGen = new Date().toLocaleString('es-MX');
+
+  // Header del documento — mismo estilo que Top 20
+  const aoa = [
+    ['Reporte de Productos — Export Datos'],
+    ['Electronics México · LEONGEM COMERCIALIZADORA · Cuenta CVA 2395390'],
+    [`Generado:  ${fechaGen}`],
+    [`Total productos:  ${productos.length}  ·  % Ganancia aplicado:  ${gananciaUsar}%`],
+    [],
+  ];
+
+  const headersTabla = [
+    'Clave CVA', 'Descripción', 'Marca', 'Modelo', 'Grupo',
+    'Stock Hoy', 'Precio CVA', '% Gan', 'Precio MELI Clás.',
+    'Unidades Solicitadas', 'Total Pedido CVA', 'UPC'
+  ];
+  const headerRowIdx = aoa.length;
+  aoa.push(headersTabla);
+
+  // Filas de productos
+  productos.forEach(p => {
+    const md = _getMD_({ clave: p.clave, marca: p.marca });
+    const upc = _upc12_(md && md.upc);
+    const modelo = (md && md.modelo) ? String(md.modelo).toUpperCase() : 'SIN MODELO';
+    const stock = (p.disponible || 0) + (p.disponibleCD || 0);
+    const precioMXN = p.moneda === 'Dolares' ? (p.precio * (p.tipo_cambio || 17.5)) : p.precio;
+    aoa.push([
+      p.clave || '',
+      p.descripcion || '',
+      p.marca || '',
+      modelo,
+      p.grupo || '',
+      stock,
+      precioMXN,
+      gananciaUsar,
+      null, 1, null,
+      upc,
+    ]);
+  });
+
+  const ws = XLSX.utils.aoa_to_sheet(aoa);
+  const moneyFmt = '"$"#,##0.00';
+  const lastHeaderCol = 11;
+
+  // Estilo del título
+  ws['!merges'] = ws['!merges'] || [];
+  for (let r = 0; r < headerRowIdx; r++) {
+    const ref = XLSX.utils.encode_cell({ r, c: 0 });
+    if (ws[ref]) ws[ref].s = { font:{ sz: r===0?14:11, bold: r===0, color:{rgb: r===0?'00665E':'333333'} }};
+    ws['!merges'].push({ s:{r,c:0}, e:{r,c:lastHeaderCol} });
+  }
+  // Header tabla
+  for (let c = 0; c < headersTabla.length; c++) {
+    const ref = XLSX.utils.encode_cell({ r: headerRowIdx, c });
+    if (ws[ref]) ws[ref].s = { fill:{fgColor:{rgb:'00665E'}}, font:{color:{rgb:'FFFFFF'},bold:true,sz:10}, alignment:{horizontal:'center'} };
+  }
+
+  // Por cada producto: comisión, envío, fórmulas
+  productos.forEach((p, i) => {
+    const r = headerRowIdx + 1 + i;
+    const excelRow = r + 1;
+    const e = _enriquecerProducto_({ ...p, total: (p.disponible||0)+(p.disponibleCD||0) });
+    const comision = _comisionMELI_(e._cat_meli);
+    const envio    = _envioMELIporPeso_(e._peso);
+
+    // Modelo (col D = index 3) — rojo si SIN MODELO
+    const modeloRef = XLSX.utils.encode_cell({ r, c: 3 });
+    if (ws[modeloRef]) {
+      const v = String(ws[modeloRef].v || '').toUpperCase();
+      const esSinModelo = v.includes('SIN MODELO');
+      ws[modeloRef].s = {
+        alignment:{horizontal:'center'},
+        font: esSinModelo ? {bold:true,color:{rgb:'FFFFFF'}} : {color:{rgb:'333333'}},
+        fill: esSinModelo ? {fgColor:{rgb:'E05555'}} : undefined,
+      };
+    }
+    // Precio CVA (col G = 6)
+    const precioRef = XLSX.utils.encode_cell({ r, c: 6 });
+    if (ws[precioRef]) { ws[precioRef].z = moneyFmt; ws[precioRef].s = {numFmt:moneyFmt,alignment:{horizontal:'right'}}; }
+    // % Gan (col H = 7)
+    const ganRef = XLSX.utils.encode_cell({ r, c: 7 });
+    if (ws[ganRef]) ws[ganRef].s = {alignment:{horizontal:'center'},font:{bold:true,color:{rgb:'00665E'}},fill:{fgColor:{rgb:'F0F7F6'}}};
+    // Precio MELI (col I = 8) — fórmula
+    const meliRef = XLSX.utils.encode_cell({ r, c: 8 });
+    ws[meliRef] = {
+      t:'n',
+      f:`IF(G${excelRow}<=298, G${excelRow}*(1+${comision})+33, G${excelRow}*(1+${comision})+${envio}) * (1+H${excelRow}/100)`,
+      z:moneyFmt,
+      s:{numFmt:moneyFmt,alignment:{horizontal:'right'},font:{bold:true,color:{rgb:'00665E'}},fill:{fgColor:{rgb:'E8F5F4'}}},
+    };
+    // Unidades (col J = 9)
+    const uniRef = XLSX.utils.encode_cell({ r, c: 9 });
+    if (ws[uniRef]) ws[uniRef].s = {alignment:{horizontal:'center'},font:{bold:true,color:{rgb:'00665E'}},fill:{fgColor:{rgb:'F0F7F6'}}};
+    // Total (col K = 10) — fórmula G*J
+    const totalRef = XLSX.utils.encode_cell({ r, c: 10 });
+    ws[totalRef] = {
+      t:'n', f:`G${excelRow}*J${excelRow}`, z:moneyFmt,
+      s:{numFmt:moneyFmt,alignment:{horizontal:'right'},font:{bold:true}},
+    };
+    // Stock (col F = 5)
+    const stockRef = XLSX.utils.encode_cell({ r, c: 5 });
+    if (ws[stockRef]) { ws[stockRef].z = '#,##0'; ws[stockRef].s = {numFmt:'#,##0',alignment:{horizontal:'right'}}; }
+    // UPC (col L = 11)
+    const upcRef = XLSX.utils.encode_cell({ r, c: 11 });
+    if (ws[upcRef]) ws[upcRef].s = {font:{name:'Courier New',sz:10},alignment:{horizontal:'center'}};
+  });
+
+  // Total general
+  const totalRowIdx = headerRowIdx + 1 + productos.length;
+  ws[XLSX.utils.encode_cell({r:totalRowIdx,c:9})] = {
+    t:'s', v:'TOTAL GENERAL:',
+    s:{font:{bold:true,color:{rgb:'00665E'}},alignment:{horizontal:'right'}},
+  };
+  ws[XLSX.utils.encode_cell({r:totalRowIdx,c:10})] = {
+    t:'n', f:`SUM(K${headerRowIdx+2}:K${totalRowIdx})`, z:moneyFmt,
+    s:{numFmt:moneyFmt,font:{bold:true,sz:12,color:{rgb:'00665E'}},fill:{fgColor:{rgb:'F0F7F6'}},alignment:{horizontal:'right'},border:{top:{style:'medium',color:{rgb:'00665E'}}}},
+  };
+
+  ws['!autofilter'] = { ref: XLSX.utils.encode_range({s:{r:headerRowIdx,c:0},e:{r:headerRowIdx+productos.length,c:lastHeaderCol}}) };
+  ws['!freeze'] = { xSplit:0, ySplit: headerRowIdx+1 };
+  ws['!cols'] = [
+    {wch:14},{wch:55},{wch:18},{wch:16},{wch:22},{wch:11},{wch:13},{wch:9},{wch:15},{wch:13},{wch:16},{wch:16},
+  ];
+  ws['!ref'] = XLSX.utils.encode_range({s:{r:0,c:0},e:{r:totalRowIdx,c:lastHeaderCol}});
+
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Export Datos');
+  XLSX.writeFile(wb, `CVA_ExportDatos_${new Date().toISOString().slice(0,10)}.xlsx`);
+}
+
+// ─── PDF ───
+function exportarPDF() {
+  if (_exportarProductos.length === 0) { alert('Primero busca los productos.'); return; }
+  const productos = _exportarProductos;
+  const fechaGen = new Date().toLocaleString('es-MX');
+  const fmtMXN = (n) => '$' + Math.round(n||0).toLocaleString('es-MX');
+
+  const w = window.open('', '_blank');
+  if (!w) { alert('Permite popups para exportar PDF'); return; }
+
+  const filasHtml = productos.map(p => {
+    const md = _getMD_({ clave: p.clave, marca: p.marca });
+    const modeloRaw = (md && md.modelo) ? String(md.modelo).toUpperCase() : '';
+    const modelo = modeloRaw || 'SIN MODELO';
+    const esSinModelo = !modeloRaw || modelo.includes('SIN MODELO');
+    const stock = (p.disponible || 0) + (p.disponibleCD || 0);
+    const precioMXN = p.moneda === 'Dolares' ? (p.precio * (p.tipo_cambio || 17.5)) : p.precio;
+    return `<tr>
+      <td class="mono">${p.clave || ''}</td>
+      <td>${(p.descripcion || '').substring(0, 70)}</td>
+      <td>${p.marca || ''}</td>
+      <td class="${esSinModelo ? 'sinmodelo' : ''}">${modelo}</td>
+      <td>${p.grupo || ''}</td>
+      <td class="r">${stock.toLocaleString('es-MX')}</td>
+      <td class="r">${fmtMXN(precioMXN)}</td>
+    </tr>`;
+  }).join('');
+
+  w.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8">
+    <title>Export Datos · CVA</title>
+    <style>
+      body { font-family: Arial, sans-serif; padding: 20px 28px; font-size: 11px; color: #222; }
+      .header-block { border-bottom: 2px solid #00665e; padding-bottom: 14px; margin-bottom: 22px; }
+      h1 { color: #00665e; font-size: 22px; margin: 0 0 4px; font-weight: 500; letter-spacing: 1px; }
+      .empresa { font-size: 11px; color: #555; margin-bottom: 8px; }
+      .meta { font-size: 10px; color: #888; line-height: 1.6; }
+      .meta b { color: #444; font-weight: 500; }
+      table { width: 100%; border-collapse: collapse; font-size: 10px; }
+      th { background: #2d5a57; color: #fff; padding: 6px 8px; text-align: left; font-size: 9px; letter-spacing: 1px; text-transform: uppercase; }
+      th.r { text-align: right; }
+      td { padding: 5px 8px; border-bottom: 1px solid #eee; vertical-align: top; }
+      td.r { text-align: right; font-variant-numeric: tabular-nums; }
+      td.mono { font-family: 'Courier New', monospace; color: #00665e; font-weight: 500; }
+      td.sinmodelo { background: #e05555 !important; color: #fff !important; font-weight: 700; text-align: center; }
+      tr:nth-child(even) { background: #fafafa; }
+      .footer { margin-top: 30px; padding-top: 14px; border-top: 1px solid #eee; font-size: 9px; color: #888; text-align: center; letter-spacing: 1px; }
+      @media print { @page { size: landscape; margin: 1cm; } }
+    </style></head><body>
+    <div class="header-block">
+      <h1>Reporte de Productos · Export Datos</h1>
+      <div class="empresa">Electronics México · LEONGEM COMERCIALIZADORA · Cuenta CVA 2395390</div>
+      <div class="meta">
+        <b>Total productos:</b> ${productos.length}  ·
+        <b>Generado:</b> ${fechaGen}
+      </div>
+    </div>
+    <table>
+      <thead><tr>
+        <th>Clave</th><th>Descripción</th><th>Marca</th><th>Modelo</th>
+        <th>Grupo</th><th class="r">Stock</th><th class="r">Precio CVA</th>
+      </tr></thead>
+      <tbody>${filasHtml}</tbody>
+    </table>
+    <div class="footer">Documento generado desde Exportar Datos · Electronics México</div>
+    <script>setTimeout(()=>window.print(), 500);</script>
+  </body></html>`);
+  w.document.close();
+}
+
+Object.assign(window, { cargarExportar, exportarBuscar, exportarLimpiar, exportarExcel, exportarPDF });
 
 // ════════════════════════════════════════════════════════════════
 //  TABLERO — animación de fondo: red de puntos sutil
