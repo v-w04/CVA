@@ -3844,7 +3844,7 @@ async function anTop20Excel() {
   //   A=Clave  B=Descripción  C=Marca  D=Grupo  E=Stock  F=Precio CVA
   //   G=% Gan  H=Precio MELI (fórmula)  I=Unidades  J=Total (fórmula)  K=UPC
   const headersTabla = [
-    'Clave CVA', 'Descripción', 'Marca', 'Grupo',
+    'Clave CVA', 'Descripción', 'Marca', 'Modelo', 'Grupo',
     'Stock Hoy', 'Precio CVA', '% Gan', 'Precio MELI Clás.',
     'Unidades Solicitadas', 'Total Pedido CVA', 'UPC'
   ];
@@ -3855,17 +3855,19 @@ async function anTop20Excel() {
   productosFlat.forEach(p => {
     const md = _getMD_(p);
     const upc = _upc12_(md && md.upc);
+    const modelo = (md && md.modelo) ? String(md.modelo).toUpperCase() : 'SIN MODELO';
     aoa.push([
       p.clave || '',
       p.desc || '',
       p.marca || '',
+      modelo,                                    // ← Modelo desde METADATA
       p.grupo || '',
       p.total || 0,
       p.precio || 0,
-      gananciaUsar,   // % Gan editable
-      null,           // Precio MELI — fórmula viva
-      1,              // Unidades Solicitadas
-      null,           // Total — fórmula viva
+      gananciaUsar,
+      null,
+      1,
+      null,
       upc,
     ]);
   });
@@ -3873,7 +3875,7 @@ async function anTop20Excel() {
   const ws = XLSX.utils.aoa_to_sheet(aoa);
 
   const moneyFmt = '"$"#,##0.00';
-  const lastHeaderCol = 10; // 0-indexed: K = 10 (11 columnas)
+  const lastHeaderCol = 11; // 0-indexed: L = 11 (12 columnas con Modelo)
 
   // ── Estilos del encabezado profesional ──
   ws['!merges'] = ws['!merges'] || [];
@@ -3900,21 +3902,35 @@ async function anTop20Excel() {
     const r = headerRowIdx + 1 + i;          // 0-indexed row
     const excelRow = r + 1;                   // 1-indexed para fórmulas
 
-    // Para la fórmula MELI necesitamos comisión (decimal) y envío ($) por producto.
-    // Los calculamos basándonos en categoría MELI y peso del producto (heurística + metadata).
     const e = _enriquecerProducto_(p);
-    const comision = _comisionMELI_(e._cat_meli);   // ej 0.125
-    const envio    = _envioMELIporPeso_(e._peso);   // ej 90
+    const comision = _comisionMELI_(e._cat_meli);
+    const envio    = _envioMELIporPeso_(e._peso);
 
-    // Precio CVA (col F = index 5) — moneda
-    const precioRef = XLSX.utils.encode_cell({ r, c: 5 });
+    // Modelo (col D = index 3) — fondo rojo si "SIN MODELO"
+    const modeloRef = XLSX.utils.encode_cell({ r, c: 3 });
+    if (ws[modeloRef]) {
+      const valor = String(ws[modeloRef].v || '').toUpperCase();
+      const esSinModelo = valor.includes('SIN MODELO') || valor === 'SINMODELO';
+      ws[modeloRef].s = {
+        alignment: { horizontal: 'center' },
+        font: esSinModelo
+          ? { bold: true, color: { rgb: 'FFFFFF' } }
+          : { bold: false, color: { rgb: '333333' } },
+        fill: esSinModelo
+          ? { fgColor: { rgb: 'E05555' } }   // rojo vivo
+          : undefined,
+      };
+    }
+
+    // Precio CVA (col G = index 6) — moneda
+    const precioRef = XLSX.utils.encode_cell({ r, c: 6 });
     if (ws[precioRef]) {
       ws[precioRef].z = moneyFmt;
       ws[precioRef].s = { numFmt: moneyFmt, alignment: { horizontal: 'right' } };
     }
 
-    // % Gan (col G = index 6) — editable con fondo verde tenue
-    const ganRef = XLSX.utils.encode_cell({ r, c: 6 });
+    // % Gan (col H = index 7) — editable con fondo verde tenue
+    const ganRef = XLSX.utils.encode_cell({ r, c: 7 });
     if (ws[ganRef]) {
       ws[ganRef].s = {
         alignment: { horizontal: 'center' },
@@ -3923,14 +3939,11 @@ async function anTop20Excel() {
       };
     }
 
-    // Precio MELI (col H = index 7) — FÓRMULA viva
-    // costos = SI Precio<=298: Precio*(1+comision)+33
-    //          SI NO:           Precio*(1+comision)+envío
-    // Precio MELI = costos * (1 + %Gan/100)
-    const meliRef = XLSX.utils.encode_cell({ r, c: 7 });
+    // Precio MELI (col I = index 8) — FÓRMULA viva (G=Precio CVA, H=%Gan)
+    const meliRef = XLSX.utils.encode_cell({ r, c: 8 });
     ws[meliRef] = {
       t: 'n',
-      f: `IF(F${excelRow}<=298, F${excelRow}*(1+${comision})+33, F${excelRow}*(1+${comision})+${envio}) * (1+G${excelRow}/100)`,
+      f: `IF(G${excelRow}<=298, G${excelRow}*(1+${comision})+33, G${excelRow}*(1+${comision})+${envio}) * (1+H${excelRow}/100)`,
       z: moneyFmt,
       s: {
         numFmt: moneyFmt,
@@ -3940,8 +3953,8 @@ async function anTop20Excel() {
       },
     };
 
-    // Unidades Solicitadas (col I = index 8) — editable
-    const uniRef = XLSX.utils.encode_cell({ r, c: 8 });
+    // Unidades Solicitadas (col J = index 9) — editable
+    const uniRef = XLSX.utils.encode_cell({ r, c: 9 });
     if (ws[uniRef]) {
       ws[uniRef].s = {
         alignment: { horizontal: 'center' },
@@ -3950,24 +3963,24 @@ async function anTop20Excel() {
       };
     }
 
-    // Total Pedido CVA (col J = index 9) — FÓRMULA Precio CVA × Unidades
-    const totalRef = XLSX.utils.encode_cell({ r, c: 9 });
+    // Total Pedido CVA (col K = index 10) — FÓRMULA Precio CVA × Unidades (G * J)
+    const totalRef = XLSX.utils.encode_cell({ r, c: 10 });
     ws[totalRef] = {
       t: 'n',
-      f: `F${excelRow}*I${excelRow}`,
+      f: `G${excelRow}*J${excelRow}`,
       z: moneyFmt,
       s: { numFmt: moneyFmt, alignment: { horizontal: 'right' }, font: { bold: true } },
     };
 
-    // Stock Hoy
-    const stockRef = XLSX.utils.encode_cell({ r, c: 4 });
+    // Stock Hoy (col F = index 5)
+    const stockRef = XLSX.utils.encode_cell({ r, c: 5 });
     if (ws[stockRef]) {
       ws[stockRef].z = '#,##0';
       ws[stockRef].s = { numFmt: '#,##0', alignment: { horizontal: 'right' } };
     }
 
-    // UPC (col K = index 10)
-    const upcRef = XLSX.utils.encode_cell({ r, c: 10 });
+    // UPC (col L = index 11)
+    const upcRef = XLSX.utils.encode_cell({ r, c: 11 });
     if (ws[upcRef]) {
       ws[upcRef].s = {
         font: { name: 'Courier New', sz: 10 },
@@ -3977,10 +3990,12 @@ async function anTop20Excel() {
 
     // Zebra striping
     if (i % 2 === 1) {
-      ['A','B','C','D','E','F','G','H','I','J','K'].forEach(col => {
+      ['A','B','C','D','E','F','G','H','I','J','K','L'].forEach(col => {
         const ref = col + excelRow;
         if (!ws[ref]) return;
         const existing = ws[ref].s || {};
+        // No sobrescribir fill rojo del modelo si ya está
+        if (col === 'D' && existing.fill && existing.fill.fgColor && existing.fill.fgColor.rgb === 'E05555') return;
         ws[ref].s = {
           ...existing,
           fill: existing.fill || { fgColor: { rgb: 'FAFAFA' } },
@@ -3994,13 +4009,15 @@ async function anTop20Excel() {
   const firstDataExcelRow = headerRowIdx + 2;
   const lastDataExcelRow  = totalRowIdx;
 
-  ws[XLSX.utils.encode_cell({ r: totalRowIdx, c: 8 })] = {
+  // "TOTAL GENERAL:" en col J = index 9
+  ws[XLSX.utils.encode_cell({ r: totalRowIdx, c: 9 })] = {
     t: 's', v: 'TOTAL GENERAL:',
     s: { font: { bold: true, color: { rgb: '00665E' } }, alignment: { horizontal: 'right' } },
   };
-  ws[XLSX.utils.encode_cell({ r: totalRowIdx, c: 9 })] = {
+  // Suma del Total Pedido CVA en col K = index 10
+  ws[XLSX.utils.encode_cell({ r: totalRowIdx, c: 10 })] = {
     t: 'n',
-    f: `SUM(J${firstDataExcelRow}:J${lastDataExcelRow})`,
+    f: `SUM(K${firstDataExcelRow}:K${lastDataExcelRow})`,
     z: moneyFmt,
     s: {
       numFmt: moneyFmt,
@@ -4027,6 +4044,7 @@ async function anTop20Excel() {
     { wch: 14 },   // Clave
     { wch: 55 },   // Descripción
     { wch: 18 },   // Marca
+    { wch: 16 },   // Modelo (nuevo)
     { wch: 22 },   // Grupo
     { wch: 11 },   // Stock
     { wch: 13 },   // Precio CVA
@@ -4074,6 +4092,7 @@ function anTop20PDF() {
           <th>Clave</th>
           <th>Descripción</th>
           <th>Marca</th>
+          <th>Modelo</th>
           <th>Grupo</th>
           <th class="r">Stock</th>
           <th class="r">Movido</th>
@@ -4081,18 +4100,24 @@ function anTop20PDF() {
           <th class="r">Valor Mov.</th>
         </tr></thead>
         <tbody>${
-          sec.productos.map(p => `
+          sec.productos.map(p => {
+            const md = _getMD_(p);
+            const modeloRaw = (md && md.modelo) ? String(md.modelo).toUpperCase() : '';
+            const modelo = modeloRaw || 'SIN MODELO';
+            const esSinModelo = !modeloRaw || modelo.includes('SIN MODELO');
+            return `
             <tr>
               <td class="mono">${p.clave || ''}</td>
               <td>${(p.desc || '').substring(0, 70)}</td>
               <td>${p.marca || ''}</td>
+              <td class="${esSinModelo ? 'sinmodelo' : ''}">${modelo}</td>
               <td>${p.grupo || ''}</td>
               <td class="r">${(p.total || 0).toLocaleString('es-MX')}</td>
               <td class="r mov">${(p.movido || 0).toLocaleString('es-MX')}</td>
               <td class="r">${fmtMXN(p.precio)}</td>
               <td class="r">${fmtMXN(p.valor_movido)}</td>
             </tr>
-          `).join('')
+          `;}).join('')
         }</tbody>
       </table>
     </div>
@@ -4118,6 +4143,7 @@ function anTop20PDF() {
       td.r { text-align: right; font-variant-numeric: tabular-nums; }
       td.mono { font-family: 'Courier New', monospace; color: #00665e; font-weight: 500; }
       td.mov { color: #00665e; font-weight: 600; }
+      td.sinmodelo { background: #e05555 !important; color: #fff !important; font-weight: 700; text-align: center; }
       tr:nth-child(even) { background: #fafafa; }
       .footer { margin-top: 30px; padding-top: 14px; border-top: 1px solid #eee; font-size: 9px; color: #888; text-align: center; letter-spacing: 1px; }
       @media print {
