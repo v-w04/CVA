@@ -3767,9 +3767,8 @@ async function anExportCVAUPCs() {
     ['Clave CVA','Nombre del producto','Marca','Modelo','Stock disponible','UPC'],
   ];
   prods.forEach(p => {
-    const md = _getMD_(p);
-    const modelo = (md && md.modelo) ? String(md.modelo).toUpperCase() : 'SIN MODELO';
-    aoa.push([p.clave, p.desc, p.marca, modelo, (p.total||0), '']);
+    const _m = _modeloDeProducto_(p);
+    aoa.push([p.clave, p.desc, p.marca, _m.texto, (p.total||0), '']);
   });
 
   const ws = XLSX.utils.aoa_to_sheet(aoa);
@@ -3980,12 +3979,12 @@ async function anTop20Excel() {
   productosFlat.forEach(p => {
     const md = _getMD_(p);
     const upc = _upc12_(md && md.upc);
-    const modelo = (md && md.modelo) ? String(md.modelo).toUpperCase() : 'SIN MODELO';
+    const _m = _modeloDeProducto_(p);
     aoa.push([
       p.clave || '',
       p.desc || '',
       p.marca || '',
-      modelo,                                    // ← Modelo desde METADATA
+      _m.texto,                                  // ← METADATA → heurística → SIN MODELO
       p.grupo || '',
       p.total || 0,
       p.precio || 0,
@@ -4226,16 +4225,14 @@ function anTop20PDF() {
         </tr></thead>
         <tbody>${
           sec.productos.map(p => {
-            const md = _getMD_(p);
-            const modeloRaw = (md && md.modelo) ? String(md.modelo).toUpperCase() : '';
-            const modelo = modeloRaw || 'SIN MODELO';
-            const esSinModelo = !modeloRaw || modelo.includes('SIN MODELO');
+            const _m = _modeloDeProducto_(p);
+            const esSinModelo = _m.vacio === true;
             return `
             <tr>
               <td class="mono">${p.clave || ''}</td>
               <td>${(p.desc || '').substring(0, 70)}</td>
               <td>${p.marca || ''}</td>
-              <td class="${esSinModelo ? 'sinmodelo' : ''}">${modelo}</td>
+              <td class="${esSinModelo ? 'sinmodelo' : ''}">${_m.texto}</td>
               <td>${p.grupo || ''}</td>
               <td class="r">${(p.total || 0).toLocaleString('es-MX')}</td>
               <td class="r mov">${(p.movido || 0).toLocaleString('es-MX')}</td>
@@ -4558,6 +4555,21 @@ Object.assign(window, {
 let _exportarProductos = [];   // los productos cargados desde CVA
 let _exportarGanancia = 15;    // % default
 
+// Devuelve el modelo de un producto:
+//   1) si hay metadata guardada (PWA/Sheet), usa esa
+//   2) si no, intenta extraerlo heurísticamente de la descripción
+//   3) si nada funciona, "SIN MODELO" en rojo
+function _modeloDeProducto_(p) {
+  const md = _getMD_({ clave: p.clave, marca: p.marca });
+  if (md && md.modelo) return { texto: String(md.modelo).toUpperCase(), auto: false };
+  // Fallback: heurística
+  try {
+    const auto = _extraerModelo_(p.descripcion || '', p.marca || '');
+    if (auto) return { texto: auto, auto: true };
+  } catch(e) {}
+  return { texto: 'SIN MODELO', auto: false, vacio: true };
+}
+
 function cargarExportar() {
   const cont = document.getElementById('exportar-content');
   if (!cont) return;
@@ -4702,16 +4714,17 @@ function _renderExportResultado_(productos, errores) {
           <th style="padding:9px 12px;font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:var(--text);text-align:right">Precio CVA</th>
         </tr></thead>
         <tbody>${productos.map(p => {
-          const md = _getMD_({ clave: p.clave, marca: p.marca });
-          const modelo = (md && md.modelo) ? String(md.modelo).toUpperCase() : 'SIN MODELO';
-          const esSinModelo = !md?.modelo || modelo.includes('SIN MODELO');
+          // _modeloDeProducto_ acepta p con clave/marca/descripcion — usa
+          // METADATA primero, luego heurística, luego "SIN MODELO".
+          const _m = _modeloDeProducto_({ clave: p.clave, marca: p.marca, desc: p.descripcion, descripcion: p.descripcion });
+          const esSinModelo = _m.vacio === true;
           const stock = (p.disponible || 0) + (p.disponibleCD || 0);
           const precio = p.moneda === 'Dolares' ? (p.precio * (p.tipo_cambio || 17.5)) : p.precio;
           return `<tr style="border-bottom:1px solid rgba(238,240,240,0.04)">
             <td style="padding:8px 12px;font-family:monospace;color:var(--green-lt);font-size:11px">${p.clave}</td>
             <td style="padding:8px 12px;font-size:11.5px">${(p.descripcion || '').substring(0,60)}${(p.descripcion||'').length>60?'…':''}</td>
             <td style="padding:8px 12px;font-size:11px;color:var(--text-2)">${p.marca || ''}</td>
-            <td style="padding:8px 12px;font-size:11px;text-align:center;${esSinModelo?'background:#e05555;color:#fff;font-weight:700':''}">${modelo}</td>
+            <td style="padding:8px 12px;font-size:11px;text-align:center;${esSinModelo?'background:#e05555;color:#fff;font-weight:700':_m.auto?'color:#aab8b3;font-style:italic':''}" title="${_m.auto?'Modelo extraído automáticamente de la descripción':''}">${_m.texto}</td>
             <td style="padding:8px 12px;font-size:13px;text-align:right;font-family:'Barlow Condensed',sans-serif">${stock.toLocaleString('es-MX')}</td>
             <td style="padding:8px 12px;font-size:12px;text-align:right;color:var(--green-lt);font-family:'Barlow Condensed',sans-serif">$${Math.round(precio).toLocaleString('es-MX')}</td>
           </tr>`;
@@ -4773,14 +4786,14 @@ async function exportarExcel() {
   productos.forEach(p => {
     const md = _getMD_({ clave: p.clave, marca: p.marca });
     const upc = _upc12_(md && md.upc);
-    const modelo = (md && md.modelo) ? String(md.modelo).toUpperCase() : 'SIN MODELO';
+    const _m = _modeloDeProducto_({ clave: p.clave, marca: p.marca, desc: p.descripcion, descripcion: p.descripcion });
     const stock = (p.disponible || 0) + (p.disponibleCD || 0);
     const precioMXN = p.moneda === 'Dolares' ? (p.precio * (p.tipo_cambio || 17.5)) : p.precio;
     aoa.push([
       p.clave || '',
       p.descripcion || '',
       p.marca || '',
-      modelo,
+      _m.texto,
       p.grupo || '',
       stock,
       precioMXN,
@@ -4891,17 +4904,15 @@ function exportarPDF() {
   if (!w) { alert('Permite popups para exportar PDF'); return; }
 
   const filasHtml = productos.map(p => {
-    const md = _getMD_({ clave: p.clave, marca: p.marca });
-    const modeloRaw = (md && md.modelo) ? String(md.modelo).toUpperCase() : '';
-    const modelo = modeloRaw || 'SIN MODELO';
-    const esSinModelo = !modeloRaw || modelo.includes('SIN MODELO');
+    const _m = _modeloDeProducto_({ clave: p.clave, marca: p.marca, desc: p.descripcion, descripcion: p.descripcion });
+    const esSinModelo = _m.vacio === true;
     const stock = (p.disponible || 0) + (p.disponibleCD || 0);
     const precioMXN = p.moneda === 'Dolares' ? (p.precio * (p.tipo_cambio || 17.5)) : p.precio;
     return `<tr>
       <td class="mono">${p.clave || ''}</td>
       <td>${(p.descripcion || '').substring(0, 70)}</td>
       <td>${p.marca || ''}</td>
-      <td class="${esSinModelo ? 'sinmodelo' : ''}">${modelo}</td>
+      <td class="${esSinModelo ? 'sinmodelo' : _m.auto ? 'auto' : ''}">${_m.texto}</td>
       <td>${p.grupo || ''}</td>
       <td class="r">${stock.toLocaleString('es-MX')}</td>
       <td class="r">${fmtMXN(precioMXN)}</td>
@@ -4924,6 +4935,7 @@ function exportarPDF() {
       td.r { text-align: right; font-variant-numeric: tabular-nums; }
       td.mono { font-family: 'Courier New', monospace; color: #00665e; font-weight: 500; }
       td.sinmodelo { background: #e05555 !important; color: #fff !important; font-weight: 700; text-align: center; }
+      td.auto { color: #888; font-style: italic; }
       tr:nth-child(even) { background: #fafafa; }
       .footer { margin-top: 30px; padding-top: 14px; border-top: 1px solid #eee; font-size: 9px; color: #888; text-align: center; letter-spacing: 1px; }
       @media print { @page { size: landscape; margin: 1cm; } }
