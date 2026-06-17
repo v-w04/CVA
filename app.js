@@ -3152,6 +3152,10 @@ window.onload = () => {
   try { cargarSucursalesSelect(); } catch(e) {}
   // Cargar saldo CVA en background
   try { cargarSaldo(); } catch(e) {}
+  // Cargar METADATA del Sheet en background — para que Exportar Datos,
+  // Buscar productos, etc. vean modelos correctos desde el primer momento
+  // (sin tener que pasar por Análisis primero).
+  try { _loadMetadataFromSheet_(); } catch(e) {}
 
   // (La sección Exportar Datos ya existe como page-exportar / card del tablero)
 
@@ -3250,18 +3254,22 @@ async function _pushMetadataToSheet_(p, campo, valor) {
   }
 }
 
-// Carga la metadata del Sheet al iniciar el análisis. Sheet sobreescribe
-// localStorage cuando hay diferencias (el Sheet es la fuente de verdad).
+// Carga la metadata del Sheet al iniciar el análisis o al recargar.
+// El Sheet es la FUENTE DE VERDAD: pisa lo que sea que esté en localStorage.
+// Esto garantiza que si editas un modelo en el sheet (manualmente o via UPC import),
+// la PWA refleje el cambio al recargar.
 async function _loadMetadataFromSheet_() {
   try {
     const res = await api('metadata_get', {});
     if (res && res.ok && res.metadata) {
-      // Merge: Sheet pisa los campos que ya estaban en localStorage
+      // PISAR completamente: el sheet es la fuente de verdad.
+      // Antes hacíamos merge con localStorage, pero eso impedía que
+      // los cambios del sheet se vieran en la PWA. Ahora el sheet gana.
       Object.keys(res.metadata).forEach(k => {
-        _metadataProductos[k] = { ..._metadataProductos[k], ...res.metadata[k] };
+        _metadataProductos[k] = res.metadata[k];
       });
       _saveMetadataLS_();
-      console.log('[metadata] Cargados ' + res.total + ' productos desde Sheet');
+      console.log('[metadata] Cargados ' + res.total + ' productos desde Sheet (pisó cache local)');
       // Intentar subir los pendientes si los hay
       if (_mdPendientes.length > 0) {
         const batch = _mdPendientes.splice(0);
@@ -5186,73 +5194,72 @@ Object.assign(window, { cargarExportar, exportarBuscar, exportarLimpiar, exporta
 
 // ════════════════════════════════════════════════════════════════
 //  Botón ↻ en header — recarga datos sin recargar la página.
-//  Limpia caches en memoria/localStorage, refetches metadata,
-//  saldo, sucursales, y re-renderiza la página actual.
+//
+//  Específicamente: refetches metadata del Sheet (que ya tiene los
+//  modelos correctos), PISA la cache local, y re-renderiza la página
+//  actual. La función _modeloDeProducto_ ya prioriza METADATA sobre
+//  la heurística — el bug era que la cache no se actualizaba.
 // ════════════════════════════════════════════════════════════════
 async function recargarTodo() {
   const btn = document.getElementById('badge-refresh');
   const icon = document.getElementById('badge-refresh-icon');
   if (btn) btn.disabled = true;
-  if (icon) {
-    icon.style.animation = 'spin 0.8s linear infinite';
-  }
+  if (icon) icon.style.animation = 'spin 0.8s linear infinite';
+
+  let mdAntes = 0, mdDespues = 0;
 
   try {
-    // 1) Limpiar cache local de metadata (para que se vuelva a leer del sheet)
-    try { localStorage.removeItem('cva_metadata_v2'); } catch(e) {}
-    try { localStorage.removeItem('cva_metadata_v1'); } catch(e) {}
-    try { localStorage.removeItem('cva_md_cache'); } catch(e) {}
-    if (window._mdCache) window._mdCache = null;
-    if (window._MD_LOADED) window._MD_LOADED = false;
+    // 1) Limpiar la cache local de metadata (variable + localStorage)
+    try {
+      mdAntes = Object.keys(_metadataProductos || {}).length;
+      _metadataProductos = {};
+      localStorage.removeItem(LS_KEY_MD);
+    } catch(e) { console.warn('limpiar md:', e); }
 
-    // 2) Forzar fetch de metadata fresca (si la PWA tiene una loader)
-    if (typeof cargarMetadata === 'function') {
-      try { await cargarMetadata(true); } catch(e) {}
-    } else if (typeof _cargarMetadataDeSheet === 'function') {
-      try { await _cargarMetadataDeSheet(); } catch(e) {}
-    } else {
-      // Fallback: llamar al endpoint directamente
+    // 2) Fetch fresco desde el Sheet (METADATA_PRODUCTOS) — pisa la cache
+    if (typeof _loadMetadataFromSheet_ === 'function') {
       try {
-        const r = await api('metadata_get', {});
-        if (r && r.metadata) {
-          window._mdCache = r.metadata;
-          window._MD_LOADED = true;
-          try { localStorage.setItem('cva_metadata_v2', JSON.stringify(r.metadata)); } catch(e) {}
-        }
-      } catch(e) {}
+        mdDespues = await _loadMetadataFromSheet_();
+      } catch(e) { console.warn('load md sheet:', e); }
     }
 
-    // 3) Refrescar saldo y estados
+    // 3) Refrescar saldo CVA
     if (typeof cargarSaldo === 'function') {
       try { await cargarSaldo(); } catch(e) {}
     }
 
     // 4) Re-renderizar la página actual con los datos frescos
     const page = currentPage || 'tablero';
-    if (page === 'analisis'   && typeof cargarAnalisis === 'function') { try { await cargarAnalisis(); } catch(e) {} }
-    if (page === 'pedidos'    && typeof cargarPedidos === 'function')   { try { await cargarPedidos();  } catch(e) {} }
-    if (page === 'sync'       && typeof cargarEstadoSync === 'function'){ try { await cargarEstadoSync(); } catch(e) {} }
-    if (page === 'invodoo'    && typeof cargarInvOdoo === 'function')   { try { await cargarInvOdoo();  } catch(e) {} }
-    if (page === 'exportar' && _exportarProductos && _exportarProductos.length) {
-      // Re-render preview con metadatos frescos
-      try { _renderExportResultado_(_exportarProductos, []); } catch(e) {}
-    }
-    if (page === 'buscar' && _lastTablaHTML) {
-      // Re-render de la tabla con metadatos frescos
-      const el = document.getElementById('tabla');
-      if (el && _lastTablaHTML) el.innerHTML = _lastTablaHTML;
-    }
+    try {
+      if (page === 'analisis'   && typeof cargarAnalisis === 'function')   await cargarAnalisis();
+      if (page === 'pedidos'    && typeof cargarPedidos === 'function')    await cargarPedidos();
+      if (page === 'sync'       && typeof cargarEstadoSync === 'function') await cargarEstadoSync();
+      if (page === 'invodoo'    && typeof cargarInvOdoo === 'function')    await cargarInvOdoo();
+      if (page === 'exportar' && typeof _exportarProductos !== 'undefined' &&
+          _exportarProductos && _exportarProductos.length) {
+        // Re-render preview con metadatos frescos
+        _renderExportResultado_(_exportarProductos, []);
+      }
+      if (page === 'buscar' && typeof _lastTablaHTML !== 'undefined' && _lastTablaHTML) {
+        const el = document.getElementById('tabla');
+        if (el) el.innerHTML = _lastTablaHTML;
+      }
+    } catch(e) { console.warn('re-render página:', e); }
 
     // Feedback visual breve
+    console.log(`[recargarTodo] Metadata: ${mdAntes} → ${mdDespues} productos`);
     if (btn) {
       btn.style.background = 'rgba(0,200,120,0.25)';
       btn.style.borderColor = 'rgba(0,200,120,0.8)';
       btn.style.color = '#fff';
+      const orig = btn.innerHTML;
+      btn.innerHTML = '<span style="font-size:10px;letter-spacing:1px;padding:0 2px">' + mdDespues + ' MD</span>';
       setTimeout(() => {
         btn.style.background = '';
         btn.style.borderColor = '';
         btn.style.color = '';
-      }, 900);
+        btn.innerHTML = orig;
+      }, 1400);
     }
   } catch(e) {
     console.error('recargarTodo error:', e);
