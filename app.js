@@ -1,26 +1,13 @@
-// ── SIDEBAR ──────────────────────────────────────────────
+// ── SIDEBAR (removido — los stubs no-op se mantienen por compatibilidad
+//    con código viejo que pueda llamarlos. La nav vive en page-tablero) ──
 let sidebarOpen = false;
-
-function toggleSidebar() {
-  sidebarOpen ? closeSidebar() : openSidebar();
-}
-function openSidebar() {
-  sidebarOpen = true;
-  document.getElementById('sidebar').classList.add('open');
-  document.getElementById('sb-overlay').classList.add('open');
-  document.getElementById('ham-svg-menu').style.display  = 'none';
-  document.getElementById('ham-svg-close').style.display = 'block';
-}
-function closeSidebar() {
-  sidebarOpen = false;
-  document.getElementById('sidebar').classList.remove('open');
-  document.getElementById('sb-overlay').classList.remove('open');
-  document.getElementById('ham-svg-menu').style.display  = 'block';
-  document.getElementById('ham-svg-close').style.display = 'none';
-}
+function toggleSidebar() {}
+function openSidebar() {}
+function closeSidebar() {}
 
 // ── NAV ───────────────────────────────────────────────────
-let currentPage = 'buscar';
+// Default: tablero (home estilo Odoo). Antes era 'buscar' / 'analisis'.
+let currentPage = 'tablero';
 
 function showPage(id) {
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
@@ -30,7 +17,8 @@ function showPage(id) {
   const nav = document.getElementById('nav-' + id);
   if (nav) nav.classList.add('active');
   currentPage = id;
-  try { closeSidebar(); } catch(e) {}
+  // Marca el body para esconder el botón "Inicio" cuando estamos en el tablero
+  document.body.classList.toggle('in-tablero', id === 'tablero');
   try { history.pushState({ page: id }, '', ''); } catch(e) {}
   const sw = document.querySelector('.scroll-wrap');
   if (sw) sw.scrollTop = 0;
@@ -39,6 +27,7 @@ function showPage(id) {
   if (id === 'orden')   setTimeout(() => { try { iniciarPaginaOrden(); } catch(e) {} }, 100);
   if (id === 'analisis') setTimeout(() => { try { cargarAnalisis();    } catch(e) {} }, 100);
   if (id === 'invodoo')  setTimeout(() => { try { cargarInvOdoo();     } catch(e) {} }, 100);
+  if (id === 'exportar') setTimeout(() => { try { cargarExportar();    } catch(e) {} }, 100);
 }
 
 window.addEventListener('popstate', e => {
@@ -3043,6 +3032,9 @@ window.onload = () => {
   // Cargar saldo CVA en background
   try { cargarSaldo(); } catch(e) {}
 
+  // Inyectar sección Exportar Datos (no requiere modificar index.html)
+  try { inyectarSeccionExportar(); } catch(e) { console.error('Error inyectando Exportar', e); }
+
   api('ping').then(d=>{
     const b = document.getElementById('badge-cva');
     if (d.ok) {
@@ -3652,10 +3644,12 @@ async function anExportCVAUPCs() {
     [],
     ['Atte. LEONGEM COMERCIALIZADORA (Electronics México) · Cuenta CVA 2395390'],
     [],
-    ['Clave CVA','Nombre del producto','Marca','Stock disponible','UPC'],
+    ['Clave CVA','Nombre del producto','Marca','Modelo','Stock disponible','UPC'],
   ];
   prods.forEach(p => {
-    aoa.push([p.clave, p.desc, p.marca, (p.total||0), '']);
+    const md = _getMD_(p);
+    const modelo = (md && md.modelo) ? String(md.modelo).toUpperCase() : 'SIN MODELO';
+    aoa.push([p.clave, p.desc, p.marca, modelo, (p.total||0), '']);
   });
 
   const ws = XLSX.utils.aoa_to_sheet(aoa);
@@ -3665,20 +3659,31 @@ async function anExportCVAUPCs() {
     const ref = XLSX.utils.encode_cell({r, c:0});
     if (ws[ref]) ws[ref].s = { font:{ sz: r===0?13:11, bold: r===0, color:{rgb: r===0?'00665E':'333333'} }};
   }
-  // Estilo header (fila 8 = index 7)
-  for (let c = 0; c < 5; c++) {
+  // Estilo header (fila 8 = index 7) — ahora 6 cols
+  for (let c = 0; c < 6; c++) {
     const ref = XLSX.utils.encode_cell({r:7, c});
     if (ws[ref]) ws[ref].s = { fill:{fgColor:{rgb:'00665E'}}, font:{color:{rgb:'FFFFFF'},bold:true,sz:11}, alignment:{horizontal:'center'} };
   }
-  // Formato UPC: 12 ceros visualmente
+  // Modelo (col D = index 3): rojo si "SIN MODELO"
   for (let i = 0; i < prods.length; i++) {
-    const ref = XLSX.utils.encode_cell({r: 8+i, c: 4});
+    const refMod = XLSX.utils.encode_cell({r: 8+i, c: 3});
+    if (ws[refMod]) {
+      const v = String(ws[refMod].v || '').toUpperCase();
+      const esSinModelo = v.includes('SIN MODELO');
+      ws[refMod].s = esSinModelo
+        ? { fill:{fgColor:{rgb:'E05555'}}, font:{color:{rgb:'FFFFFF'},bold:true}, alignment:{horizontal:'center'} }
+        : { alignment:{horizontal:'center'} };
+    }
+  }
+  // Formato UPC: 12 ceros visualmente (col F = index 5)
+  for (let i = 0; i < prods.length; i++) {
+    const ref = XLSX.utils.encode_cell({r: 8+i, c: 5});
     if (!ws[ref]) ws[ref] = { v: '' };
-    ws[ref].z = '000000000000'; // 12 dígitos
+    ws[ref].z = '000000000000';
     ws[ref].s = { fill:{fgColor:{rgb:'FFFCF0'}}, alignment:{horizontal:'center'}, font:{name:'Courier New', sz:11} };
   }
 
-  ws['!cols'] = [{wch:14},{wch:60},{wch:18},{wch:12},{wch:18}];
+  ws['!cols'] = [{wch:14},{wch:60},{wch:18},{wch:16},{wch:12},{wch:18}];
   ws['!freeze'] = { xSplit: 0, ySplit: 8 };
 
   const wb = XLSX.utils.book_new();
@@ -4420,3 +4425,25 @@ Object.assign(window, {
   anInvOdooAgregar, anInvOdooRemover,
   anInvOdooSetPct, anInvOdooSetGlobalPct, anInvOdooRefrescar,
 });
+
+// ════════════════════════════════════════════════════════════════
+//  EXPORTAR DATOS (stub mínimo)
+//  La implementación completa va en la siguiente iteración: textarea
+//  para pegar claves CVA + generar Excel/PDF como Top 20.
+//  Por ahora solo muestra un placeholder para que la card del tablero
+//  no te lleve a una página en blanco.
+// ════════════════════════════════════════════════════════════════
+function cargarExportar() {
+  const cont = document.getElementById('exportar-content');
+  if (!cont) return;
+  cont.innerHTML = `
+    <div style="background:rgba(255,255,255,0.025);border:1px solid rgba(238,240,240,0.08);padding:40px 24px;text-align:center">
+      <div style="font-family:'Barlow Condensed',sans-serif;font-size:22px;letter-spacing:3px;color:var(--green-lt);margin-bottom:12px">PRÓXIMAMENTE</div>
+      <div style="color:var(--text-2);font-size:12px;letter-spacing:1px;line-height:1.6;max-width:520px;margin:0 auto">
+        Pegarás las claves CVA en un área de texto y te generaré un Excel/PDF<br>
+        con el mismo formato del Top 20 (incluyendo columna Modelo).
+      </div>
+    </div>
+  `;
+}
+Object.assign(window, { cargarExportar });

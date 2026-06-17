@@ -1516,6 +1516,148 @@
     animation: spin .65s linear infinite;
   }
 
+  /* ════════════════════════════════════════════════════════════
+     TABLERO (home) — grid de iconos estilo Odoo
+     ════════════════════════════════════════════════════════════ */
+  #page-tablero {
+    padding: 0;
+  }
+  .tablero-wrap {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 50px 24px 40px;
+  }
+  .tablero-header {
+    text-align: center;
+    margin-bottom: 48px;
+    padding-bottom: 26px;
+    border-bottom: 1px solid rgba(238,240,240,0.06);
+  }
+  .tablero-brand-name {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 32px;
+    letter-spacing: 6px;
+    color: var(--text);
+    font-weight: 300;
+    margin-bottom: 8px;
+  }
+  .tablero-brand-sub {
+    font-size: 10px;
+    letter-spacing: 3px;
+    color: var(--text-3);
+    text-transform: uppercase;
+  }
+  .tablero-section {
+    margin-bottom: 36px;
+  }
+  .tablero-section-label {
+    font-size: 10px;
+    letter-spacing: 4px;
+    color: var(--green-lt);
+    text-transform: uppercase;
+    margin: 0 0 18px 4px;
+    font-weight: 600;
+  }
+  .tablero-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 14px;
+  }
+  .tab-card {
+    position: relative;
+    background: rgba(255,255,255,0.025);
+    border: 1px solid rgba(238,240,240,0.08);
+    padding: 26px 14px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 14px;
+    border-radius: 4px;
+  }
+  .tab-card:hover {
+    background: rgba(0,102,94,0.1);
+    border-color: rgba(103,184,175,0.4);
+    transform: translateY(-2px);
+  }
+  .tab-card:active {
+    transform: translateY(0);
+  }
+  .tab-icon {
+    width: 56px;
+    height: 56px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0,102,94,0.22);
+    color: var(--green-lt);
+    border-radius: 14px;
+    transition: all 0.2s;
+  }
+  .tab-card:hover .tab-icon {
+    background: rgba(103,184,175,0.3);
+    color: #fff;
+  }
+  .tab-label {
+    font-size: 11px;
+    letter-spacing: 1.5px;
+    color: var(--text);
+    text-transform: uppercase;
+    font-weight: 500;
+    line-height: 1.4;
+  }
+  .tab-badge {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    background: var(--green-lt);
+    color: var(--bg);
+    font-size: 9px;
+    font-weight: 700;
+    padding: 2px 6px;
+    border-radius: 8px;
+    min-width: 16px;
+    text-align: center;
+  }
+  .tablero-footer {
+    text-align: center;
+    margin-top: 50px;
+    padding-top: 24px;
+    border-top: 1px solid rgba(238,240,240,0.06);
+  }
+
+  /* ── Botón Inicio: solo se ve cuando NO estás en el tablero ── */
+  body.in-tablero .home-btn { display: none !important; }
+
+  /* ── Tablet ── */
+  @media (min-width: 641px) and (max-width: 900px) {
+    .tablero-grid { grid-template-columns: repeat(3, 1fr); }
+  }
+  @media (min-width: 901px) and (max-width: 1100px) {
+    .tablero-grid { grid-template-columns: repeat(4, 1fr); }
+  }
+
+  /* ── Mobile ── */
+  @media (max-width: 640px) {
+    .tablero-wrap { padding: 30px 14px 24px; }
+    .tablero-header { margin-bottom: 28px; padding-bottom: 18px; }
+    .tablero-brand-name { font-size: 22px; letter-spacing: 4px; }
+    .tablero-brand-sub { font-size: 9px; letter-spacing: 2px; }
+    .tablero-section { margin-bottom: 24px; }
+    .tablero-section-label { font-size: 9px; letter-spacing: 3px; margin-bottom: 12px; }
+    .tablero-grid {
+      grid-template-columns: repeat(2, 1fr);
+      gap: 10px;
+    }
+    .tab-card { padding: 20px 10px; gap: 10px; }
+    .tab-icon { width: 48px; height: 48px; border-radius: 12px; }
+    .tab-icon svg { width: 24px; height: 24px; }
+    .tab-label { font-size: 10px; letter-spacing: 1px; }
+    .tablero-footer { margin-top: 30px; padding-top: 18px; }
+  }
+
 </style>
 </head>
 <body>
@@ -1550,97 +1692,18 @@
   </div>
 </div>
 
-<!-- ══ SIDEBAR OVERLAY ══ -->
-<div class="sb-overlay" id="sb-overlay" onclick="closeSidebar()"></div>
-
-<!-- ══ SIDEBAR ══ -->
-<nav class="sidebar" id="sidebar">
-  <div class="sb-head">
-    <div class="sb-head-title">CVA Dropship</div>
-    <button class="sb-close" onclick="closeSidebar()">
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-    </button>
-  </div>
-  <div class="sb-nav">
-    <div class="sb-section-label">CVA</div>
-    <div class="sb-item" id="nav-buscar" onclick="showPage('buscar')">
-      <div class="sb-item-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><line x1="16.5" y1="16.5" x2="22" y2="22"/></svg></div>
-      <div class="sb-item-label"><div class="sb-item-name">Buscar Productos</div><div class="sb-item-sub">Catálogo en tiempo real</div></div>
-      <div class="sb-item-arrow"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg></div>
-    </div>
-    <div class="sb-item" id="nav-orden" onclick="showPage('orden')">
-      <div class="sb-item-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 01-8 0"/></svg></div>
-      <div class="sb-item-label"><div class="sb-item-name">Nueva Orden</div><div class="sb-item-sub">Carrito de compra CVA</div></div>
-      <span class="sb-item-badge" id="cart-sb-badge" style="display:none">0</span>
-      <div class="sb-item-arrow"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg></div>
-    </div>
-    <div class="sb-item" id="nav-pedidos" onclick="showPage('pedidos')">
-      <div class="sb-item-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><rect x="3" y="3" width="18" height="18" rx="1"/><line x1="7" y1="8" x2="17" y2="8"/><line x1="7" y1="12" x2="14" y2="12"/><line x1="7" y1="16" x2="11" y2="16"/></svg></div>
-      <div class="sb-item-label"><div class="sb-item-name">Pedidos CVA</div><div class="sb-item-sub">Historial y guías</div></div>
-      <div class="sb-item-arrow"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg></div>
-    </div>
-    <div class="sb-item active" id="nav-analisis" onclick="showPage('analisis')">
-      <div class="sb-item-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg></div>
-      <div class="sb-item-label"><div class="sb-item-name">Análisis de Stock</div><div class="sb-item-sub">Rotación y movimiento</div></div>
-      <div class="sb-item-arrow"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg></div>
-    </div>
-    <div class="sb-item" id="nav-invodoo" onclick="showPage('invodoo')">
-      <div class="sb-item-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg></div>
-      <div class="sb-item-label"><div class="sb-item-name">Inventario Odoo</div><div class="sb-item-sub">Control de exposición</div></div>
-      <div class="sb-item-arrow"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg></div>
-    </div>
-    <div class="sb-section-label">Sistema</div>
-    <div class="sb-item" id="nav-sync" onclick="showPage('sync')">
-      <div class="sb-item-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/></svg></div>
-      <div class="sb-item-label"><div class="sb-item-name">Sincronización</div><div class="sb-item-sub">Sync catálogo CVA</div></div>
-      <div class="sb-item-arrow"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg></div>
-    </div>
-    <div class="sb-item" id="nav-odoo" onclick="showPage('odoo')">
-      <div class="sb-item-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg></div>
-      <div class="sb-item-label"><div class="sb-item-name">Odoo</div><div class="sb-item-sub">Ventas y stock</div></div>
-      <div class="sb-item-arrow"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg></div>
-    </div>
-    <div class="sb-item" id="nav-log" onclick="showPage('log')">
-      <div class="sb-item-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg></div>
-      <div class="sb-item-label"><div class="sb-item-name">Log de actividad</div><div class="sb-item-sub" id="log-sb-sub">Sin eventos</div></div>
-      <div class="sb-item-arrow"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg></div>
-    </div>
-    <div class="sb-section-label">Dev</div>
-    <div class="sb-item" id="nav-debug" onclick="showPage('debug')">
-      <div class="sb-item-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg></div>
-      <div class="sb-item-label"><div class="sb-item-name">Debug Console</div><div class="sb-item-sub">Endpoints directos</div></div>
-      <div class="sb-item-arrow"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg></div>
-    </div>
-  </div>
-  <div class="sb-foot">
-    <div style="border-top:1px solid rgba(238,240,240,0.06);padding:14px 16px 12px">
-      <div style="display:flex;align-items:center;justify-content:space-between">
-        <span style="font-size:9px;letter-spacing:1px;color:rgba(238,240,240,0.2)">by</span>
-        <img src="https://acdn-us.mitiendanube.com/stores/006/131/081/themes/common/logo-257925442-1748975905-ea5b79b9b6bd00d801280c0aee35d5251748975905-320-0.webp"
-          alt="Electronics México" onerror="this.style.display='none'"
-          style="height:24px;filter:brightness(0) invert(1);opacity:0.3">
-      </div>
-    </div>
-  </div>
-</nav>
+<!-- ══ Sidebar y overlay removidos — la navegación ahora es vía tablero ══ -->
 
 <div class="shell">
   <div class="bg-anim" aria-hidden="true"></div>
 
   <!-- ══ HEADER ══ -->
   <header class="header">
-    <button class="ham-btn" id="ham-btn" onclick="toggleSidebar()" aria-label="Menú"
-      style="position:relative;width:44px;height:44px;cursor:pointer;background:none;border:none;flex-shrink:0;z-index:201">
-      <svg id="ham-svg-menu" width="22" height="15" viewBox="0 0 22 15" fill="none"
-        style="display:block;position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);transition:opacity .3s">
-        <rect y="0"   width="22" height="1.5" rx="0.75" fill="#eef0f0"/>
-        <rect y="6.5" width="22" height="1.5" rx="0.75" fill="#eef0f0"/>
-        <rect y="13"  width="22" height="1.5" rx="0.75" fill="#eef0f0"/>
-      </svg>
-      <svg id="ham-svg-close" width="18" height="18" viewBox="0 0 18 18" fill="none"
-        style="display:none;position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);transition:opacity .3s">
-        <line x1="1" y1="1" x2="17" y2="17" stroke="#eef0f0" stroke-width="1.5" stroke-linecap="round"/>
-        <line x1="17" y1="1" x2="1" y2="17" stroke="#eef0f0" stroke-width="1.5" stroke-linecap="round"/>
+    <button class="home-btn" id="home-btn" onclick="showPage('tablero')" aria-label="Inicio"
+      style="position:relative;width:44px;height:44px;cursor:pointer;background:none;border:none;flex-shrink:0;z-index:201;display:flex;align-items:center;justify-content:center"
+      title="Volver al tablero">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#eef0f0" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M3 9.5L12 3l9 6.5V20a1 1 0 01-1 1h-5v-7H9v7H4a1 1 0 01-1-1V9.5z"/>
       </svg>
     </button>
 
@@ -1665,6 +1728,75 @@
     <div class="main">
 
       <!-- ══ PAGE: BUSCAR ══ -->
+      <!-- ══ PAGE: TABLERO (home) ══ -->
+      <div class="page active" id="page-tablero">
+        <div class="tablero-wrap">
+          <div class="tablero-header">
+            <div class="tablero-brand-name">ELECTRONICS MÉXICO</div>
+            <div class="tablero-brand-sub">LEONGEM · CUENTA CVA 2395390</div>
+          </div>
+
+          <div class="tablero-section">
+            <div class="tablero-section-label">CVA</div>
+            <div class="tablero-grid">
+              <div class="tab-card" onclick="showPage('buscar')">
+                <div class="tab-icon"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><line x1="16.5" y1="16.5" x2="22" y2="22"/></svg></div>
+                <div class="tab-label">Buscar Productos</div>
+              </div>
+              <div class="tab-card" onclick="showPage('orden')">
+                <div class="tab-icon"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 01-8 0"/></svg></div>
+                <div class="tab-label">Nueva Orden</div>
+                <span class="tab-badge" id="cart-tab-badge" style="display:none">0</span>
+              </div>
+              <div class="tab-card" onclick="showPage('pedidos')">
+                <div class="tab-icon"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><rect x="3" y="3" width="18" height="18" rx="1"/><line x1="7" y1="8" x2="17" y2="8"/><line x1="7" y1="12" x2="14" y2="12"/><line x1="7" y1="16" x2="11" y2="16"/></svg></div>
+                <div class="tab-label">Pedidos CVA</div>
+              </div>
+              <div class="tab-card" onclick="showPage('analisis')">
+                <div class="tab-icon"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg></div>
+                <div class="tab-label">Análisis</div>
+              </div>
+              <div class="tab-card" onclick="showPage('invodoo')">
+                <div class="tab-icon"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg></div>
+                <div class="tab-label">Inventario Odoo</div>
+              </div>
+              <div class="tab-card" onclick="showPage('exportar')">
+                <div class="tab-icon"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></div>
+                <div class="tab-label">Exportar Datos</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="tablero-section">
+            <div class="tablero-section-label">Sistema</div>
+            <div class="tablero-grid">
+              <div class="tab-card" onclick="showPage('sync')">
+                <div class="tab-icon"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/></svg></div>
+                <div class="tab-label">Sincronización</div>
+              </div>
+              <div class="tab-card" onclick="showPage('odoo')">
+                <div class="tab-icon"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg></div>
+                <div class="tab-label">Odoo</div>
+              </div>
+              <div class="tab-card" onclick="showPage('log')">
+                <div class="tab-icon"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg></div>
+                <div class="tab-label">Log Actividad</div>
+              </div>
+              <div class="tab-card" onclick="showPage('debug')">
+                <div class="tab-icon"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg></div>
+                <div class="tab-label">Debug</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="tablero-footer">
+            <img src="https://acdn-us.mitiendanube.com/stores/006/131/081/themes/common/logo-257925442-1748975905-ea5b79b9b6bd00d801280c0aee35d5251748975905-320-0.webp"
+              alt="Electronics México" onerror="this.style.display='none'"
+              style="height:28px;filter:brightness(0) invert(1);opacity:0.25">
+          </div>
+        </div>
+      </div>
+
       <div class="page" id="page-buscar">
         <div class="page-header">
           <div class="page-rule"></div>
@@ -1926,7 +2058,7 @@
       </div>
 
       <!-- ══ PAGE: ANÁLISIS ══ -->
-      <div class="page active" id="page-analisis">
+      <div class="page" id="page-analisis">
         <div class="page-header">
           <div class="page-rule"></div>
           <div class="page-title">Análisis de Movimiento</div>
@@ -1978,6 +2110,18 @@
         </div>
         <div id="invodoo-content">
           <div style="padding:40px;text-align:center;color:var(--muted);font-size:11px;letter-spacing:2px;text-transform:uppercase"><span class="spin"></span>Cargando inventario…</div>
+        </div>
+      </div>
+
+      <!-- ══ PAGE: EXPORTAR DATOS ══ -->
+      <div class="page" id="page-exportar">
+        <div class="page-header">
+          <div class="page-rule"></div>
+          <div class="page-title">Exportar Datos</div>
+          <div class="page-sub">Pega las claves CVA · genero Excel/PDF con formato del Top 20</div>
+        </div>
+        <div id="exportar-content">
+          <div style="padding:40px;text-align:center;color:var(--muted);font-size:11px;letter-spacing:2px;text-transform:uppercase"><span class="spin"></span>Inicializando…</div>
         </div>
       </div>
 
