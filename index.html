@@ -1769,8 +1769,36 @@
 
   .tablero-footer {
     text-align: center;
-    margin-top: 60px;
-    padding-top: 28px;
+    margin-top: 70px;
+    padding-top: 36px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 14px;
+  }
+  .tablero-footer-divider {
+    width: 80px;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(103,184,175,0.6), transparent);
+    margin-bottom: 4px;
+  }
+  .tablero-footer-logo {
+    height: 56px;
+    filter: brightness(0) invert(1);
+    opacity: 0.85;
+    transition: opacity 0.3s ease, filter 0.3s ease;
+    filter: brightness(0) invert(1) drop-shadow(0 0 16px rgba(103,184,175,0.35));
+  }
+  .tablero-footer-logo:hover {
+    opacity: 1;
+    filter: brightness(0) invert(1) drop-shadow(0 0 22px rgba(103,184,175,0.55));
+  }
+  .tablero-footer-tagline {
+    font-size: 9px;
+    letter-spacing: 4px;
+    color: rgba(238,240,240,0.4);
+    text-transform: uppercase;
+    margin-top: 2px;
   }
 
   /* ── Botón Inicio (Home) — solo se ve cuando NO estás en el tablero ── */
@@ -1807,7 +1835,9 @@
     .tab-arrow svg { width: 10px; height: 10px; }
     .tab-title { font-size: 18px; }
     .tab-desc { font-size: 10.5px; line-height: 1.45; }
-    .tablero-footer { margin-top: 36px; padding-top: 20px; }
+    .tablero-footer { margin-top: 36px; padding-top: 20px; gap: 10px; }
+    .tablero-footer-logo { height: 38px; }
+    .tablero-footer-tagline { font-size: 8px; letter-spacing: 3px; }
   }
   @media (max-width: 380px) {
     .tab-desc { display: none; }
@@ -2390,7 +2420,14 @@
       <span class="badge badge-silver" id="badge-odoo" title="Estado conexión Odoo">Odoo ✓</span>
       <span class="badge badge-silver" id="badge-sync" title="Último sync">Sync —</span>
       <span class="badge badge-silver" id="badge-saldo" title="Saldo CVA disponible" style="cursor:pointer;font-family:'Barlow Condensed',sans-serif;font-size:13px" onclick="showPage('pedidos')">Saldo</span>
-
+      <button class="badge badge-refresh" id="badge-refresh" onclick="recargarTodo()" title="Recargar datos (no la página)"
+        style="cursor:pointer;background:rgba(0,102,94,0.18);border:1px solid rgba(103,184,175,0.4);color:var(--green-lt);padding:5px 9px;display:flex;align-items:center;font-family:inherit;line-height:1">
+        <svg id="badge-refresh-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="transition:transform .3s ease">
+          <polyline points="23 4 23 10 17 10"/>
+          <polyline points="1 20 1 14 7 14"/>
+          <path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/>
+        </svg>
+      </button>
     </div>
   </header>
   <div class="header-line"></div>
@@ -2505,9 +2542,11 @@
           </div>
 
           <div class="tablero-footer">
+            <div class="tablero-footer-divider"></div>
             <img src="https://acdn-us.mitiendanube.com/stores/006/131/081/themes/common/logo-257925442-1748975905-ea5b79b9b6bd00d801280c0aee35d5251748975905-320-0.webp"
               alt="Electronics México" onerror="this.style.display='none'"
-              style="height:28px;filter:brightness(0) invert(1);opacity:0.25">
+              class="tablero-footer-logo">
+            <div class="tablero-footer-tagline">DROPSHIPPING · CVA · ODOO · MERCADOLIBRE</div>
           </div>
         </div>
       </div>

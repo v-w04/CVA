@@ -5183,3 +5183,82 @@ Object.assign(window, { cargarExportar, exportarBuscar, exportarLimpiar, exporta
 
   window.initThumbLoader_ = initThumbLoader_;
 })();
+
+// ════════════════════════════════════════════════════════════════
+//  Botón ↻ en header — recarga datos sin recargar la página.
+//  Limpia caches en memoria/localStorage, refetches metadata,
+//  saldo, sucursales, y re-renderiza la página actual.
+// ════════════════════════════════════════════════════════════════
+async function recargarTodo() {
+  const btn = document.getElementById('badge-refresh');
+  const icon = document.getElementById('badge-refresh-icon');
+  if (btn) btn.disabled = true;
+  if (icon) {
+    icon.style.animation = 'spin 0.8s linear infinite';
+  }
+
+  try {
+    // 1) Limpiar cache local de metadata (para que se vuelva a leer del sheet)
+    try { localStorage.removeItem('cva_metadata_v2'); } catch(e) {}
+    try { localStorage.removeItem('cva_metadata_v1'); } catch(e) {}
+    try { localStorage.removeItem('cva_md_cache'); } catch(e) {}
+    if (window._mdCache) window._mdCache = null;
+    if (window._MD_LOADED) window._MD_LOADED = false;
+
+    // 2) Forzar fetch de metadata fresca (si la PWA tiene una loader)
+    if (typeof cargarMetadata === 'function') {
+      try { await cargarMetadata(true); } catch(e) {}
+    } else if (typeof _cargarMetadataDeSheet === 'function') {
+      try { await _cargarMetadataDeSheet(); } catch(e) {}
+    } else {
+      // Fallback: llamar al endpoint directamente
+      try {
+        const r = await api('metadata_get', {});
+        if (r && r.metadata) {
+          window._mdCache = r.metadata;
+          window._MD_LOADED = true;
+          try { localStorage.setItem('cva_metadata_v2', JSON.stringify(r.metadata)); } catch(e) {}
+        }
+      } catch(e) {}
+    }
+
+    // 3) Refrescar saldo y estados
+    if (typeof cargarSaldo === 'function') {
+      try { await cargarSaldo(); } catch(e) {}
+    }
+
+    // 4) Re-renderizar la página actual con los datos frescos
+    const page = currentPage || 'tablero';
+    if (page === 'analisis'   && typeof cargarAnalisis === 'function') { try { await cargarAnalisis(); } catch(e) {} }
+    if (page === 'pedidos'    && typeof cargarPedidos === 'function')   { try { await cargarPedidos();  } catch(e) {} }
+    if (page === 'sync'       && typeof cargarEstadoSync === 'function'){ try { await cargarEstadoSync(); } catch(e) {} }
+    if (page === 'invodoo'    && typeof cargarInvOdoo === 'function')   { try { await cargarInvOdoo();  } catch(e) {} }
+    if (page === 'exportar' && _exportarProductos && _exportarProductos.length) {
+      // Re-render preview con metadatos frescos
+      try { _renderExportResultado_(_exportarProductos, []); } catch(e) {}
+    }
+    if (page === 'buscar' && _lastTablaHTML) {
+      // Re-render de la tabla con metadatos frescos
+      const el = document.getElementById('tabla');
+      if (el && _lastTablaHTML) el.innerHTML = _lastTablaHTML;
+    }
+
+    // Feedback visual breve
+    if (btn) {
+      btn.style.background = 'rgba(0,200,120,0.25)';
+      btn.style.borderColor = 'rgba(0,200,120,0.8)';
+      btn.style.color = '#fff';
+      setTimeout(() => {
+        btn.style.background = '';
+        btn.style.borderColor = '';
+        btn.style.color = '';
+      }, 900);
+    }
+  } catch(e) {
+    console.error('recargarTodo error:', e);
+  } finally {
+    if (icon) icon.style.animation = '';
+    if (btn) btn.disabled = false;
+  }
+}
+window.recargarTodo = recargarTodo;
