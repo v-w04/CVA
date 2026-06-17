@@ -470,120 +470,231 @@ function renderProducto(p) {
   const dim        = p.dimensiones;
   const monedaStr  = p.moneda === 'Dolares' ? 'USD' : 'MXN';
 
-  const sdot = (qty) => {
-    const cls = !qty ? 'none' : qty < 5 ? 'low' : 'ok';
-    return `<div class="pv-stock-dot ${cls}"></div>`;
-  };
-  const sval = (qty) => qty ? `${qty.toLocaleString()} uds` : 'Sin stock';
-  const arrow = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>`;
+  // Convertir dimensiones de metros a cm para Odoo
+  const dimCm = dim ? {
+    alto: (parseFloat(dim.alto) * 100).toFixed(1),
+    ancho: (parseFloat(dim.ancho) * 100).toFixed(1),
+    prof: (parseFloat(dim.profundidad) * 100).toFixed(1),
+    peso: dim.peso,
+    unidad: dim.unidad_peso || 'KG',
+  } : null;
 
-  const items = [
-    { label: 'Precio unitario',   value: `${fmt(p.precio, p.moneda)}${p.tipo_cambio ? `  ·  TC $${p.tipo_cambio}` : ''}`, dot: '' },
-    { label: 'Stock Sucursal',    value: sval(p.disponible),   dot: sdot(p.disponible)   },
-    { label: 'Stock CEDIS',       value: sval(p.disponibleCD), dot: sdot(p.disponibleCD) },
-    p.en_transito  ? { label: 'En Tránsito',  value: `${p.en_transito.toLocaleString()} uds`, dot: '' } : null,
-    p.garantia     ? { label: 'Garantía',     value: p.garantia, dot: '' } : null,
-    dim            ? { label: 'Dimensiones',  value: `${dim.alto}m × ${dim.ancho}m × ${dim.profundidad}m · ${dim.peso} ${dim.unidad_peso}`, dot: '' } : null,
-    p.tipo_producto?.tipo ? { label: 'Categoría', value: p.tipo_producto.tipo, dot: '' } : null,
-    p.codigo       ? { label: 'Código UPC',   value: p.codigo, dot: '' } : null,
-  ].filter(Boolean);
+  const fmtMoney = (v, mon) => fmt(v, mon);
+  const stockSuc = p.disponible || 0;
+  const stockCed = p.disponibleCD || 0;
+  const stockTot = stockSuc + stockCed;
 
   return `
-    <div class="pv-wrap">
-      <div class="pv-left">
-        <div class="pv-bg"></div>
-        <div class="pv-hero">
-          <div class="pv-hero-badge">${p.clave}</div>
-          <button class="pv-back" onclick="volverATabla()">
-            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
-            Volver
-          </button>
-          ${p.imagen
-            ? `<img src="${p.imagen}" alt="${p.descripcion}" onerror="this.style.display='none'">`
-            : `<div class="pv-hero-placeholder">
-                <svg width="80" height="80" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="0.4"><rect x="3" y="3" width="18" height="18"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
-                <div style="font-size:10px;letter-spacing:2px;text-transform:uppercase;color:rgba(238,240,240,0.15)">Sin imagen disponible</div>
-               </div>`}
-          ${p.marca ? `<div class="pv-hero-marca">${p.marca}</div>` : ''}
-        </div>
-        ${promo ? `
-        <div class="pv-promo">
-          <strong style="color:#fff;font-weight:600">Promoción activa:</strong> ${promo.descripcion_promocion}<br>
-          <span style="opacity:.8">${fmt(promo.precio_descuento, promo.moneda_precio_descuento)} · Vence: ${promo.promocion_vencimiento}</span>
-        </div>` : ''}
-        ${sucursales.length > 0 ? `
-        <div class="pv-sucursales">
-          <div class="pv-suc-title">Disponibilidad por sucursal</div>
-          <div class="pv-suc-grid">
-            ${sucursales.map(s => `
-              <div class="pv-suc-item">
-                <div class="pv-suc-nombre">${s.nombre.replace('VENTAS ', '').replace('CENTRO DE DIST.', 'CDIST')}</div>
-                <div class="pv-suc-qty ${s.disponible === 0 ? 'zero' : ''}">${s.disponible}</div>
-              </div>`).join('')}
+    <div class="pd-wrap">
+      <button class="pd-back-btn" onclick="volverATabla()">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+        Volver al listado
+      </button>
+
+      <!-- ── HEADER del producto ── -->
+      <div class="pd-header">
+        <div class="pd-header-left">
+          <div class="pd-breadcrumb">Producto</div>
+          <div class="pd-name-row">
+            <button class="pd-fav" title="Marcar como favorito">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+            </button>
+            <div class="pd-name">${p.descripcion || '—'}</div>
           </div>
+          <div class="pd-name-underline"></div>
+          <div class="pd-options">
+            <label class="pd-check"><span class="pd-check-box checked"></span><span>Ventas</span></label>
+            <label class="pd-check"><span class="pd-check-box checked"></span><span>Compra</span></label>
+          </div>
+        </div>
+        <div class="pd-header-right">
+          ${p.imagen
+            ? `<img class="pd-image" src="${p.imagen}" alt="${p.descripcion}" onerror="this.outerHTML='<div class=\\'pd-image-placeholder\\'><svg width=\\'40\\' height=\\'40\\' viewBox=\\'0 0 24 24\\' fill=\\'none\\' stroke=\\'currentColor\\' stroke-width=\\'1\\'><rect x=\\'3\\' y=\\'3\\' width=\\'18\\' height=\\'18\\'/><circle cx=\\'8.5\\' cy=\\'8.5\\' r=\\'1.5\\'/><polyline points=\\'21 15 16 10 5 21\\'/></svg></div>'">`
+            : `<div class="pd-image-placeholder">
+                <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1"><rect x="3" y="3" width="18" height="18"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+              </div>`}
+        </div>
+      </div>
+
+      <!-- ── TABS ── -->
+      <div class="pd-tabs">
+        <button class="pd-tab active" onclick="pdTab('general')">Información general</button>
+        <button class="pd-tab" onclick="pdTab('stock')">Disponibilidad</button>
+        ${sucursales.length > 0 ? `<button class="pd-tab" onclick="pdTab('sucursales')">Sucursales</button>` : ''}
+        <button class="pd-tab" onclick="pdTab('meli')">MercadoLibre</button>
+      </div>
+
+      <!-- ── TAB: Información general ── -->
+      <div class="pd-tab-content active" id="pd-tab-general">
+        <div class="pd-grid">
+          <div class="pd-col">
+            <div class="pd-field">
+              <div class="pd-field-label">Tipo de producto</div>
+              <div class="pd-field-radios">
+                <span class="pd-radio active"><span class="pd-radio-dot"></span> Bienes</span>
+                <span class="pd-radio"><span class="pd-radio-dot"></span> Servicio</span>
+                <span class="pd-radio"><span class="pd-radio-dot"></span> Combo</span>
+              </div>
+            </div>
+            <div class="pd-field">
+              <div class="pd-field-label">Política de facturación</div>
+              <div class="pd-field-value">Cantidad ordenada</div>
+            </div>
+            <div class="pd-field">
+              <div class="pd-field-label">Rastrear inventario</div>
+              <div class="pd-field-check"><span class="pd-check-box checked"></span> Por cantidad</div>
+              <div class="pd-field-note">Puedes facturar los bienes antes de entregarlos.</div>
+            </div>
+            <div class="pd-field">
+              <div class="pd-field-label">Dimensiones (CM)</div>
+              <div class="pd-field-value">${dimCm ? `${dimCm.alto} × ${dimCm.ancho} × ${dimCm.prof}` : '—'}</div>
+            </div>
+            <div class="pd-field">
+              <div class="pd-field-label">Peso (KG)</div>
+              <div class="pd-field-value">${dimCm ? `${dimCm.peso} ${dimCm.unidad}` : '—'}</div>
+            </div>
+          </div>
+
+          <div class="pd-col">
+            <div class="pd-field-row">
+              <div class="pd-field-label">Precio de venta</div>
+              <div class="pd-field-value pd-money">${fmtMoney(p.precio, p.moneda)} <span class="pd-unit">${monedaStr} · por Unidades</span></div>
+            </div>
+            ${p.tipo_cambio ? `
+            <div class="pd-field-row">
+              <div class="pd-field-label">Tipo de cambio</div>
+              <div class="pd-field-value">$${p.tipo_cambio}</div>
+            </div>` : ''}
+            <div class="pd-field-row">
+              <div class="pd-field-label">Impuesto de ventas</div>
+              <div class="pd-field-value"><span class="pd-tax-chip">16% ×</span></div>
+            </div>
+            <div class="pd-field-row">
+              <div class="pd-field-label">Costo</div>
+              <div class="pd-field-value pd-money">${fmtMoney(p.precio, p.moneda)} <span class="pd-unit">por Unidades</span></div>
+            </div>
+            <div class="pd-field-row">
+              <div class="pd-field-label">Impuestos de compra</div>
+              <div class="pd-field-value"><span class="pd-tax-chip">16% ×</span></div>
+            </div>
+            ${p.grupo ? `
+            <div class="pd-field-row">
+              <div class="pd-field-label">Categoría</div>
+              <div class="pd-field-value">${p.grupo}</div>
+            </div>` : ''}
+            <div class="pd-field-row">
+              <div class="pd-field-label">Referencia (clave CVA)</div>
+              <div class="pd-field-value pd-mono">${p.clave}</div>
+            </div>
+            ${p.codigo ? `
+            <div class="pd-field-row">
+              <div class="pd-field-label">Código de barras</div>
+              <div class="pd-field-value pd-mono">${p.codigo}</div>
+            </div>` : ''}
+            ${p.marca ? `
+            <div class="pd-field-row">
+              <div class="pd-field-label">Marca</div>
+              <div class="pd-field-value">${p.marca}</div>
+            </div>` : ''}
+            ${p.garantia ? `
+            <div class="pd-field-row">
+              <div class="pd-field-label">Garantía</div>
+              <div class="pd-field-value">${p.garantia}</div>
+            </div>` : ''}
+          </div>
+        </div>
+
+        ${promo ? `
+        <div class="pd-promo-banner">
+          <strong>Promoción activa:</strong> ${promo.descripcion_promocion}
+          <span class="pd-promo-extra">${fmtMoney(promo.precio_descuento, promo.moneda_precio_descuento)} · Vence: ${promo.promocion_vencimiento}</span>
         </div>` : ''}
       </div>
 
-      <div class="pv-panel">
-        <div class="pv-panel-head">
-          <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px">
-            <div style="min-width:0">
-              <div class="pv-panel-marca">${p.marca || 'CVA'}</div>
-              <div class="pv-panel-nombre">${p.descripcion}</div>
-              ${p.grupo ? `<div class="pv-panel-grupo">${p.grupo}</div>` : ''}
-            </div>
-            <div style="display:flex;gap:6px;flex-shrink:0;margin-top:2px">
-              <button class="btn btn-ghost" style="padding:5px 10px;font-size:10px;letter-spacing:1px;display:flex;align-items:center;gap:5px" onclick="exportProductoCSV()">
-                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>CSV
-              </button>
-              <button class="btn btn-ghost" style="padding:5px 10px;font-size:10px;letter-spacing:1px;display:flex;align-items:center;gap:5px" onclick="exportProductoPDF()">
-                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>PDF
-              </button>
-            </div>
+      <!-- ── TAB: Disponibilidad/Stock ── -->
+      <div class="pd-tab-content" id="pd-tab-stock">
+        <div class="pd-stock-grid">
+          <div class="pd-stock-card">
+            <div class="pd-stock-label">Stock Sucursal</div>
+            <div class="pd-stock-value ${stockSuc===0?'zero':stockSuc<5?'low':'ok'}">${stockSuc.toLocaleString()}</div>
+            <div class="pd-stock-unit">unidades</div>
           </div>
+          <div class="pd-stock-card">
+            <div class="pd-stock-label">Stock CEDIS</div>
+            <div class="pd-stock-value ${stockCed===0?'zero':stockCed<5?'low':'ok'}">${stockCed.toLocaleString()}</div>
+            <div class="pd-stock-unit">unidades</div>
+          </div>
+          <div class="pd-stock-card">
+            <div class="pd-stock-label">Total disponible</div>
+            <div class="pd-stock-value ${stockTot===0?'zero':stockTot<5?'low':'ok'}">${stockTot.toLocaleString()}</div>
+            <div class="pd-stock-unit">unidades</div>
+          </div>
+          ${p.en_transito ? `
+          <div class="pd-stock-card">
+            <div class="pd-stock-label">En tránsito</div>
+            <div class="pd-stock-value">${p.en_transito.toLocaleString()}</div>
+            <div class="pd-stock-unit">unidades</div>
+          </div>` : ''}
         </div>
+      </div>
 
-        <div class="pv-price-block">
-          <div class="pv-price">${fmt(p.precio, p.moneda)}</div>
-          <div class="pv-price-moneda">${monedaStr}</div>
-          ${promo ? `<div class="pv-price-promo">Promo activa</div>` : ''}
+      ${sucursales.length > 0 ? `
+      <!-- ── TAB: Sucursales ── -->
+      <div class="pd-tab-content" id="pd-tab-sucursales">
+        <div class="pd-suc-grid">
+          ${sucursales.map(s => `
+            <div class="pd-suc-item ${s.disponible === 0 ? 'zero' : ''}">
+              <div class="pd-suc-name">${s.nombre.replace('VENTAS ', '').replace('CENTRO DE DIST.', 'CDIST')}</div>
+              <div class="pd-suc-qty">${s.disponible}</div>
+            </div>`).join('')}
         </div>
+      </div>` : ''}
 
-        <div class="pv-meli-block" id="pv-meli-block">
+      <!-- ── TAB: MercadoLibre ── -->
+      <div class="pd-tab-content" id="pd-tab-meli">
+        <div class="pd-meli-block" id="pv-meli-block">
           <div class="pv-meli-logo">ML</div>
           <div class="pv-meli-content">
             <div class="pv-meli-loading" id="pv-meli-loading">Buscando en MercadoLibre…</div>
           </div>
         </div>
+      </div>
 
-        <div class="pv-items">
-          ${items.map(it => `
-            <div class="pv-item">
-              <div style="min-width:0">
-                <div class="pv-item-label">${it.label}</div>
-                <div class="pv-item-value">${it.value}</div>
-              </div>
-              <div class="pv-item-right">
-                ${it.dot}
-                <span class="pv-item-arrow">${arrow}</span>
-              </div>
-            </div>`).join('')}
+      <!-- ── CTA bar al fondo (siempre visible) ── -->
+      <div class="pd-cta-bar">
+        <div class="pd-cta-left">
+          <button class="btn btn-ghost pd-cta-export" onclick="exportProductoCSV()">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> CSV
+          </button>
+          <button class="btn btn-ghost pd-cta-export" onclick="exportProductoPDF()">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg> PDF
+          </button>
         </div>
-
-        <div class="pv-cta-bar">
-          <div class="pv-qty-ctrl">
-            <button class="pv-qty-btn" onclick="pvQtyChange(-1)">−</button>
-            <input class="pv-qty-input" id="pv-qty" type="number" value="1" min="1" max="999">
-            <button class="pv-qty-btn" onclick="pvQtyChange(1)">+</button>
+        <div class="pd-cta-right">
+          <div class="pd-qty-ctrl">
+            <button class="pd-qty-btn" onclick="pvQtyChange(-1)">−</button>
+            <input class="pd-qty-input" id="pv-qty" type="number" value="1" min="1" max="999">
+            <button class="pd-qty-btn" onclick="pvQtyChange(1)">+</button>
           </div>
-          <button class="pv-cta"
+          <button class="pd-cta-main"
             onclick="agregarClave('${p.clave}', parseInt(document.getElementById('pv-qty').value)||1)">
-            Agregar a Orden
+            Agregar a orden
           </button>
         </div>
       </div>
     </div>`;
 }
+
+// ── Cambiar tab del detalle de producto ──
+function pdTab(name) {
+  document.querySelectorAll('.pd-tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.pd-tab-content').forEach(c => c.classList.remove('active'));
+  const tab = Array.from(document.querySelectorAll('.pd-tab')).find(t => t.getAttribute('onclick')?.includes("'" + name + "'"));
+  if (tab) tab.classList.add('active');
+  const cont = document.getElementById('pd-tab-' + name);
+  if (cont) cont.classList.add('active');
+}
+window.pdTab = pdTab;
 
 // ── ML ────────────────────────────────────────────────────
 function _buildMLQueries(marca, descripcion) {
@@ -3032,8 +3143,7 @@ window.onload = () => {
   // Cargar saldo CVA en background
   try { cargarSaldo(); } catch(e) {}
 
-  // Inyectar sección Exportar Datos (no requiere modificar index.html)
-  try { inyectarSeccionExportar(); } catch(e) { console.error('Error inyectando Exportar', e); }
+  // (La sección Exportar Datos ya existe como page-exportar / card del tablero)
 
   api('ping').then(d=>{
     const b = document.getElementById('badge-cva');
