@@ -2625,12 +2625,15 @@ function renderAnalisisTab() {
   // En precios: quitamos Stock Inicial / Stock Hoy / Movido y agregamos
   // Precio CVA (como referencia para ver de dónde sale cada precio calculado).
   // Eso libera 3 columnas y permite ver más plataformas sin scroll.
+  // La primera columna en TODOS los modos es la miniatura (lazy-loaded).
   const colsBase = _modoVistaTabla === 'precios' ? [
+    {k:'_thumb',    l:'',            t:'thumb', w:'46px'},
     {k:'clave',     l:'Clave',       t:'mono',  w:'80px'},
     {k:'desc',      l:'Descripción', t:'desc',  w:'280px'},
     {k:'marca',     l:'Marca',       t:'small', w:'85px'},
     {k:'precio',    l:'Precio CVA',  t:'mxn',   w:'90px', hi:true},
   ] : [
+    {k:'_thumb',    l:'',            t:'thumb', w:'46px'},
     {k:'clave',     l:'Clave',       t:'mono', w:'80px'},
     {k:'desc',      l:'Descripción', t:'desc', w:_modoVistaTabla==='datos' ? '300px' : '320px'},
     {k:'marca',     l:'Marca',       t:'small', w:'85px'},
@@ -2667,7 +2670,12 @@ function renderAnalisisTab() {
       const v = p[c.k];
       let cell = '—';
       let extra = '';
-      if (c.t === 'mono')  cell = `<span style="font-family:monospace;color:var(--green-lt);font-size:11px">${v||'—'}</span>`;
+      if (c.t === 'thumb') {
+        // Placeholder con data-clave — el lazy loader lo reemplaza al hacer scroll
+        cell = `<div class="an-thumb" data-clave="${p.clave}" data-loaded="0"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="0.8"><rect x="3" y="3" width="18" height="18"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg></div>`;
+        extra = 'padding:4px;text-align:center';
+      }
+      else if (c.t === 'mono')  cell = `<span style="font-family:monospace;color:var(--green-lt);font-size:11px">${v||'—'}</span>`;
       else if (c.t === 'desc') {
         // En modos datos/precios: descripción completa, wrap multilinea
         // En modo ventas: truncar a 60 con tooltip
@@ -2738,6 +2746,8 @@ function renderAnalisisTab() {
       <button onclick="anFiltrar('pagina',Math.min(${totPag},${f.pagina+1}))" ${f.pagina>=totPag?'disabled':''} style="background:transparent;border:1px solid rgba(238,240,240,0.1);color:var(--muted);padding:5px 10px;cursor:pointer;font-size:11px">›</button>
     </div>` : ''}
   `;
+  // Disparar lazy load de miniaturas (no bloqueante)
+  setTimeout(() => { try { initThumbLoader_(); } catch(e) {} }, 50);
 }
 
 function renderTablaSimple(items, cols) {
@@ -4678,4 +4688,97 @@ Object.assign(window, { cargarExportar });
       if (document.body.classList.contains('in-tablero')) tabAnimStart();
     }, 100);
   });
+})();
+
+// ════════════════════════════════════════════════════════════════
+//  LAZY LOAD de miniaturas en Análisis
+//  Las imágenes se cargan solo cuando entran al viewport, con cache
+//  para no repetir llamadas a CVA por la misma clave.
+// ════════════════════════════════════════════════════════════════
+(function() {
+  const _imgCache = new Map();   // clave → url || 'none'
+  const _imgInFlight = new Set(); // claves siendo consultadas
+  let _imgObserver = null;
+  let _imgConcurrent = 0;
+  const _MAX_CONCURRENT = 3;
+  const _imgPending = []; // cola: [{clave, el}]
+
+  function _processQueue() {
+    while (_imgConcurrent < _MAX_CONCURRENT && _imgPending.length) {
+      const next = _imgPending.shift();
+      _loadOne(next.clave, next.el);
+    }
+  }
+
+  async function _loadOne(clave, el) {
+    if (!clave || !el) { _processQueue(); return; }
+    // Cache hit
+    if (_imgCache.has(clave)) {
+      _renderThumb(el, _imgCache.get(clave));
+      _processQueue();
+      return;
+    }
+    if (_imgInFlight.has(clave)) {
+      // Reintentar después
+      setTimeout(() => { if (_imgCache.has(clave)) _renderThumb(el, _imgCache.get(clave)); }, 400);
+      _processQueue();
+      return;
+    }
+    _imgInFlight.add(clave);
+    _imgConcurrent++;
+    try {
+      const data = await api('cva_imagenes', { clave });
+      const imgs = (data && (data.imagenes || data.fotos)) || [];
+      let url = '';
+      if (imgs.length) {
+        const first = imgs[0];
+        url = typeof first === 'string' ? first : (first.url || first.imagen || '');
+      }
+      _imgCache.set(clave, url || 'none');
+      _renderThumb(el, url || 'none');
+    } catch(e) {
+      _imgCache.set(clave, 'none');
+      _renderThumb(el, 'none');
+    } finally {
+      _imgInFlight.delete(clave);
+      _imgConcurrent--;
+      _processQueue();
+    }
+  }
+
+  function _renderThumb(el, url) {
+    if (!el || el.dataset.loaded === '1') return;
+    el.dataset.loaded = '1';
+    if (url && url !== 'none') {
+      el.innerHTML = `<img src="${url}" alt="" onerror="this.parentNode.classList.add('an-thumb-empty')">`;
+      el.classList.add('an-thumb-img');
+    } else {
+      el.classList.add('an-thumb-empty');
+    }
+  }
+
+  function initThumbLoader_() {
+    // Crear observer una sola vez
+    if (!_imgObserver) {
+      _imgObserver = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+          if (entry.isIntersecting) {
+            const el = entry.target;
+            const clave = el.dataset.clave;
+            if (clave && el.dataset.loaded !== '1') {
+              _imgPending.push({ clave, el });
+              _processQueue();
+              _imgObserver.unobserve(el);
+            }
+          }
+        });
+      }, { rootMargin: '200px' });
+    }
+    // Observar todas las miniaturas pendientes
+    document.querySelectorAll('.an-thumb[data-loaded="0"]').forEach(el => {
+      _imgObserver.observe(el);
+    });
+  }
+
+  window.initThumbLoader_ = initThumbLoader_;
 })();
