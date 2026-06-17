@@ -4968,16 +4968,16 @@ Object.assign(window, { cargarExportar, exportarBuscar, exportarLimpiar, exporta
     if (!_tabAnimCanvas) return;
     _tabAnimCtx = _tabAnimCanvas.getContext('2d');
     tabAnimResize();
-    // Generar puntos
-    const N = Math.max(28, Math.floor(_tabAnimW / 36));
+    // Más puntos para una red más densa y visible
+    const N = Math.max(60, Math.floor(_tabAnimW / 22));
     _tabAnimPoints = [];
     for (let i = 0; i < N; i++) {
       _tabAnimPoints.push({
         x: Math.random() * _tabAnimW,
         y: Math.random() * _tabAnimH,
-        vx: (Math.random() - 0.5) * 0.25,
-        vy: (Math.random() - 0.5) * 0.25,
-        r: Math.random() * 1.4 + 0.6,
+        vx: (Math.random() - 0.5) * 0.35,
+        vy: (Math.random() - 0.5) * 0.35,
+        r: Math.random() * 1.8 + 1.2,   // puntos más grandes (1.2 - 3.0)
       });
     }
     tabAnimLoop();
@@ -5012,16 +5012,16 @@ Object.assign(window, { cargarExportar, exportarBuscar, exportarLimpiar, exporta
       if (p.y < 0 || p.y > _tabAnimH) p.vy *= -1;
     });
 
-    // Líneas entre puntos cercanos (entramado)
+    // Líneas entre puntos cercanos (entramado más visible)
     for (let i = 0; i < _tabAnimPoints.length; i++) {
       for (let j = i + 1; j < _tabAnimPoints.length; j++) {
         const a = _tabAnimPoints[i], b = _tabAnimPoints[j];
         const dx = a.x - b.x, dy = a.y - b.y;
         const d2 = dx*dx + dy*dy;
-        if (d2 < 16000) {
-          const opacity = (1 - d2 / 16000) * 0.35;
+        if (d2 < 22000) {
+          const opacity = (1 - d2 / 22000) * 0.75;
           _tabAnimCtx.strokeStyle = 'rgba(103,184,175,' + opacity + ')';
-          _tabAnimCtx.lineWidth = 0.6;
+          _tabAnimCtx.lineWidth = 1.0;
           _tabAnimCtx.beginPath();
           _tabAnimCtx.moveTo(a.x, a.y);
           _tabAnimCtx.lineTo(b.x, b.y);
@@ -5030,9 +5030,15 @@ Object.assign(window, { cargarExportar, exportarBuscar, exportarLimpiar, exporta
       }
     }
 
-    // Dibujar puntos
+    // Dibujar puntos (más brillantes, con glow)
     _tabAnimPoints.forEach(p => {
-      _tabAnimCtx.fillStyle = 'rgba(103,184,175,0.7)';
+      // Glow exterior
+      _tabAnimCtx.fillStyle = 'rgba(103,184,175,0.25)';
+      _tabAnimCtx.beginPath();
+      _tabAnimCtx.arc(p.x, p.y, p.r * 2.5, 0, Math.PI * 2);
+      _tabAnimCtx.fill();
+      // Punto central brillante
+      _tabAnimCtx.fillStyle = 'rgba(180,230,220,0.95)';
       _tabAnimCtx.beginPath();
       _tabAnimCtx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
       _tabAnimCtx.fill();
