@@ -2004,16 +2004,43 @@ async function cargarPickingsOdoo() {
     return;
   }
   const picks = data.pickings || [];
+  const bodNombre = data.bodega_cva_nombre || '';
+  const bodId     = data.bodega_cva_id;
+
+  // Si no detectó la bodega CVA → mostrar listado de locations para debug
+  if (!bodId && data.locations_disponibles) {
+    const locs = data.locations_disponibles;
+    cont.innerHTML = `
+      <div style="background:rgba(180,90,0,0.1);border:1px solid rgba(255,180,80,0.3);padding:24px;margin-bottom:14px">
+        <div style="font-family:'Barlow Condensed',sans-serif;font-size:20px;color:rgba(255,200,80,0.95);letter-spacing:2px;margin-bottom:10px">⚠ BODEGA CVA NO DETECTADA</div>
+        <div style="font-size:12px;color:var(--text-2);line-height:1.7">
+          No se encontró una location interna con "CVA" en el nombre.<br>
+          Estas son tus locations internas actuales en Odoo. Si alguna debería ser la bodega CVA,
+          renómbrala desde Odoo para que contenga "CVA", o dime cuál ID forzar.
+        </div>
+      </div>
+      <div class="odoo-tbl-wrap">
+        <table class="odoo-tbl">
+          <thead><tr><th>ID</th><th>Nombre completo</th></tr></thead>
+          <tbody>
+            ${locs.map(l => `<tr>
+              <td class="col-mono">${l.id}</td>
+              <td>${l.nombre}</td>
+            </tr>`).join('')}
+          </tbody>
+        </table>
+      </div>`;
+    return;
+  }
+
   if (picks.length === 0) {
-    const info = data.info || 'Sin pickings pendientes en la bodega CVA';
     cont.innerHTML = `
       <div style="background:rgba(0,102,94,0.06);border:1px solid rgba(103,184,175,0.18);padding:30px;text-align:center">
         <div style="font-family:'Barlow Condensed',sans-serif;font-size:20px;color:var(--green-lt);letter-spacing:2px;margin-bottom:10px">SIN PICKINGS PENDIENTES</div>
         <div style="font-size:11px;color:var(--text-2);line-height:1.6;max-width:520px;margin:0 auto">
-          ${info}.<br>
-          Solo se muestran pickings que tengan como origen o destino la bodega
-          <code style="color:var(--green-lt)">Almacén/Existencias/CVA</code>
-          (location_id ${data.bodega_cva_id || 216}).
+          Sin pickings pendientes en la bodega CVA.<br>
+          Filtrando por: <code style="color:var(--green-lt)">${bodNombre || 'CVA'}</code>
+          (location_id <code style="color:var(--green-lt)">${bodId}</code>).
         </div>
       </div>`;
     return;
@@ -2023,7 +2050,8 @@ async function cargarPickingsOdoo() {
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:10px">
       <div>
         <span style="font-family:'Barlow Condensed',sans-serif;font-size:22px;color:var(--green-lt);font-weight:500">${picks.length}</span>
-        <span style="font-size:11px;color:var(--text-2);letter-spacing:1px;text-transform:uppercase;margin-left:6px">picking${picks.length===1?'':'s'} pendiente${picks.length===1?'':'s'}</span>
+        <span style="font-size:11px;color:var(--text-2);letter-spacing:1px;text-transform:uppercase;margin-left:6px">picking${picks.length===1?'':'s'} en bodega CVA</span>
+        ${bodNombre ? `<span style="margin-left:10px;font-size:10px;color:var(--text-3);font-family:monospace">${bodNombre} · id ${bodId}</span>` : ''}
       </div>
       <button class="btn btn-ghost" onclick="cargarPickingsOdoo()" style="padding:6px 12px;font-size:10px;letter-spacing:1.5px;text-transform:uppercase">↻ Refrescar</button>
     </div>
