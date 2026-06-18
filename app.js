@@ -28,6 +28,7 @@ function showPage(id) {
   if (id === 'analisis') setTimeout(() => { try { cargarAnalisis();    } catch(e) {} }, 100);
   if (id === 'invodoo')  setTimeout(() => { try { cargarInvOdoo();     } catch(e) {} }, 100);
   if (id === 'exportar') setTimeout(() => { try { cargarExportar();    } catch(e) {} }, 100);
+  if (id === 'odoo')     setTimeout(() => { try { cargarVentasOdoo();  } catch(e) {} }, 100);
 }
 
 window.addEventListener('popstate', e => {
@@ -1892,23 +1893,166 @@ function instalarTriggers() {
 }
 
 // ── ODOO ──────────────────────────────────────────────────
+// ════════════════════════════════════════════════════════════════
+//  PAGE ODOO — 3 tabs: Ventas dropship · Pickings · Buscar
+// ════════════════════════════════════════════════════════════════
+
+// Mapeo estado picking → texto + clase CSS
+const _PICK_ESTADOS = {
+  draft:     { texto: 'Borrador',  cls: 'pick-badge-draft' },
+  waiting:   { texto: 'En espera', cls: 'pick-badge-waiting' },
+  confirmed: { texto: 'En espera', cls: 'pick-badge-confirmed' },
+  assigned:  { texto: 'Listo',     cls: 'pick-badge-assigned' },
+  done:      { texto: 'Hecho',     cls: 'pick-badge-done' },
+  cancel:    { texto: 'Cancelado', cls: 'pick-badge-cancel' },
+};
+
+function _pickBadge_(state) {
+  const e = _PICK_ESTADOS[state] || { texto: state || '—', cls: 'pick-badge-draft' };
+  return `<span class="pick-badge ${e.cls}">${e.texto}</span>`;
+}
+
+function _fmtFecha_(s) {
+  if (!s) return '<span style="color:var(--text-3)">—</span>';
+  // Odoo devuelve formato "YYYY-MM-DD HH:mm:ss"
+  const t = String(s);
+  return t.length >= 16 ? t.substring(0,10) + ' ' + t.substring(11,16) : t.substring(0,10);
+}
+
+function odooTab(name) {
+  document.querySelectorAll('.odoo-tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.odoo-tab-pane').forEach(p => p.classList.remove('active'));
+  const tab = document.getElementById('otab-' + name);
+  const pane = document.getElementById('opane-' + name);
+  if (tab) tab.classList.add('active');
+  if (pane) pane.classList.add('active');
+  // Auto-cargar al cambiar de tab
+  if (name === 'ventas')   cargarVentasOdoo();
+  if (name === 'pickings') cargarPickingsOdoo();
+}
+
 async function cargarVentasOdoo() {
-  const el = document.getElementById('odoo-result');
-  loading(el);
-  const data = await api('odoo_ventas_pendientes', { limit: 50 });
-  if (!data.ok) { alert_(el, '✖ ' + data.error, 'error'); return; }
+  const cont = document.getElementById('odoo-ventas-content');
+  if (!cont) return;
+  cont.innerHTML = `<div style="padding:30px;text-align:center;color:var(--muted);font-size:11px;letter-spacing:1.5px;text-transform:uppercase"><span class="spin"></span> Cargando ventas dropship CVA…</div>`;
+
+  const data = await api('odoo_ventas_dropship', { limit: 200 });
+  if (!data.ok) {
+    cont.innerHTML = `<div class="alert alert-error">✖ ${data.error}</div>`;
+    return;
+  }
   const ventas = data.ventas || [];
-  if (ventas.length === 0) { alert_(el, '✓ Sin ventas pendientes de dropship', 'success'); return; }
-  el.innerHTML = `<div class="table-wrap"><table>
-    <tr><th>SO</th><th>Cliente</th><th>Total</th><th>Estado</th><th>Fecha</th></tr>
-    ${ventas.map(v=>`<tr>
-      <td class="mono">${v.name}</td>
-      <td>${Array.isArray(v.partner_id)?v.partner_id[1]:v.partner_id}</td>
-      <td>${fmt(v.amount_total,'Pesos')}</td>
-      <td><span style="letter-spacing:1px;font-size:10px;text-transform:uppercase;color:var(--muted)">${v.state}</span></td>
-      <td style="font-size:11px;color:var(--muted)">${v.date_order?v.date_order.substring(0,10):'—'}</td>
-    </tr>`).join('')}
-  </table></div>`;
+
+  if (ventas.length === 0) {
+    const info = data.info ? data.info : 'Sin ventas dropship pendientes';
+    cont.innerHTML = `
+      <div style="background:rgba(0,102,94,0.06);border:1px solid rgba(103,184,175,0.18);padding:30px;text-align:center">
+        <div style="font-family:'Barlow Condensed',sans-serif;font-size:22px;color:var(--green-lt);letter-spacing:2px;margin-bottom:10px">SIN VENTAS DROPSHIP</div>
+        <div style="font-size:11px;color:var(--text-2);line-height:1.6;max-width:520px;margin:0 auto">
+          ${info}.<br>
+          Las ventas aparecerán aquí cuando tengan al menos un producto con
+          <code style="color:var(--green-lt)">default_code</code> terminando en
+          <code style="color:var(--green-lt)">-CVA</code>.
+        </div>
+      </div>`;
+    return;
+  }
+
+  cont.innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:10px">
+      <div>
+        <span style="font-family:'Barlow Condensed',sans-serif;font-size:22px;color:var(--green-lt);font-weight:500">${ventas.length}</span>
+        <span style="font-size:11px;color:var(--text-2);letter-spacing:1px;text-transform:uppercase;margin-left:6px">venta${ventas.length===1?'':'s'} dropship</span>
+      </div>
+      <button class="btn btn-ghost" onclick="cargarVentasOdoo()" style="padding:6px 12px;font-size:10px;letter-spacing:1.5px;text-transform:uppercase">↻ Refrescar</button>
+    </div>
+    <div class="odoo-tbl-wrap">
+      <table class="odoo-tbl">
+        <thead><tr>
+          <th>Número</th>
+          <th>Fecha</th>
+          <th>Cliente</th>
+          <th style="text-align:right">Total</th>
+          <th>Estado</th>
+          <th>Guía rastreo</th>
+        </tr></thead>
+        <tbody>
+          ${ventas.map(v => `<tr onclick="abrirVentaOdoo('${v.name}')" style="cursor:pointer">
+            <td class="col-mono">${v.name || '—'}</td>
+            <td class="col-date">${_fmtFecha_(v.date_order)}</td>
+            <td>${Array.isArray(v.partner_id) ? v.partner_id[1] : (v.partner_id || '—')}</td>
+            <td class="col-num">$${(v.amount_total||0).toLocaleString('es-MX',{minimumFractionDigits:2})}</td>
+            <td>${_pickBadge_(v.picking_state)}</td>
+            <td class="${v.guia_rastreo ? 'col-guia' : 'col-guia-empty'}">${v.guia_rastreo || 'sin guía'}</td>
+          </tr>`).join('')}
+        </tbody>
+      </table>
+    </div>`;
+}
+
+async function cargarPickingsOdoo() {
+  const cont = document.getElementById('odoo-pickings-content');
+  if (!cont) return;
+  cont.innerHTML = `<div style="padding:30px;text-align:center;color:var(--muted);font-size:11px;letter-spacing:1.5px;text-transform:uppercase"><span class="spin"></span> Cargando pickings pendientes…</div>`;
+
+  const data = await api('odoo_pickings', { limit: 200 });
+  if (!data.ok) {
+    cont.innerHTML = `<div class="alert alert-error">✖ ${data.error}</div>`;
+    return;
+  }
+  const picks = data.pickings || [];
+  if (picks.length === 0) {
+    cont.innerHTML = `<div class="alert alert-info" style="padding:20px;text-align:center;font-size:12px">Sin pickings pendientes.</div>`;
+    return;
+  }
+
+  cont.innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:10px">
+      <div>
+        <span style="font-family:'Barlow Condensed',sans-serif;font-size:22px;color:var(--green-lt);font-weight:500">${picks.length}</span>
+        <span style="font-size:11px;color:var(--text-2);letter-spacing:1px;text-transform:uppercase;margin-left:6px">picking${picks.length===1?'':'s'} pendiente${picks.length===1?'':'s'}</span>
+      </div>
+      <button class="btn btn-ghost" onclick="cargarPickingsOdoo()" style="padding:6px 12px;font-size:10px;letter-spacing:1.5px;text-transform:uppercase">↻ Refrescar</button>
+    </div>
+    <div class="odoo-tbl-wrap">
+      <table class="odoo-tbl">
+        <thead><tr>
+          <th>Referencia</th>
+          <th>Desde</th>
+          <th>A</th>
+          <th>Contacto</th>
+          <th>Fecha programada</th>
+          <th>Fecha creación</th>
+          <th>Documento origen</th>
+          <th>Guía rastreo</th>
+          <th>Estado</th>
+        </tr></thead>
+        <tbody>
+          ${picks.map(p => {
+            const loc1 = Array.isArray(p.location_id) ? p.location_id[1] : (p.location_id || '—');
+            const loc2 = Array.isArray(p.location_dest_id) ? p.location_dest_id[1] : (p.location_dest_id || '—');
+            const partner = Array.isArray(p.partner_id) ? p.partner_id[1] : (p.partner_id || '—');
+            const guia = p.x_studio_guia_de_rastreo || '';
+            return `<tr>
+              <td class="col-mono">${p.name || '—'}</td>
+              <td style="font-size:11px">${loc1}</td>
+              <td style="font-size:11px">${loc2}</td>
+              <td>${partner}</td>
+              <td class="col-date">${_fmtFecha_(p.scheduled_date)}</td>
+              <td class="col-date">${_fmtFecha_(p.create_date)}</td>
+              <td class="col-mono">${p.origin || ''}</td>
+              <td class="${guia ? 'col-guia' : 'col-guia-empty'}">${guia || 'sin guía'}</td>
+              <td>${_pickBadge_(p.state)}</td>
+            </tr>`;
+          }).join('')}
+        </tbody>
+      </table>
+    </div>`;
+}
+
+function abrirVentaOdoo(name) {
+  // Abre la venta directamente en Odoo en una nueva pestaña
+  window.open('https://electronicsmexico.odoo.com/odoo/sales?search=' + encodeURIComponent(name), '_blank');
 }
 
 async function buscarEnOdoo() {
@@ -4317,7 +4461,8 @@ Object.assign(window, {
   cargarPedidos, cargarSaldo, filtrarPedidos, abrirModalPedido, cerrarModal,
   handleFileSelect, handleDrop, handleGuiaFileSelect, handleGuiaDrop, registrarPedido, enviarGuiaCVA,
   ejecutarSync, resetearSync, cargarEstadoSync, instalarTriggers, instalarTriggersUI,
-  cargarVentasOdoo, buscarEnOdoo, ejecutarDebug,
+  cargarVentasOdoo, cargarPickingsOdoo, abrirVentaOdoo, odooTab,
+  buscarEnOdoo, ejecutarDebug,
   exportBuscarCSV, exportBuscarPDF, exportProductoCSV, exportProductoPDF,
   exportarTodoCSV, exportarTodoPDF, exportCarritoCSV, exportCarritoPDF,
   limpiarLog, cargarSucursalesSelect, iniciarPaginaOrden, sugerirSucursalPorStock, recargarSucursales, cargarAnalisis,
@@ -5096,6 +5241,89 @@ Object.assign(window, { cargarExportar, exportarBuscar, exportarLimpiar, exporta
     setTimeout(() => {
       if (document.body.classList.contains('in-tablero')) tabAnimStart();
     }, 100);
+  });
+})();
+
+// ════════════════════════════════════════════════════════════════
+//  TABLERO — auto-hover aleatorio entre las cards.
+//  Cada ~1.8s ilumina una card al azar (solo una a la vez), el efecto
+//  visual es el mismo que el hover real. Se pausa cuando sales del
+//  tablero. El hover manual del mouse sigue funcionando normal.
+// ════════════════════════════════════════════════════════════════
+(function() {
+  let _autoHoverInterval = null;
+  let _activeCard = null;
+
+  function _autoHoverTick() {
+    // Si ya no estamos en el tablero, detener
+    if (!document.body.classList.contains('in-tablero')) {
+      _autoHoverStop();
+      return;
+    }
+    const cards = document.querySelectorAll('#page-tablero .tab-card');
+    if (cards.length === 0) return;
+
+    // Apagar la card actual
+    if (_activeCard) _activeCard.classList.remove('auto-hover');
+
+    // Elegir una nueva (distinta de la anterior)
+    let next;
+    let attempts = 0;
+    do {
+      next = cards[Math.floor(Math.random() * cards.length)];
+      attempts++;
+    } while (next === _activeCard && cards.length > 1 && attempts < 6);
+
+    _activeCard = next;
+    _activeCard.classList.add('auto-hover');
+  }
+
+  function _autoHoverStart() {
+    if (_autoHoverInterval) return;
+    // Pequeña espera para que las cards terminen su entrada (fade-in stagger)
+    setTimeout(_autoHoverTick, 600);
+    _autoHoverInterval = setInterval(_autoHoverTick, 1800);
+  }
+
+  function _autoHoverStop() {
+    if (_autoHoverInterval) {
+      clearInterval(_autoHoverInterval);
+      _autoHoverInterval = null;
+    }
+    if (_activeCard) {
+      _activeCard.classList.remove('auto-hover');
+      _activeCard = null;
+    }
+  }
+
+  // Hook al showPage: arrancar al entrar al tablero, parar al salir
+  const _origShowPage2 = window.showPage;
+  if (typeof _origShowPage2 === 'function') {
+    window.showPage = function(id) {
+      _origShowPage2(id);
+      if (id === 'tablero') setTimeout(_autoHoverStart, 200);
+      else _autoHoverStop();
+    };
+  }
+
+  // Arrancar al cargar la página por primera vez
+  window.addEventListener('load', () => {
+    setTimeout(() => {
+      if (document.body.classList.contains('in-tablero')) _autoHoverStart();
+    }, 800);
+  });
+
+  // Si el usuario pasa el mouse sobre una card, pausar el auto-hover unos segundos
+  // (para que no compita visualmente con su intención)
+  document.addEventListener('mouseover', (e) => {
+    const card = e.target.closest('#page-tablero .tab-card');
+    if (card && _autoHoverInterval) {
+      _autoHoverStop();
+      // Reanudar después de 4s de inactividad
+      setTimeout(() => {
+        if (document.body.classList.contains('in-tablero')) _autoHoverStart();
+      }, 4000);
+    }
   });
 })();
 

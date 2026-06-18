@@ -2360,6 +2360,151 @@
     opacity: 0.3;
   }
 
+  /* ════════════════════════════════════════════════════════════
+     TABS de page-odoo (Ventas / Pickings / Buscar)
+     ════════════════════════════════════════════════════════════ */
+  .odoo-tabs {
+    display: flex;
+    gap: 0;
+    border-bottom: 1px solid rgba(238,240,240,0.1);
+    margin-bottom: 18px;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  .odoo-tab {
+    background: none;
+    border: none;
+    color: var(--text-2);
+    padding: 12px 18px;
+    font-size: 12px;
+    cursor: pointer;
+    font-family: inherit;
+    letter-spacing: 0.5px;
+    border-bottom: 2px solid transparent;
+    transition: all 0.2s ease;
+    white-space: nowrap;
+  }
+  .odoo-tab:hover { color: var(--text); }
+  .odoo-tab.active {
+    color: var(--green-lt);
+    border-bottom-color: var(--green-lt);
+  }
+  .odoo-tab-pane { display: none; }
+  .odoo-tab-pane.active {
+    display: block;
+    animation: pdFadeIn 0.25s ease;
+  }
+
+  /* Tabla Odoo (look estilo Odoo nativo) */
+  .odoo-tbl-wrap {
+    background: rgba(255,255,255,0.015);
+    border: 1px solid rgba(238,240,240,0.06);
+    overflow-x: auto;
+    border-radius: 3px;
+  }
+  .odoo-tbl {
+    width: 100%;
+    border-collapse: collapse;
+    min-width: 900px;
+  }
+  .odoo-tbl thead th {
+    background: rgba(0,0,0,0.18);
+    padding: 10px 14px;
+    font-size: 10px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--text-3);
+    text-align: left;
+    font-weight: 500;
+    border-bottom: 1px solid rgba(238,240,240,0.08);
+  }
+  .odoo-tbl tbody td {
+    padding: 10px 14px;
+    font-size: 12px;
+    border-bottom: 1px solid rgba(238,240,240,0.04);
+    color: var(--text);
+  }
+  .odoo-tbl tbody tr {
+    transition: background 0.15s ease;
+  }
+  .odoo-tbl tbody tr:hover {
+    background: rgba(0,102,94,0.08);
+  }
+  .odoo-tbl .col-mono {
+    font-family: 'Courier New', monospace;
+    color: var(--green-lt);
+    font-size: 11px;
+  }
+  .odoo-tbl .col-num {
+    text-align: right;
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 14px;
+  }
+  .odoo-tbl .col-date {
+    color: var(--text-2);
+    font-size: 11px;
+    white-space: nowrap;
+  }
+  .odoo-tbl .col-guia {
+    font-family: 'Courier New', monospace;
+    font-size: 11px;
+    color: var(--text);
+  }
+  .odoo-tbl .col-guia-empty {
+    color: var(--text-3);
+    font-style: italic;
+    font-size: 10px;
+  }
+
+  /* Badge estado picking */
+  .pick-badge {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 12px;
+    font-size: 10px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    font-weight: 600;
+  }
+  .pick-badge-draft     { background: rgba(150,150,150,0.18); color: #aaa; }
+  .pick-badge-waiting   { background: rgba(255,180,0,0.18);   color: rgba(255,200,80,0.95); }
+  .pick-badge-confirmed { background: rgba(255,180,0,0.18);   color: rgba(255,200,80,0.95); }
+  .pick-badge-assigned  { background: rgba(0,200,120,0.18);   color: rgba(120,230,170,0.95); }
+  .pick-badge-done      { background: rgba(0,150,255,0.18);   color: rgba(120,200,255,0.95); }
+  .pick-badge-cancel    { background: rgba(255,90,90,0.18);   color: rgba(255,150,150,0.95); }
+
+  /* ════════════════════════════════════════════════════════════
+     TABLERO — auto-hover aleatorio (una card a la vez)
+     ════════════════════════════════════════════════════════════ */
+  /* Aplica el mismo look que :hover pero por clase JS */
+  .tab-card.auto-hover {
+    background: linear-gradient(135deg, rgba(0,160,145,0.42) 0%, rgba(0,95,85,0.55) 100%);
+    border-color: rgba(103,184,175,0.85);
+    transform: translateY(-7px);
+    box-shadow:
+      0 20px 50px rgba(0,0,0,0.5),
+      0 0 45px rgba(103,184,175,0.35),
+      inset 0 1px 0 rgba(255,255,255,0.12),
+      inset 0 0 0 1px rgba(103,184,175,0.25);
+    transition: all 0.7s cubic-bezier(0.4, 0.0, 0.2, 1);
+  }
+  .tab-card.auto-hover::before { opacity: 1; }
+  .tab-card.auto-hover::after  { opacity: 0.9; }
+  .tab-card.auto-hover .tab-icon {
+    transform: scale(1.15);
+    color: #b8f0e3;
+    filter: drop-shadow(0 0 20px rgba(103,184,175,0.85));
+    transition: all 0.7s cubic-bezier(0.4, 0.0, 0.2, 1);
+  }
+  .tab-card.auto-hover .tab-arrow {
+    background: rgba(103,184,175,0.35);
+    border-color: var(--green-lt);
+    color: #fff;
+    transform: translateX(3px);
+    box-shadow: 0 0 16px rgba(103,184,175,0.5);
+    transition: all 0.7s cubic-bezier(0.4, 0.0, 0.2, 1);
+  }
+
 </style>
 </head>
 <body>
@@ -2924,16 +3069,44 @@
         <div class="page-header">
           <div class="page-rule"></div>
           <div class="page-title">Odoo</div>
-          <div class="page-sub">Ventas pendientes dropship · stock Odoo</div>
+          <div class="page-sub">Ventas dropship -CVA · Pickings de inventario</div>
         </div>
-        <div style="display:flex;gap:10px;margin-bottom:20px">
-          <button class="btn btn-primary" onclick="cargarVentasOdoo()">Ventas Pendientes Dropship</button>
-          <input id="o-clave" type="text" placeholder="Clave CVA → buscar en Odoo" onkeydown="if(event.key==='Enter') buscarEnOdoo()"
-            style="flex:1;background:var(--card);border:1px solid rgba(255,255,255,0.06);border-bottom:1px solid rgba(255,255,255,0.18);color:var(--text);padding:11px 14px;outline:none;font-family:'Barlow',sans-serif;">
-          <button class="btn btn-ghost" onclick="buscarEnOdoo()">Buscar</button>
+
+        <div class="odoo-tabs">
+          <button class="odoo-tab active" id="otab-ventas" onclick="odooTab('ventas')">
+            Ventas Dropship CVA
+          </button>
+          <button class="odoo-tab" id="otab-pickings" onclick="odooTab('pickings')">
+            Stock · Pickings
+          </button>
+          <button class="odoo-tab" id="otab-buscar" onclick="odooTab('buscar')">
+            Buscar producto
+          </button>
         </div>
-        <div id="odoo-result">
-          <div class="alert alert-info">Seleccione Ventas Pendientes para ver SOs sin dropship asignado</div>
+
+        <div class="odoo-tab-pane active" id="opane-ventas">
+          <div id="odoo-ventas-content">
+            <div class="alert alert-info" style="padding:14px;color:var(--text-2);font-size:12px">
+              Cargando ventas con productos terminados en <code style="color:var(--green-lt)">-CVA</code>…
+            </div>
+          </div>
+        </div>
+
+        <div class="odoo-tab-pane" id="opane-pickings">
+          <div id="odoo-pickings-content">
+            <div class="alert alert-info" style="padding:14px;color:var(--text-2);font-size:12px">
+              Cargando pickings pendientes…
+            </div>
+          </div>
+        </div>
+
+        <div class="odoo-tab-pane" id="opane-buscar">
+          <div style="display:flex;gap:10px;margin-bottom:20px">
+            <input id="o-clave" type="text" placeholder="Clave CVA → buscar en Odoo" onkeydown="if(event.key==='Enter') buscarEnOdoo()"
+              style="flex:1;background:var(--card);border:1px solid rgba(255,255,255,0.06);border-bottom:1px solid rgba(255,255,255,0.18);color:var(--text);padding:11px 14px;outline:none;font-family:'Barlow',sans-serif;">
+            <button class="btn btn-ghost" onclick="buscarEnOdoo()">Buscar</button>
+          </div>
+          <div id="odoo-result"></div>
         </div>
       </div>
 
