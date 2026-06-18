@@ -3748,8 +3748,20 @@ function _extraerModelo_(desc, marca) {
 
     if (score > bestScore) { bestScore = score; best = t; }
   }
-  // Umbral mínimo
-  return bestScore >= 25 ? best : null;
+  // Umbral mínimo + LIMPIEZA: símbolos → espacios, MAYÚSCULAS, sin acentos
+  return bestScore >= 25 ? _limpiarModeloPWA_(best) : null;
+}
+
+// Normaliza un modelo: reemplaza . , : ; _ / - por espacios, quita acentos,
+// colapsa espacios múltiples y MAYÚSCULAS. Mantiene consistencia con sheets.
+function _limpiarModeloPWA_(modelo) {
+  if (!modelo) return "";
+  return String(modelo)
+    .normalize("NFD").replace(/[\u0300-\u036f]/g, "")  // quita acentos
+    .replace(/[.,:;_\/\\\-]/g, " ")   // símbolos → espacios
+    .replace(/\s+/g, " ")              // colapsa
+    .trim()
+    .toUpperCase();
 }
 
 // ── HEURÍSTICA: EXTRAER COLOR DE LA DESCRIPCIÓN ───────────────
@@ -3951,7 +3963,8 @@ function anEditarMD(claveCVA, marca, campo, valor) {
   let v = valor;
   if (campo === 'ganancia') v = parseFloat(valor);
   if (campo === 'upc')      v = String(valor).replace(/\D/g, ''); // solo dígitos
-  if (['modelo','color','cat_meli','peso'].includes(campo)) v = String(valor).toUpperCase().trim();
+  if (campo === 'modelo')   v = _limpiarModeloPWA_(valor);         // símbolos → espacios
+  if (['color','cat_meli','peso'].includes(campo)) v = String(valor).toUpperCase().trim();
   _setMD_(pseudoP, campo, v);
   renderAnalisisTab();
 }
