@@ -562,7 +562,7 @@
   }
 
   .table-wrap {
-    overflow-x: auto;
+    overflow: hidden;
     border: 1px solid rgba(238,240,240,0.07);
   }
   table { width: 100%; border-collapse: collapse; }
@@ -2395,34 +2395,42 @@
     animation: pdFadeIn 0.25s ease;
   }
 
-  /* Tabla Odoo (look estilo Odoo nativo) */
+  /* Tabla Odoo (look estilo Odoo nativo) — SIN scroll horizontal */
   .odoo-tbl-wrap {
     background: rgba(255,255,255,0.015);
     border: 1px solid rgba(238,240,240,0.06);
-    overflow-x: auto;
     border-radius: 3px;
+    overflow: hidden;
+    width: 100%;
   }
   .odoo-tbl {
     width: 100%;
+    max-width: 100%;
     border-collapse: collapse;
-    min-width: 900px;
+    table-layout: fixed;     /* fixed = respeta % de columnas, evita expansion */
   }
   .odoo-tbl thead th {
     background: rgba(0,0,0,0.18);
-    padding: 10px 14px;
-    font-size: 10px;
-    letter-spacing: 1.5px;
+    padding: 8px 8px;
+    font-size: 9px;
+    letter-spacing: 1px;
     text-transform: uppercase;
     color: var(--text-3);
     text-align: left;
     font-weight: 500;
     border-bottom: 1px solid rgba(238,240,240,0.08);
+    word-break: break-word;
+    overflow-wrap: break-word;
   }
   .odoo-tbl tbody td {
-    padding: 10px 14px;
-    font-size: 12px;
+    padding: 8px 8px;
+    font-size: 11px;
     border-bottom: 1px solid rgba(238,240,240,0.04);
     color: var(--text);
+    word-break: break-word;
+    overflow-wrap: break-word;
+    vertical-align: top;
+    line-height: 1.45;
   }
   .odoo-tbl tbody tr {
     transition: background 0.15s ease;
@@ -2433,38 +2441,73 @@
   .odoo-tbl .col-mono {
     font-family: 'Courier New', monospace;
     color: var(--green-lt);
-    font-size: 11px;
+    font-size: 10px;
+    word-break: break-all;       /* claves/refs largas: cortar y envolver */
   }
   .odoo-tbl .col-num {
     text-align: right;
     font-family: 'Barlow Condensed', sans-serif;
-    font-size: 14px;
+    font-size: 13px;
+    white-space: nowrap;
   }
   .odoo-tbl .col-date {
     color: var(--text-2);
-    font-size: 11px;
-    white-space: nowrap;
+    font-size: 10px;
+    line-height: 1.4;
   }
   .odoo-tbl .col-guia {
     font-family: 'Courier New', monospace;
-    font-size: 11px;
+    font-size: 10px;
     color: var(--text);
+    word-break: break-all;
   }
   .odoo-tbl .col-guia-empty {
     color: var(--text-3);
     font-style: italic;
-    font-size: 10px;
+    font-size: 9px;
+  }
+  /* ── Anchos por columna específicos para las tablas Odoo ── */
+  /* Ventas dropship: Número · Fecha · Cliente · Total · Estado · Guía */
+  .odoo-tbl.tbl-ventas col:nth-child(1) { width: 14%; }   /* Número */
+  .odoo-tbl.tbl-ventas col:nth-child(2) { width: 12%; }   /* Fecha */
+  .odoo-tbl.tbl-ventas col:nth-child(3) { width: 28%; }   /* Cliente */
+  .odoo-tbl.tbl-ventas col:nth-child(4) { width: 14%; }   /* Total */
+  .odoo-tbl.tbl-ventas col:nth-child(5) { width: 12%; }   /* Estado */
+  .odoo-tbl.tbl-ventas col:nth-child(6) { width: 20%; }   /* Guía */
+
+  /* Pickings: Ref · Desde · A · Contacto · F.Prog · F.Crea · Origen · Guía · Estado */
+  .odoo-tbl.tbl-picks col:nth-child(1) { width:  9%; }    /* Referencia */
+  .odoo-tbl.tbl-picks col:nth-child(2) { width: 11%; }    /* Desde */
+  .odoo-tbl.tbl-picks col:nth-child(3) { width: 11%; }    /* A */
+  .odoo-tbl.tbl-picks col:nth-child(4) { width: 12%; }    /* Contacto */
+  .odoo-tbl.tbl-picks col:nth-child(5) { width: 10%; }    /* F. programada */
+  .odoo-tbl.tbl-picks col:nth-child(6) { width: 10%; }    /* F. creación */
+  .odoo-tbl.tbl-picks col:nth-child(7) { width: 13%; }    /* Origen */
+  .odoo-tbl.tbl-picks col:nth-child(8) { width: 14%; }    /* Guía */
+  .odoo-tbl.tbl-picks col:nth-child(9) { width: 10%; }    /* Estado */
+
+  /* Columnas más estrechas en móvil */
+  @media (max-width: 900px) {
+    .odoo-tbl thead th,
+    .odoo-tbl tbody td {
+      padding: 7px 6px;
+      font-size: 10px;
+    }
+    .odoo-tbl .col-mono,
+    .odoo-tbl .col-date,
+    .odoo-tbl .col-guia { font-size: 9px; }
   }
 
   /* Badge estado picking */
   .pick-badge {
     display: inline-block;
-    padding: 3px 10px;
-    border-radius: 12px;
-    font-size: 10px;
-    letter-spacing: 1px;
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-size: 9px;
+    letter-spacing: 0.5px;
     text-transform: uppercase;
     font-weight: 600;
+    white-space: nowrap;
   }
   .pick-badge-draft     { background: rgba(150,150,150,0.18); color: #aaa; }
   .pick-badge-waiting   { background: rgba(255,180,0,0.18);   color: rgba(255,200,80,0.95); }
@@ -2573,38 +2616,60 @@
       inset 0 1px 0 rgba(255,255,255,0.06);
   }
 
-  /* Tablas — header con gradient verde */
+  /* Tablas — header con gradient verde, SIN scroll horizontal */
   .table-wrap {
     background: rgba(0,38,34,0.18);
     border: 1px solid rgba(103,184,175,0.14);
     border-radius: 6px;
-    overflow: hidden;
+    overflow: hidden;           /* sin scroll horizontal */
     backdrop-filter: blur(6px);
     -webkit-backdrop-filter: blur(6px);
   }
   .table-wrap table {
     width: 100%;
     border-collapse: collapse;
+    table-layout: auto;
   }
   .table-wrap table th {
     background: linear-gradient(180deg, rgba(0,102,94,0.32) 0%, rgba(0,82,75,0.25) 100%);
-    padding: 11px 14px;
-    font-size: 10px;
-    letter-spacing: 1.5px;
+    padding: 10px 12px;
+    font-size: 9px;
+    letter-spacing: 1.3px;
     text-transform: uppercase;
     color: var(--text);
     text-align: left;
     font-weight: 500;
     border-bottom: 1px solid rgba(103,184,175,0.25);
+    word-break: break-word;
+    overflow-wrap: break-word;
   }
   .table-wrap table td {
-    padding: 10px 14px;
+    padding: 9px 12px;
     border-bottom: 1px solid rgba(238,240,240,0.04);
-    font-size: 12px;
+    font-size: 11px;
     transition: background 0.15s ease;
+    word-break: break-word;
+    overflow-wrap: break-word;
+    vertical-align: top;
+    line-height: 1.45;
   }
   .table-wrap table tr:hover td {
     background: rgba(0,102,94,0.08);
+  }
+  /* Mono columns (claves, SKUs) — no romper en medio */
+  .table-wrap table td.mono,
+  .table-wrap table td .mono {
+    word-break: keep-all;
+    overflow-wrap: normal;
+    font-size: 10px;
+  }
+  /* Móvil: aún más compacto */
+  @media (max-width: 900px) {
+    .table-wrap table th,
+    .table-wrap table td {
+      padding: 7px 8px;
+      font-size: 10px;
+    }
   }
 
   /* Inputs y selects — glassmorphism sutil */
@@ -2734,6 +2799,132 @@
   ::-webkit-scrollbar-thumb:hover {
     background: rgba(103,184,175,0.4);
     background-clip: padding-box;
+  }
+
+  /* ════════════════════════════════════════════════════════════
+     TABLA Inventario Odoo (SKU_INVENTARIO) — sin scroll horizontal
+     Descripción permite wrap a varias líneas; columnas numéricas
+     compactas y alineadas a la derecha.
+     ════════════════════════════════════════════════════════════ */
+  .invodoo-tbl-wrap {
+    border: 1px solid rgba(103,184,175,0.14);
+    border-radius: 6px;
+    overflow: hidden;
+    background: rgba(0,38,34,0.18);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+    width: 100%;
+  }
+  .invodoo-tbl {
+    width: 100%;
+    max-width: 100%;
+    border-collapse: collapse;
+    table-layout: fixed;
+  }
+  .invodoo-tbl th {
+    background: linear-gradient(180deg, rgba(0,102,94,0.32), rgba(0,82,75,0.25));
+    padding: 8px 7px;
+    text-align: left;
+    font-size: 9px;
+    color: var(--text);
+    font-weight: 500;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    border-bottom: 1px solid rgba(103,184,175,0.25);
+    word-break: break-word;
+    overflow-wrap: break-word;
+  }
+  .invodoo-tbl th.iv-col-num { text-align: right; }
+  .invodoo-tbl td {
+    padding: 7px 7px;
+    border-bottom: 1px solid rgba(238,240,240,0.04);
+    font-size: 11px;
+    line-height: 1.4;
+    vertical-align: top;
+    transition: background 0.15s ease;
+    word-break: break-word;
+    overflow-wrap: break-word;
+  }
+  .invodoo-tbl tr:hover td { background: rgba(0,102,94,0.06); }
+
+  /* Anchos % por columna — suman 100% para evitar scroll horizontal */
+  .invodoo-tbl .iv-col-clave { width:  8%; }
+  .invodoo-tbl .iv-col-upc   { width: 10%; }
+  .invodoo-tbl .iv-col-marca { width:  8%; }
+  .invodoo-tbl .iv-col-desc  { width: 30%; }
+  .invodoo-tbl .iv-col-sku   { width: 14%; }
+  .invodoo-tbl .iv-col-num   { width:  7.5%; }
+
+  /* Celdas — tipografía + colores */
+  .invodoo-tbl .iv-clave {
+    font-family: 'Courier New', monospace;
+    font-size: 10px;
+    color: var(--green-lt);
+    font-weight: 500;
+    white-space: nowrap;
+  }
+  .invodoo-tbl .iv-upc {
+    text-align: center;
+    font-family: 'Courier New', monospace;
+    font-size: 10px;
+    color: var(--text);
+    word-break: break-all;
+  }
+  .invodoo-tbl .iv-upc-empty {
+    color: #e05555;
+    font-style: italic;
+  }
+  .invodoo-tbl .iv-marca {
+    font-size: 10px;
+    color: var(--text-2);
+    white-space: normal;
+    word-break: break-word;
+  }
+  .invodoo-tbl .iv-desc {
+    font-size: 11px;
+    color: var(--text);
+    white-space: normal;
+    word-break: break-word;
+    overflow-wrap: break-word;
+    line-height: 1.4;
+  }
+  .invodoo-tbl .iv-sku {
+    font-family: 'Courier New', monospace;
+    font-size: 9.5px;
+    color: var(--text-2);
+    word-break: break-all;
+    line-height: 1.4;
+  }
+  .invodoo-tbl .iv-num {
+    text-align: right;
+    font-family: 'Barlow Condensed', sans-serif;
+    white-space: nowrap;
+  }
+  .invodoo-tbl .iv-precio-cva  { font-size: 13px; color: var(--text-2); }
+  .invodoo-tbl .iv-precio-meli { font-size: 14px; color: #f0c040; font-weight: 500; }
+  .invodoo-tbl .iv-stock-cva   { font-size: 14px; color: var(--text); font-weight: 500; }
+  .invodoo-tbl .iv-stock-odoo  {
+    font-size: 16px;
+    color: var(--green-lt);
+    font-weight: 500;
+    background: rgba(0,102,94,0.04);
+  }
+
+  /* Mobile: aún más compacto y oculta menos relevantes */
+  @media (max-width: 1100px) {
+    .invodoo-tbl th, .invodoo-tbl td { padding: 7px 7px; }
+    .invodoo-tbl .iv-col-marca,
+    .invodoo-tbl .iv-marca { display: none; }
+  }
+  @media (max-width: 800px) {
+    .invodoo-tbl .iv-col-upc,
+    .invodoo-tbl .iv-upc,
+    .invodoo-tbl .iv-col-sku,
+    .invodoo-tbl .iv-sku { display: none; }
+    .invodoo-tbl th, .invodoo-tbl td {
+      padding: 6px 5px;
+      font-size: 10px;
+    }
   }
 
 </style>

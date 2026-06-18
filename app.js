@@ -1967,7 +1967,10 @@ async function cargarVentasOdoo() {
       <button class="btn btn-ghost" onclick="cargarVentasOdoo()" style="padding:6px 12px;font-size:10px;letter-spacing:1.5px;text-transform:uppercase">↻ Refrescar</button>
     </div>
     <div class="odoo-tbl-wrap">
-      <table class="odoo-tbl">
+      <table class="odoo-tbl tbl-ventas">
+        <colgroup>
+          <col><col><col><col><col><col>
+        </colgroup>
         <thead><tr>
           <th>Número</th>
           <th>Fecha</th>
@@ -2002,7 +2005,17 @@ async function cargarPickingsOdoo() {
   }
   const picks = data.pickings || [];
   if (picks.length === 0) {
-    cont.innerHTML = `<div class="alert alert-info" style="padding:20px;text-align:center;font-size:12px">Sin pickings pendientes.</div>`;
+    const info = data.info || 'Sin pickings pendientes en la bodega CVA';
+    cont.innerHTML = `
+      <div style="background:rgba(0,102,94,0.06);border:1px solid rgba(103,184,175,0.18);padding:30px;text-align:center">
+        <div style="font-family:'Barlow Condensed',sans-serif;font-size:20px;color:var(--green-lt);letter-spacing:2px;margin-bottom:10px">SIN PICKINGS PENDIENTES</div>
+        <div style="font-size:11px;color:var(--text-2);line-height:1.6;max-width:520px;margin:0 auto">
+          ${info}.<br>
+          Solo se muestran pickings que tengan como origen o destino la bodega
+          <code style="color:var(--green-lt)">Almacén/Existencias/CVA</code>
+          (location_id ${data.bodega_cva_id || 216}).
+        </div>
+      </div>`;
     return;
   }
 
@@ -2015,16 +2028,19 @@ async function cargarPickingsOdoo() {
       <button class="btn btn-ghost" onclick="cargarPickingsOdoo()" style="padding:6px 12px;font-size:10px;letter-spacing:1.5px;text-transform:uppercase">↻ Refrescar</button>
     </div>
     <div class="odoo-tbl-wrap">
-      <table class="odoo-tbl">
+      <table class="odoo-tbl tbl-picks">
+        <colgroup>
+          <col><col><col><col><col><col><col><col><col>
+        </colgroup>
         <thead><tr>
           <th>Referencia</th>
           <th>Desde</th>
           <th>A</th>
           <th>Contacto</th>
-          <th>Fecha programada</th>
-          <th>Fecha creación</th>
-          <th>Documento origen</th>
-          <th>Guía rastreo</th>
+          <th>F. programada</th>
+          <th>F. creación</th>
+          <th>Origen</th>
+          <th>Guía</th>
           <th>Estado</th>
         </tr></thead>
         <tbody>
@@ -4583,20 +4599,18 @@ function renderInvOdoo() {
       <span style="font-family:Barlow Condensed,sans-serif;font-size:14px;color:var(--text);letter-spacing:0;font-weight:500">${itemsFil.length}</span>
       <span style="opacity:0.6;margin:0 6px">${itemsFil.length === items.length ? 'productos' : `de ${items.length} productos`}</span>
     </div>
-    <div style="overflow-x:auto;border-top:1px solid rgba(238,240,240,0.04);border-bottom:1px solid rgba(238,240,240,0.04)">
-      <table style="width:100%;border-collapse:collapse;min-width:1600px">
+    <div class="invodoo-tbl-wrap">
+      <table class="invodoo-tbl">
         <thead><tr>
-          ${[
-            ['Clave', '90px', 'left'],
-            ['UPC', '130px', 'center'],
-            ['Marca', '100px', 'left'],
-            ['Descripción', 'auto', 'left'],
-            ['SKU', '180px', 'left'],
-            ['Precio CVA', '100px', 'right'],
-            ['Precio MELI', '110px', 'right'],
-            ['Stock CVA', '90px', 'right'],
-            ['Stock Odoo', '100px', 'right'],
-          ].map(([l,w,a]) => `<th style="width:${w};padding:12px 10px;text-align:${a};background:transparent;border-bottom:1px solid rgba(238,240,240,0.1);font-size:9px;color:rgba(238,240,240,0.5);font-weight:500;letter-spacing:2px;text-transform:uppercase;white-space:nowrap">${l}</th>`).join('')}
+          <th class="iv-col-clave">Clave</th>
+          <th class="iv-col-upc">UPC</th>
+          <th class="iv-col-marca">Marca</th>
+          <th class="iv-col-desc">Descripción</th>
+          <th class="iv-col-sku">SKU</th>
+          <th class="iv-col-num">Precio CVA</th>
+          <th class="iv-col-num">Precio MELI</th>
+          <th class="iv-col-num">Stock CVA</th>
+          <th class="iv-col-num">Stock Odoo</th>
         </tr></thead>
         <tbody>${
           itemsFil.length === 0
@@ -4606,16 +4620,16 @@ function renderInvOdoo() {
                 const precioCva = it.precio_cva || 0;
                 const precioMeli = it.precio_meli || 0;
                 return `
-                <tr class="cva-row" style="border-bottom:1px solid rgba(238,240,240,0.04)">
-                  <td style="padding:10px;font-family:monospace;font-size:11px;color:var(--green-lt);font-weight:500">${it.clave}</td>
-                  <td style="padding:10px;text-align:center;font-family:monospace;font-size:11px;color:${upcVacio ? '#e05555' : 'var(--text)'};${upcVacio ? 'font-style:italic' : ''}">${it.upc || 'sin UPC'}</td>
-                  <td style="padding:10px;font-size:11px;color:var(--muted)">${it.marca || '—'}</td>
-                  <td style="padding:10px;font-size:11px;color:var(--text)">${it.nombre || '<span style="color:#e05555;font-style:italic">⚠ no encontrado</span>'}</td>
-                  <td style="padding:10px;font-family:monospace;font-size:10px;color:var(--text)">${it.sku || '—'}</td>
-                  <td style="padding:10px;text-align:right;font-family:Barlow Condensed,sans-serif;font-size:14px;color:var(--muted)">$${precioCva.toFixed(2)}</td>
-                  <td style="padding:10px;text-align:right;font-family:Barlow Condensed,sans-serif;font-size:15px;color:#f0c040;font-weight:500">$${Math.round(precioMeli).toLocaleString('es-MX')}</td>
-                  <td style="padding:10px;text-align:right;font-family:Barlow Condensed,sans-serif;font-size:15px;color:var(--text);font-weight:500">${(it.stock_cva || 0).toLocaleString('es-MX')}</td>
-                  <td style="padding:10px;text-align:right;font-family:Barlow Condensed,sans-serif;font-size:17px;color:var(--green-lt);font-weight:500;background:rgba(0,102,94,0.04)">${(it.stock_odoo || 0).toLocaleString('es-MX')}</td>
+                <tr>
+                  <td class="iv-clave">${it.clave}</td>
+                  <td class="iv-upc${upcVacio ? ' iv-upc-empty' : ''}">${it.upc || 'sin UPC'}</td>
+                  <td class="iv-marca">${it.marca || '—'}</td>
+                  <td class="iv-desc">${it.nombre || '<span style="color:#e05555;font-style:italic">⚠ no encontrado</span>'}</td>
+                  <td class="iv-sku">${it.sku || '—'}</td>
+                  <td class="iv-num iv-precio-cva">$${precioCva.toFixed(2)}</td>
+                  <td class="iv-num iv-precio-meli">$${Math.round(precioMeli).toLocaleString('es-MX')}</td>
+                  <td class="iv-num iv-stock-cva">${(it.stock_cva || 0).toLocaleString('es-MX')}</td>
+                  <td class="iv-num iv-stock-odoo">${(it.stock_odoo || 0).toLocaleString('es-MX')}</td>
                 </tr>`;
               }).join('')
         }</tbody>
