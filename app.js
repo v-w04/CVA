@@ -2285,7 +2285,7 @@ let _logEntries = [];
 let _analisisData = null;
 let _analisisFiltros = {
   // PERIODO
-  periodoPreset: 30,    // 1 | 7 | 30 | 90 | 365 | 'custom'
+  periodoPreset: 7,    // 1 | 7 | 30 | 90 | 365 | 'custom'
   fechaDesde: null,     // YYYY-MM-DD (solo cuando custom)
   fechaHasta: null,     // YYYY-MM-DD (solo cuando custom)
   // TABLA

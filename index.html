@@ -2505,6 +2505,237 @@
     transition: all 0.7s cubic-bezier(0.4, 0.0, 0.2, 1);
   }
 
+  /* ════════════════════════════════════════════════════════════
+     GLOBAL APP STYLING — el feel del tablero replicado a todas
+     las páginas (sin canvas para no inundar).
+     ════════════════════════════════════════════════════════════ */
+
+  /* Fondo global con gradientes radiales sutiles + el más intenso
+     solo se aplica con .in-tablero. Esto le da profundidad a TODA la app */
+  body {
+    background:
+      radial-gradient(ellipse 70% 40% at 80% 10%, rgba(0,90,82,0.08) 0%, transparent 60%),
+      radial-gradient(ellipse 60% 45% at 10% 85%, rgba(0,80,72,0.06) 0%, transparent 65%),
+      var(--bg);
+    background-attachment: fixed;
+    min-height: 100vh;
+  }
+
+  /* Page headers — más jerarquía y vida */
+  .page-header {
+    margin-bottom: 26px;
+    position: relative;
+  }
+  .page-rule {
+    width: 50px;
+    height: 2px;
+    background: linear-gradient(90deg, var(--green-lt), transparent);
+    margin-bottom: 14px;
+    border-radius: 2px;
+    box-shadow: 0 0 12px rgba(103,184,175,0.4);
+  }
+  .page-title {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 26px;
+    letter-spacing: 4px;
+    color: var(--text);
+    text-transform: uppercase;
+    font-weight: 400;
+    margin-bottom: 4px;
+    text-shadow: 0 0 24px rgba(103,184,175,0.18);
+  }
+  .page-sub {
+    font-size: 10px;
+    letter-spacing: 2.5px;
+    color: var(--green-lt);
+    text-transform: uppercase;
+    opacity: 0.75;
+  }
+
+  /* Cards / paneles genéricos — glassmorphism del tablero */
+  .card {
+    background: linear-gradient(135deg, rgba(0,70,64,0.18) 0%, rgba(0,38,34,0.28) 100%);
+    border: 1px solid rgba(103,184,175,0.14);
+    border-radius: 8px;
+    padding: 18px;
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    box-shadow:
+      0 4px 16px rgba(0,0,0,0.2),
+      inset 0 1px 0 rgba(255,255,255,0.04);
+    transition: border-color 0.25s ease, box-shadow 0.25s ease;
+  }
+  .card:hover {
+    border-color: rgba(103,184,175,0.28);
+    box-shadow:
+      0 8px 24px rgba(0,0,0,0.3),
+      0 0 18px rgba(103,184,175,0.1),
+      inset 0 1px 0 rgba(255,255,255,0.06);
+  }
+
+  /* Tablas — header con gradient verde */
+  .table-wrap {
+    background: rgba(0,38,34,0.18);
+    border: 1px solid rgba(103,184,175,0.14);
+    border-radius: 6px;
+    overflow: hidden;
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+  }
+  .table-wrap table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+  .table-wrap table th {
+    background: linear-gradient(180deg, rgba(0,102,94,0.32) 0%, rgba(0,82,75,0.25) 100%);
+    padding: 11px 14px;
+    font-size: 10px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--text);
+    text-align: left;
+    font-weight: 500;
+    border-bottom: 1px solid rgba(103,184,175,0.25);
+  }
+  .table-wrap table td {
+    padding: 10px 14px;
+    border-bottom: 1px solid rgba(238,240,240,0.04);
+    font-size: 12px;
+    transition: background 0.15s ease;
+  }
+  .table-wrap table tr:hover td {
+    background: rgba(0,102,94,0.08);
+  }
+
+  /* Inputs y selects — glassmorphism sutil */
+  input[type="text"]:not(.pd-qty-input):not(.pd-name),
+  input[type="number"]:not(.pd-qty-input),
+  input[type="email"], input[type="password"], input[type="date"],
+  textarea, select {
+    background: rgba(0,0,0,0.35) !important;
+    border: 1px solid rgba(103,184,175,0.18) !important;
+    color: var(--text) !important;
+    padding: 9px 12px;
+    border-radius: 4px;
+    font-family: inherit;
+    font-size: 12px;
+    outline: none;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+  }
+  input[type="text"]:not(.pd-qty-input):not(.pd-name):focus,
+  input[type="number"]:not(.pd-qty-input):focus,
+  input[type="email"]:focus, input[type="password"]:focus, input[type="date"]:focus,
+  textarea:focus, select:focus {
+    border-color: var(--green-lt) !important;
+    box-shadow: 0 0 0 1px rgba(103,184,175,0.2), 0 0 14px rgba(103,184,175,0.15);
+    background: rgba(0,30,28,0.5) !important;
+  }
+
+  /* Buttons — feel del tablero */
+  .btn {
+    transition: transform 0.2s ease, box-shadow 0.25s ease,
+                background 0.25s ease, border-color 0.25s ease;
+    border-radius: 4px;
+    cursor: pointer;
+    font-family: inherit;
+  }
+  .btn-primary {
+    background: linear-gradient(135deg, var(--green) 0%, #00504a 100%);
+    color: #fff;
+    border: 1px solid rgba(103,184,175,0.5);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.25), inset 0 1px 0 rgba(255,255,255,0.08);
+  }
+  .btn-primary:hover {
+    background: linear-gradient(135deg, #008078 0%, #00665e 100%);
+    border-color: var(--green-lt);
+    transform: translateY(-1px);
+    box-shadow:
+      0 6px 18px rgba(0,0,0,0.35),
+      0 0 16px rgba(103,184,175,0.3),
+      inset 0 1px 0 rgba(255,255,255,0.12);
+  }
+  .btn-primary:active { transform: translateY(0); }
+
+  .btn-ghost {
+    background: rgba(0,70,64,0.15);
+    color: var(--green-lt);
+    border: 1px solid rgba(103,184,175,0.3);
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+  }
+  .btn-ghost:hover {
+    background: rgba(0,102,94,0.28);
+    border-color: var(--green-lt);
+    color: #fff;
+    box-shadow: 0 0 14px rgba(103,184,175,0.2);
+  }
+
+  /* Badges del header — más contraste y glow sutil al hover */
+  .badge {
+    transition: all 0.2s ease;
+  }
+  .badge:hover {
+    box-shadow: 0 0 10px rgba(103,184,175,0.25);
+  }
+
+  /* Alerts con look más vivo */
+  .alert {
+    border-radius: 4px;
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+  }
+  .alert-info {
+    background: rgba(0,80,72,0.18);
+    border: 1px solid rgba(103,184,175,0.2);
+    border-left: 3px solid var(--green-lt);
+  }
+  .alert-success {
+    background: rgba(0,150,90,0.18);
+    border: 1px solid rgba(120,230,170,0.25);
+    border-left: 3px solid rgba(120,230,170,0.8);
+  }
+  .alert-warn {
+    background: rgba(180,130,0,0.18);
+    border: 1px solid rgba(255,200,80,0.25);
+    border-left: 3px solid rgba(255,200,80,0.8);
+  }
+  .alert-error {
+    background: rgba(180,40,40,0.18);
+    border: 1px solid rgba(255,90,90,0.25);
+    border-left: 3px solid rgba(255,90,90,0.8);
+  }
+
+  /* Header line — gradient verde teal */
+  .header-line {
+    height: 1px;
+    background: linear-gradient(90deg,
+      transparent 0%,
+      rgba(103,184,175,0.25) 20%,
+      rgba(103,184,175,0.4) 50%,
+      rgba(103,184,175,0.25) 80%,
+      transparent 100%);
+    box-shadow: 0 0 12px rgba(103,184,175,0.15);
+  }
+
+  /* Scrollbars con verde teal sutil */
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-track {
+    background: rgba(0,0,0,0.15);
+  }
+  ::-webkit-scrollbar-thumb {
+    background: rgba(103,184,175,0.2);
+    border-radius: 5px;
+    border: 2px solid transparent;
+    background-clip: padding-box;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: rgba(103,184,175,0.4);
+    background-clip: padding-box;
+  }
+
 </style>
 </head>
 <body>
