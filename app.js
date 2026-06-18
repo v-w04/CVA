@@ -3930,22 +3930,9 @@ function _enriquecerProducto_(p) {
   const ganancia = (md.ganancia != null) ? md.ganancia : _gananciaGlobal;
   // SKU
   const sku = _calcularSKU_(p.marca, modelo, color, p.clave);
-
-  // Ajustar precio CVA con TC personal (W3) cuando el producto vino en USD.
-  // CVA convierte USD→Pesos con SU TC (col M de SYNC_CVA = p.tipo_cambio).
-  // Si queremos usar nuestro TC personal, aplicamos factor (_tcGlobal / TC_cva).
-  // Para productos en Pesos, no se modifica nada (factor = 1).
-  let costoAjustado = parseFloat(p.precio) || 0;
-  const monedaUpper = String(p.moneda || 'Pesos').toUpperCase();
-  const esUSD = monedaUpper === 'DOLARES' || monedaUpper === 'USD';
-  const tcCVA = parseFloat(p.tipo_cambio) || 0;
-  if (esUSD && _tcGlobal > 0 && tcCVA > 0) {
-    costoAjustado = costoAjustado * (_tcGlobal / tcCVA);
-  }
-
-  // Precios — todos los cálculos usan el costo AJUSTADO con TC personal
-  const meliBruto = _calcularMELIClasica_(costoAjustado, catMeli, peso, ganancia);
-  const precios   = _calcularPreciosPlataformas_(meliBruto, costoAjustado);
+  // Precios
+  const meliBruto = _calcularMELIClasica_(p.precio, catMeli, peso, ganancia);
+  const precios   = _calcularPreciosPlataformas_(meliBruto, p.precio);
   return {
     ...p,
     _modelo: modelo, _modeloEsDefault: modeloEsDefault,
@@ -3955,9 +3942,6 @@ function _enriquecerProducto_(p) {
     _sku: sku,
     _precios: precios,
     _gananciaIndividual: md.ganancia != null,
-    _costo_ajustado_tc: costoAjustado,
-    _es_usd: esUSD,
-    _tc_aplicado: esUSD && tcCVA > 0 ? (_tcGlobal / tcCVA) : 1,
   };
 }
 
