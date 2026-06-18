@@ -1927,8 +1927,9 @@ function odooTab(name) {
   if (tab) tab.classList.add('active');
   if (pane) pane.classList.add('active');
   // Auto-cargar al cambiar de tab
-  if (name === 'ventas')   cargarVentasOdoo();
-  if (name === 'pickings') cargarPickingsOdoo();
+  if (name === 'ventas')    cargarVentasOdoo();
+  if (name === 'pickings')  cargarPickingsOdoo();
+  if (name === 'historial') cargarHistorialVentas();
 }
 
 async function cargarVentasOdoo() {
@@ -2097,6 +2098,216 @@ async function cargarPickingsOdoo() {
 function abrirVentaOdoo(name) {
   // Abre la venta directamente en Odoo en una nueva pestaña
   window.open('https://electronicsmexico.odoo.com/odoo/sales?search=' + encodeURIComponent(name), '_blank');
+}
+
+// ════════════════════════════════════════════════════════════════
+//  HISTORIAL DE VENTAS CVA — dashboard con KPIs + filtros + tabla
+// ════════════════════════════════════════════════════════════════
+let _ventasFiltros = {
+  fecha_desde: '',
+  fecha_hasta: '',
+  marketplace: '',
+  busqueda: '',
+  vista: 'tabla',  // tabla | productos | marketplace
+};
+let _ventasData = null;
+
+async function cargarHistorialVentas() {
+  const cont = document.getElementById('odoo-historial-content');
+  if (!cont) return;
+  cont.innerHTML = `<div style="padding:30px;text-align:center;color:var(--muted);font-size:11px;letter-spacing:1.5px;text-transform:uppercase"><span class="spin"></span> Cargando historial de ventas…</div>`;
+
+  const params = {};
+  if (_ventasFiltros.fecha_desde) params.fecha_desde = _ventasFiltros.fecha_desde;
+  if (_ventasFiltros.fecha_hasta) params.fecha_hasta = _ventasFiltros.fecha_hasta;
+  if (_ventasFiltros.marketplace) params.marketplace = _ventasFiltros.marketplace;
+
+  const data = await api('ventas_cva_historial', params);
+  if (!data.ok) {
+    cont.innerHTML = `<div class="alert alert-error">✖ ${data.error}</div>`;
+    return;
+  }
+  _ventasData = data;
+  _renderHistorialVentas();
+}
+
+function _renderHistorialVentas() {
+  const cont = document.getElementById('odoo-historial-content');
+  if (!cont || !_ventasData) return;
+
+  const data = _ventasData;
+  const ventas = data.ventas || [];
+  const kpis = data.kpis || {};
+
+  // Vacío
+  if (data.total_registros === 0) {
+    cont.innerHTML = `
+      <div style="background:rgba(0,102,94,0.06);border:1px solid rgba(103,184,175,0.18);padding:30px;text-align:center">
+        <div style="font-family:'Barlow Condensed',sans-serif;font-size:22px;color:var(--green-lt);letter-spacing:2px;margin-bottom:10px">SIN VENTAS REGISTRADAS</div>
+        <div style="font-size:11px;color:var(--text-2);line-height:1.6;max-width:520px;margin:0 auto">
+          Aún no se han sincronizado ventas dropship CVA.<br>
+          Ejecuta desde el menú del Sheet:
+          <code style="color:var(--green-lt)">🛠 MIS HERRAMIENTAS → ⚡ Sync CVA → 📈 Sincronizar VENTAS CVA AHORA</code><br>
+          o espera al trigger horario.
+        </div>
+        <button class="btn btn-primary" onclick="cargarHistorialVentas()" style="margin-top:18px;padding:8px 16px">↻ Verificar de nuevo</button>
+      </div>`;
+    return;
+  }
+
+  // Filtros activos
+  const filtrosHTML = `
+    <div style="background:rgba(0,38,34,0.18);border:1px solid rgba(103,184,175,0.14);padding:14px;margin-bottom:14px;display:flex;gap:10px;flex-wrap:wrap;align-items:center;border-radius:4px;backdrop-filter:blur(6px)">
+      <span style="font-size:10px;color:var(--text-3);letter-spacing:1.5px;text-transform:uppercase">Filtros:</span>
+      <input type="date" value="${_ventasFiltros.fecha_desde}" onchange="_ventasFiltros.fecha_desde=this.value;cargarHistorialVentas()" style="padding:6px 10px;font-size:11px;width:140px">
+      <span style="color:var(--text-3);font-size:11px">→</span>
+      <input type="date" value="${_ventasFiltros.fecha_hasta}" onchange="_ventasFiltros.fecha_hasta=this.value;cargarHistorialVentas()" style="padding:6px 10px;font-size:11px;width:140px">
+      <select onchange="_ventasFiltros.marketplace=this.value;cargarHistorialVentas()" style="padding:6px 10px;font-size:11px;width:160px">
+        <option value="">Todos los marketplaces</option>
+        ${(kpis.por_marketplace || []).map(m => `<option value="${m.marketplace}" ${_ventasFiltros.marketplace===m.marketplace?'selected':''}>${m.marketplace}</option>`).join('')}
+      </select>
+      <input type="text" placeholder="Buscar clave/cliente…" value="${_ventasFiltros.busqueda}" oninput="_ventasFiltros.busqueda=this.value;_renderHistorialVentas()" style="padding:6px 10px;font-size:11px;flex:1;min-width:180px">
+      <button class="btn btn-ghost" onclick="_ventasFiltros={fecha_desde:'',fecha_hasta:'',marketplace:'',busqueda:'',vista:'tabla'};cargarHistorialVentas()" style="padding:6px 12px;font-size:10px;letter-spacing:1px;text-transform:uppercase">Limpiar</button>
+      <button class="btn btn-primary" onclick="cargarHistorialVentas()" style="padding:6px 12px;font-size:10px;letter-spacing:1px;text-transform:uppercase">↻ Refrescar</button>
+    </div>`;
+
+  // KPIs principales
+  const fmt = n => '$' + (n||0).toLocaleString('es-MX', {minimumFractionDigits:2, maximumFractionDigits:2});
+  const kpisHTML = `
+    <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(180px, 1fr));gap:12px;margin-bottom:18px">
+      <div class="card" style="padding:16px">
+        <div style="font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:var(--text-3);margin-bottom:6px">Venta total</div>
+        <div style="font-family:'Barlow Condensed',sans-serif;font-size:26px;color:var(--text);font-weight:500">${fmt(kpis.venta_total)}</div>
+        <div style="font-size:10px;color:var(--text-2);margin-top:4px">${kpis.pedidos_unicos} pedido${kpis.pedidos_unicos===1?'':'s'} · ${kpis.total_lineas} línea${kpis.total_lineas===1?'':'s'}</div>
+      </div>
+      <div class="card" style="padding:16px">
+        <div style="font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:var(--text-3);margin-bottom:6px">Utilidad</div>
+        <div style="font-family:'Barlow Condensed',sans-serif;font-size:26px;color:#67e8b5;font-weight:500">${fmt(kpis.utilidad_total)}</div>
+        <div style="font-size:10px;color:var(--text-2);margin-top:4px">Margen promedio: ${kpis.margen_promedio}%</div>
+      </div>
+      <div class="card" style="padding:16px">
+        <div style="font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:var(--text-3);margin-bottom:6px">Costo CVA</div>
+        <div style="font-family:'Barlow Condensed',sans-serif;font-size:26px;color:#f0c040;font-weight:500">${fmt(kpis.costo_total)}</div>
+        <div style="font-size:10px;color:var(--text-2);margin-top:4px">Lo pagado a CVA</div>
+      </div>
+      <div class="card" style="padding:16px">
+        <div style="font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:var(--text-3);margin-bottom:6px">Marketplaces</div>
+        <div style="font-family:'Barlow Condensed',sans-serif;font-size:26px;color:var(--green-lt);font-weight:500">${(kpis.por_marketplace||[]).length}</div>
+        <div style="font-size:10px;color:var(--text-2);margin-top:4px">canales activos</div>
+      </div>
+    </div>`;
+
+  // Marketplaces breakdown
+  const mktHTML = (kpis.por_marketplace || []).length > 0 ? `
+    <div style="margin-bottom:18px">
+      <div style="font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--text-3);margin-bottom:10px">Por marketplace</div>
+      <div class="odoo-tbl-wrap">
+        <table class="odoo-tbl">
+          <thead><tr>
+            <th>Marketplace</th>
+            <th style="text-align:right">Venta</th>
+            <th style="text-align:right">Utilidad</th>
+            <th style="text-align:right">Margen</th>
+            <th style="text-align:right">Pedidos</th>
+            <th style="text-align:right">Líneas</th>
+          </tr></thead>
+          <tbody>
+            ${kpis.por_marketplace.map(m => `<tr>
+              <td><strong>${m.marketplace}</strong></td>
+              <td class="col-num">${fmt(m.ventas)}</td>
+              <td class="col-num" style="color:#67e8b5">${fmt(m.utilidad)}</td>
+              <td class="col-num">${m.margen_pct}%</td>
+              <td class="col-num">${m.pedidos}</td>
+              <td class="col-num">${m.lineas}</td>
+            </tr>`).join('')}
+          </tbody>
+        </table>
+      </div>
+    </div>` : '';
+
+  // Filtrado por búsqueda (local)
+  let ventasMostrar = ventas;
+  if (_ventasFiltros.busqueda) {
+    const q = _ventasFiltros.busqueda.toUpperCase();
+    ventasMostrar = ventas.filter(v =>
+      (v.clave_cva || '').toUpperCase().indexOf(q) >= 0 ||
+      (v.cliente   || '').toUpperCase().indexOf(q) >= 0 ||
+      (v.descripcion || '').toUpperCase().indexOf(q) >= 0 ||
+      (v.sale_order || '').toUpperCase().indexOf(q) >= 0
+    );
+  }
+
+  // Top productos
+  const topHTML = (kpis.top_productos || []).length > 0 ? `
+    <div style="margin-bottom:18px">
+      <div style="font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--text-3);margin-bottom:10px">Top 10 productos · ventas</div>
+      <div class="odoo-tbl-wrap">
+        <table class="odoo-tbl">
+          <thead><tr>
+            <th>Clave</th>
+            <th>Producto</th>
+            <th style="text-align:right">Qty</th>
+            <th style="text-align:right">Venta</th>
+            <th style="text-align:right">Utilidad</th>
+            <th style="text-align:right">Margen</th>
+          </tr></thead>
+          <tbody>
+            ${kpis.top_productos.slice(0,10).map(p => `<tr>
+              <td class="col-mono">${p.clave}</td>
+              <td>${p.descripcion}</td>
+              <td class="col-num">${p.qty}</td>
+              <td class="col-num">${fmt(p.venta_total)}</td>
+              <td class="col-num" style="color:#67e8b5">${fmt(p.utilidad_total)}</td>
+              <td class="col-num">${p.margen_pct}%</td>
+            </tr>`).join('')}
+          </tbody>
+        </table>
+      </div>
+    </div>` : '';
+
+  // Tabla detalle
+  const detalleHTML = `
+    <div style="margin-bottom:10px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
+      <div style="font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--text-3)">
+        Detalle de ventas
+        <span style="color:var(--green-lt);font-family:'Barlow Condensed',sans-serif;font-size:14px;letter-spacing:0;margin-left:8px">${ventasMostrar.length}</span>
+        <span style="opacity:0.7;margin-left:4px">${ventasMostrar.length===ventas.length ? 'líneas' : `de ${ventas.length}`}</span>
+      </div>
+      <div style="font-size:9px;color:var(--text-3)">Particiones: ${(data.particiones||[]).join(', ') || 'ninguna'}</div>
+    </div>
+    <div class="odoo-tbl-wrap">
+      <table class="odoo-tbl">
+        <thead><tr>
+          <th>Fecha</th>
+          <th>Pedido</th>
+          <th>Cliente</th>
+          <th>Clave</th>
+          <th>Producto</th>
+          <th style="text-align:right">Qty</th>
+          <th style="text-align:right">Venta</th>
+          <th style="text-align:right">Utilidad</th>
+          <th>Estado</th>
+          <th>Proceso</th>
+        </tr></thead>
+        <tbody>
+          ${ventasMostrar.slice(0, 500).map(v => `<tr>
+            <td class="col-date">${(v.fecha_venta||'').substring(0,10)}</td>
+            <td class="col-mono" style="cursor:pointer" onclick="abrirVentaOdoo('${v.sale_order}')">${v.sale_order}</td>
+            <td style="font-size:11px">${v.cliente}</td>
+            <td class="col-mono">${v.clave_cva}</td>
+            <td style="font-size:11px">${v.descripcion}</td>
+            <td class="col-num">${v.qty}</td>
+            <td class="col-num">${fmt(v.subtotal_venta)}</td>
+            <td class="col-num" style="color:${v.utilidad>=0?'#67e8b5':'#ff8080'}">${fmt(v.utilidad)}<br><span style="font-size:9px;opacity:0.6">${v.margen_pct}%</span></td>
+            <td>${_pickBadge_(v.picking_state)}</td>
+            <td><span style="font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--text-3)">${v.proceso_cva||'—'}</span></td>
+          </tr>`).join('')}
+        </tbody>
+      </table>
+    </div>
+    ${ventasMostrar.length > 500 ? `<div style="margin-top:10px;font-size:10px;color:var(--text-3);text-align:center">Mostrando las primeras 500 de ${ventasMostrar.length} líneas. Refina el filtro de fecha para ver menos.</div>` : ''}`;
+
+  cont.innerHTML = filtrosHTML + kpisHTML + mktHTML + topHTML + detalleHTML;
 }
 
 async function buscarEnOdoo() {
@@ -2568,6 +2779,8 @@ function renderAnalisisDashboard() {
         <div style="display:flex;align-items:center;gap:10px;padding-left:18px;border-left:1px solid rgba(238,240,240,0.1)">
           <span style="font-size:9px;color:var(--muted);letter-spacing:2px;text-transform:uppercase">% Gan global</span>
           <input type="number" min="5" step="0.5" value="${_gananciaGlobal}" onchange="anCambiarGananciaGlobal(this.value)" style="background:rgba(0,102,94,0.2);border:1px solid var(--green-lt);color:var(--green-lt);padding:6px 8px;font-size:14px;width:56px;outline:none;font-weight:500;text-align:right;font-family:Barlow Condensed,sans-serif" title="Mínimo 5%. Aplica a filas sin % individual.">
+          <span style="font-size:9px;color:var(--muted);letter-spacing:2px;text-transform:uppercase;margin-left:6px">TC USD</span>
+          <input type="number" min="1" max="100" step="0.01" value="${_tcGlobal}" onchange="anCambiarTCGlobal(this.value)" style="background:rgba(60,120,200,0.18);border:1px solid #6aa9ff;color:#a8cdff;padding:6px 8px;font-size:14px;width:72px;outline:none;font-weight:500;text-align:right;font-family:Barlow Condensed,sans-serif" title="Tipo de cambio USD→MXN. Aplica solo a productos cuyo costo CVA original era en dólares.">
         </div>
       ` : ''}
       <div style="flex:1"></div>
@@ -3378,20 +3591,25 @@ window.onload = () => {
 // ── ESTADO ───────────────────────────────────────────────────
 const LS_KEY_MD       = 'cva_metadata_productos_v1';
 const LS_KEY_GANANCIA = 'cva_ganancia_global_v1';
+const LS_KEY_TC       = 'cva_tc_global_v1';
 
 let _modoVistaTabla = 'ventas';     // 'ventas' | 'datos' | 'precios'
 let _metadataProductos = {};        // { "MARCA-CLAVE": {modelo, color, upc, ganancia, cat_meli, peso, editado_at} }
 let _gananciaGlobal = 5;            // % default; mínimo 5
+let _tcGlobal       = 17.50;        // TC USD→MXN default
 
 function _loadMetadataLS_() {
   try {
     _metadataProductos = JSON.parse(localStorage.getItem(LS_KEY_MD) || '{}') || {};
     const g = parseFloat(localStorage.getItem(LS_KEY_GANANCIA) || '5');
     _gananciaGlobal = (g >= 5) ? g : 5;
+    const t = parseFloat(localStorage.getItem(LS_KEY_TC) || '17.50');
+    _tcGlobal = (t >= 1 && t <= 100) ? t : 17.50;
   } catch(e) {
     console.warn('Metadata localStorage corrupto, reseteando:', e);
     _metadataProductos = {};
     _gananciaGlobal = 5;
+    _tcGlobal = 17.50;
   }
 }
 function _saveMetadataLS_() {
@@ -3399,6 +3617,9 @@ function _saveMetadataLS_() {
 }
 function _saveGananciaLS_() {
   try { localStorage.setItem(LS_KEY_GANANCIA, String(_gananciaGlobal)); } catch(e) {}
+}
+function _saveTCLS_() {
+  try { localStorage.setItem(LS_KEY_TC, String(_tcGlobal)); } catch(e) {}
 }
 function _mdKey_(p) { return (p.marca||'').toUpperCase() + '-' + (p.clave||''); }
 
@@ -3648,8 +3869,11 @@ function _calcularPreciosPlataformas_(meliClasica, costoCVA) {
     ? _r9_(meli_premium + 150)
     : _r9_(meli_premium);
   const walmart_premium = _r9_(walmart_clasica * 1.05);
-  // Tienda Nube: costo_cva * 1.16 * 1.073 + envío escalonado
-  const tn_base = (costoCVA || 0) * 1.16 * 1.073;
+  // Tienda Nube: costo_cva * 1.073 (comisión TN) + envío escalonado
+  // Nota: NO se multiplica por IVA (1.16) porque el precio CVA YA viene
+  // con IVA incluido (la consulta a CVA usa MonedaPesos=true que devuelve
+  // el precio total con IVA). Aplicar 1.16 aquí causaría doble IVA.
+  const tn_base = (costoCVA || 0) * 1.073;
   let tn_envio = 300;
   if (tn_base <= 2000) tn_envio = 0;
   else if (tn_base <= 3000) tn_envio = 100;
@@ -3737,6 +3961,19 @@ function anCambiarGananciaGlobal(valor) {
   if (isNaN(v) || v < 5) v = 5;
   _gananciaGlobal = v;
   _saveGananciaLS_();
+  renderAnalisisTab();
+}
+
+// Cambia el TC global USD→MXN. Persiste en localStorage y sube al sheet (W3).
+async function anCambiarTCGlobal(valor) {
+  let v = parseFloat(valor);
+  if (isNaN(v) || v < 1 || v > 100) v = 17.50;
+  _tcGlobal = v;
+  _saveTCLS_();
+  // Subir al sheet (W3) — async, no esperamos
+  try {
+    apiPost('inv_odoo_set_global_tc', { tc: v }).catch(e => console.warn('TC sync:', e));
+  } catch(e) {}
   renderAnalisisTab();
 }
 
@@ -4491,7 +4728,7 @@ Object.assign(window, {
 });
 
 Object.assign(window, {
-  anEditarMD, anCambiarGananciaGlobal, anSetModoVista,
+  anEditarMD, anCambiarGananciaGlobal, anCambiarTCGlobal, anSetModoVista,
   anExportXLSX, anExportCVAUPCs,
 });
 
@@ -4505,7 +4742,8 @@ Object.assign(window, {
   cargarPedidos, cargarSaldo, filtrarPedidos, abrirModalPedido, cerrarModal,
   handleFileSelect, handleDrop, handleGuiaFileSelect, handleGuiaDrop, registrarPedido, enviarGuiaCVA,
   ejecutarSync, resetearSync, cargarEstadoSync, instalarTriggers, instalarTriggersUI,
-  cargarVentasOdoo, cargarPickingsOdoo, abrirVentaOdoo, odooTab,
+  cargarVentasOdoo, cargarPickingsOdoo, cargarHistorialVentas,
+  abrirVentaOdoo, odooTab,
   buscarEnOdoo, ejecutarDebug,
   exportBuscarCSV, exportBuscarPDF, exportProductoCSV, exportProductoPDF,
   exportarTodoCSV, exportarTodoPDF, exportCarritoCSV, exportCarritoPDF,
@@ -4549,6 +4787,11 @@ async function cargarInvOdoo() {
   }
 
   _invOdooData = data;
+  // Sincronizar TC global del sheet → cache local (sheet es fuente de verdad)
+  if (data.tc_global && data.tc_global >= 1) {
+    _tcGlobal = data.tc_global;
+    _saveTCLS_();
+  }
   renderInvOdoo();
 }
 
