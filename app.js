@@ -29,12 +29,7 @@ function showPage(id) {
   if (id === 'invodoo')  setTimeout(() => { try { cargarInvOdoo();     } catch(e) {} }, 100);
   if (id === 'exportar') setTimeout(() => { try { cargarExportar();    } catch(e) {} }, 100);
   if (id === 'odoo')     setTimeout(() => { try { cargarVentasOdoo();  } catch(e) {} }, 100);
-  if (id === 'imagenes') setTimeout(() => {
-    try {
-      var fr = document.getElementById('imagenes-frame');
-      if (fr && !fr.src) fr.src = GAS_URL + '?page=imagenes';
-    } catch(e) {}
-  }, 50);
+
 }
 
 window.addEventListener('popstate', e => {
@@ -5800,9 +5795,3 @@ async function recargarTodo() {
   }
 }
 window.recargarTodo = recargarTodo;
-
-// Abrir el buscador de imágenes en pestaña nueva (respaldo si el iframe falla)
-function abrirImagenesNuevaPestana() {
-  try { window.open(GAS_URL + '?page=imagenes', '_blank'); } catch(e) {}
-}
-window.abrirImagenesNuevaPestana = abrirImagenesNuevaPestana;
