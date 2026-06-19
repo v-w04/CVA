@@ -3005,29 +3005,117 @@
     .saldo-pill-monto { font-size: 14px; }
   }
 
-  /* ── BOTONES TIPO ODOO (tablero) — más sólidos, planos, definidos ──
-     Sobrescribe el look "card" anterior para que se lean como BOTONES. */
+  /* ════════════════════════════════════════════════════════════
+     BOTONES TIPO ODOO (tablero) — icono en cuadro + nombre debajo
+     Estilo idéntico a Odoo: contenedor del icono con fondo, sin
+     descripción, sin flecha. Color verde de la marca.
+     ════════════════════════════════════════════════════════════ */
+
+  /* El "botón" en sí es transparente: lo que tiene fondo es el cuadro del icono */
   .tab-card {
-    background: linear-gradient(180deg, rgba(0,75,68,0.32) 0%, rgba(0,52,47,0.42) 100%);
-    border: 1px solid rgba(103,184,175,0.22);
-    border-radius: 8px;
-    min-height: 124px;
-    padding: 20px 12px;
-    box-shadow: inset 0 1px 0 rgba(255,255,255,0.05), 0 2px 8px rgba(0,0,0,0.18);
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    border-radius: 0 !important;
+    min-height: 0 !important;
+    padding: 14px 8px !important;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 12px;
+    text-align: center;
   }
   .tab-card:hover {
-    background: linear-gradient(180deg, rgba(0,110,100,0.5) 0%, rgba(0,75,68,0.58) 100%);
-    border-color: var(--green-lt);
-    transform: translateY(-2px);
-    box-shadow: 0 8px 22px rgba(0,0,0,0.32), 0 0 18px rgba(103,184,175,0.22), inset 0 1px 0 rgba(255,255,255,0.08);
+    background: transparent !important;
+    transform: none !important;
+    box-shadow: none !important;
   }
-  .tab-card:active { transform: translateY(0); filter: brightness(0.95); }
-  .tab-icon { width: 40px; height: 40px; }
-  .tab-icon svg { width: 34px; height: 34px; }
+  .tab-card:active { transform: none !important; }
+
+  /* El contenedor del icono = el "cuadro" Odoo con fondo verde */
+  .tab-card-top {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 92px;
+    height: 92px;
+    border-radius: 18px;
+    background: linear-gradient(180deg, rgba(0,90,82,0.55) 0%, rgba(0,58,52,0.6) 100%);
+    border: 1px solid rgba(103,184,175,0.3);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.07), 0 4px 14px rgba(0,0,0,0.28);
+    transition: transform 0.18s ease, background 0.18s ease,
+                border-color 0.18s ease, box-shadow 0.18s ease;
+  }
+  .tab-card:hover .tab-card-top {
+    background: linear-gradient(180deg, rgba(0,120,108,0.7) 0%, rgba(0,82,74,0.78) 100%);
+    border-color: var(--green-lt);
+    transform: translateY(-3px) scale(1.04);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.12),
+                0 10px 26px rgba(0,0,0,0.4),
+                0 0 22px rgba(103,184,175,0.3);
+  }
+  .tab-card:active .tab-card-top {
+    transform: translateY(-1px) scale(0.99);
+    filter: brightness(0.94);
+  }
+
+  .tab-icon {
+    width: 48px;
+    height: 48px;
+    color: var(--green-lt);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: transform 0.18s ease, color 0.18s ease;
+  }
+  .tab-icon svg { width: 42px; height: 42px; }
+  .tab-card:hover .tab-icon { color: #d4f5ee; transform: scale(1.06); }
+
+  /* Nombre debajo del cuadro */
   .tab-title {
-    font-size: 14px;
-    letter-spacing: 1px;
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 15px;
+    letter-spacing: 0.6px;
+    color: var(--text);
     font-weight: 500;
+    line-height: 1.2;
+    text-transform: none;
+  }
+  .tab-card:hover .tab-title { color: var(--green-lt); }
+
+  /* Fuera descripción y flecha (estilo Odoo limpio) */
+  .tab-desc, .tab-arrow { display: none !important; }
+
+  /* Badge (carrito) reposicionado sobre el cuadro del icono */
+  .tab-badge {
+    top: -4px;
+    right: calc(50% - 56px);
+  }
+
+  /* Grid: más aire entre botones, como Odoo */
+  .tablero-grid {
+    gap: 28px 18px;
+  }
+
+  /* Responsive del botón Odoo */
+  @media (max-width: 880px) {
+    .tab-card-top { width: 82px; height: 82px; border-radius: 16px; }
+    .tab-icon { width: 42px; height: 42px; }
+    .tab-icon svg { width: 36px; height: 36px; }
+    .tab-title { font-size: 14px; }
+  }
+  @media (max-width: 640px) {
+    .tablero-grid { grid-template-columns: repeat(3, 1fr); gap: 20px 10px; }
+    .tab-card-top { width: 68px; height: 68px; border-radius: 14px; }
+    .tab-icon { width: 34px; height: 34px; }
+    .tab-icon svg { width: 30px; height: 30px; }
+    .tab-title { font-size: 12px; letter-spacing: 0.3px; }
+  }
+  @media (max-width: 380px) {
+    .tab-card-top { width: 60px; height: 60px; }
+    .tab-icon svg { width: 26px; height: 26px; }
+    .tab-title { font-size: 11px; }
   }
 </style>
 </head>
