@@ -2927,6 +2927,108 @@
     }
   }
 
+
+  /* ════════════════════════════════════════════════════════════
+     MEJORAS UI — Saldo destacado, header responsive, botones Odoo
+     ════════════════════════════════════════════════════════════ */
+
+  /* ── SALDO PILL (siempre visible, prominente) ── */
+  .saldo-pill {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    justify-content: center;
+    cursor: pointer;
+    background: rgba(0,102,94,0.22);
+    border: 1px solid rgba(103,184,175,0.45);
+    border-radius: 6px;
+    padding: 4px 13px;
+    line-height: 1.1;
+    transition: background .2s, border-color .2s, box-shadow .2s;
+  }
+  .saldo-pill:hover {
+    background: rgba(0,102,94,0.34);
+    border-color: var(--green-lt);
+    box-shadow: 0 0 14px rgba(103,184,175,0.25);
+  }
+  .saldo-pill-label {
+    font-size: 8px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: rgba(103,184,175,0.75);
+    font-weight: 500;
+  }
+  .saldo-pill-monto {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 17px;
+    font-weight: 500;
+    color: var(--green-lt);
+    letter-spacing: 0.3px;
+    line-height: 1;
+  }
+
+  /* ── HEADER RESPONSIVE ORDENADO ──
+     Jerarquía: home + logo + saldo + refresh SIEMPRE visibles.
+     Badges de estado (CVA/Odoo/Sync) se ocultan progresivamente. */
+  @media (max-width: 1024px) {
+    #badge-sync { display: none; }
+  }
+  @media (max-width: 860px) {
+    #badge-cva, #badge-odoo { display: none; }
+    .header { padding: 0 14px; }
+    .header-right { gap: 8px; }
+  }
+  @media (max-width: 600px) {
+    /* En móvil: logo a la izquierda junto al home, saldo + refresh a la derecha.
+       Nada amontonado: solo 4 elementos bien espaciados. */
+    .header { padding: 0 10px; height: 58px; }
+    .header-logo {
+      position: static;
+      transform: none;
+      left: auto;
+      margin-left: 10px;
+      align-items: flex-start;
+    }
+    .header-logo img { height: 26px; }
+    .header-right { gap: 8px; margin-left: auto; }
+    .saldo-pill { padding: 3px 11px; }
+    .saldo-pill-label { font-size: 7.5px; letter-spacing: 1px; }
+    .saldo-pill-monto { font-size: 15px; }
+    .badge-refresh { padding: 6px 8px !important; }
+  }
+  @media (max-width: 380px) {
+    .header { padding: 0 7px; }
+    .header-logo img { height: 22px; }
+    .header-logo { margin-left: 6px; }
+    .header-right { gap: 6px; }
+    .saldo-pill { padding: 3px 9px; }
+    .saldo-pill-monto { font-size: 14px; }
+  }
+
+  /* ── BOTONES TIPO ODOO (tablero) — más sólidos, planos, definidos ──
+     Sobrescribe el look "card" anterior para que se lean como BOTONES. */
+  .tab-card {
+    background: linear-gradient(180deg, rgba(0,75,68,0.32) 0%, rgba(0,52,47,0.42) 100%);
+    border: 1px solid rgba(103,184,175,0.22);
+    border-radius: 8px;
+    min-height: 124px;
+    padding: 20px 12px;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.05), 0 2px 8px rgba(0,0,0,0.18);
+  }
+  .tab-card:hover {
+    background: linear-gradient(180deg, rgba(0,110,100,0.5) 0%, rgba(0,75,68,0.58) 100%);
+    border-color: var(--green-lt);
+    transform: translateY(-2px);
+    box-shadow: 0 8px 22px rgba(0,0,0,0.32), 0 0 18px rgba(103,184,175,0.22), inset 0 1px 0 rgba(255,255,255,0.08);
+  }
+  .tab-card:active { transform: translateY(0); filter: brightness(0.95); }
+  .tab-icon { width: 40px; height: 40px; }
+  .tab-icon svg { width: 34px; height: 34px; }
+  .tab-title {
+    font-size: 14px;
+    letter-spacing: 1px;
+    font-weight: 500;
+  }
 </style>
 </head>
 <body>
@@ -2986,7 +3088,10 @@
       <span class="badge badge-green" id="badge-cva" title="Estado conexión CVA">CVA ✓</span>
       <span class="badge badge-silver" id="badge-odoo" title="Estado conexión Odoo">Odoo ✓</span>
       <span class="badge badge-silver" id="badge-sync" title="Último sync">Sync —</span>
-      <span class="badge badge-silver" id="badge-saldo" title="Saldo CVA disponible" style="cursor:pointer;font-family:'Barlow Condensed',sans-serif;font-size:13px" onclick="showPage('pedidos')">Saldo</span>
+      <div class="saldo-pill" id="badge-saldo" title="Saldo CVA disponible · clic para recargar" onclick="cargarSaldo && cargarSaldo()">
+        <span class="saldo-pill-label">Saldo CVA</span>
+        <span class="saldo-pill-monto" id="saldo-monto">—</span>
+      </div>
       <button class="badge badge-refresh" id="badge-refresh" onclick="recargarTodo()" title="Recargar datos (no la página)"
         style="cursor:pointer;background:rgba(0,102,94,0.18);border:1px solid rgba(103,184,175,0.4);color:var(--green-lt);padding:5px 9px;display:flex;align-items:center;font-family:inherit;line-height:1">
         <svg id="badge-refresh-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="transition:transform .3s ease">
@@ -3104,6 +3209,15 @@
               </div>
               <div class="tab-title">Debug</div>
               <div class="tab-desc">Herramientas avanzadas de diagnóstico.</div>
+            </div>
+
+            <div class="tab-card" onclick="showPage('imagenes')">
+              <div class="tab-card-top">
+                <div class="tab-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg></div>
+                <div class="tab-arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg></div>
+              </div>
+              <div class="tab-title">Imágenes UPC</div>
+              <div class="tab-desc">Busca y descarga imágenes de productos por UPC.</div>
             </div>
 
           </div>
@@ -3540,6 +3654,20 @@
             <button class="btn btn-ghost" onclick="buscarEnOdoo()">Buscar</button>
           </div>
           <div id="odoo-result"></div>
+        </div>
+      </div>
+
+      <!-- ══ PAGE: IMÁGENES ══ -->
+      <div class="page" id="page-imagenes">
+        <div class="page-header">
+          <div class="page-rule"></div>
+          <div class="page-title">Imágenes por UPC</div>
+          <div class="page-sub">Busca y descarga imágenes de productos por UPC</div>
+        </div>
+        <div style="height:calc(100vh - 200px); min-height:520px;">
+          <iframe id="imagenes-frame"
+            style="width:100%; height:100%; border:0; border-radius:8px; background:#1e2025;"
+            title="Buscador de imágenes por UPC"></iframe>
         </div>
       </div>
 

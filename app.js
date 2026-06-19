@@ -29,6 +29,12 @@ function showPage(id) {
   if (id === 'invodoo')  setTimeout(() => { try { cargarInvOdoo();     } catch(e) {} }, 100);
   if (id === 'exportar') setTimeout(() => { try { cargarExportar();    } catch(e) {} }, 100);
   if (id === 'odoo')     setTimeout(() => { try { cargarVentasOdoo();  } catch(e) {} }, 100);
+  if (id === 'imagenes') setTimeout(() => {
+    try {
+      var fr = document.getElementById('imagenes-frame');
+      if (fr && !fr.src) fr.src = GAS_URL + '?page=imagenes';
+    } catch(e) {}
+  }, 50);
 }
 
 window.addEventListener('popstate', e => {
@@ -1641,34 +1647,33 @@ let pdfBase64 = null, pdfNombre = null, editandoIdx = null;
 
 // ── SALDO CVA ─────────────────────────────────────────────────
 async function cargarSaldo() {
-  const badge = document.getElementById('badge-saldo');
-  if (!badge) return;
+  const pill  = document.getElementById('badge-saldo');
+  const monto = document.getElementById('saldo-monto');
+  if (!pill || !monto) return;
   try {
     const data = await api('cva_saldo');
     if (data.ok) {
-      // CVA puede devolver: saldo_disponible, saldo, credito_disponible, limite_credito, etc.
       const saldo = parseFloat(
         data.saldo_disponible ?? data.saldo ?? data.credito_disponible ??
         data.limite_credito ?? data.disponible ?? data.monto ?? -1
       );
       if (saldo >= 0) {
         const saldoFmt = saldo.toLocaleString('es-MX', { style: 'currency', currency: 'MXN', maximumFractionDigits: 0 });
-        badge.textContent = saldoFmt;
-        badge.className = 'badge ' + (saldo > 1000 ? 'badge-green' : saldo > 0 ? 'badge-silver' : 'badge-red');
-        badge.title = 'Saldo CVA: ' + saldoFmt;
+        monto.textContent = saldoFmt;
+        monto.style.color = saldo > 1000 ? 'var(--green-lt)' : saldo > 0 ? 'var(--silver)' : '#e05555';
+        pill.title = 'Saldo CVA: ' + saldoFmt + ' · clic para recargar';
         addLog('ok', 'Saldo CVA', saldoFmt);
       } else {
-        // Endpoint existe pero estructura desconocida — log para debug
-        badge.textContent = 'Saldo';
-        badge.title = 'Respuesta CVA: ' + JSON.stringify(data).substring(0, 120);
+        monto.textContent = 'N/D';
+        pill.title = 'Respuesta CVA: ' + JSON.stringify(data).substring(0, 120);
         addLog('warn', 'Saldo CVA — estructura inesperada', JSON.stringify(data).substring(0, 100));
       }
     } else {
-      badge.textContent = 'Saldo';
-      badge.title = 'Saldo no disponible: ' + (data.error || '');
+      monto.textContent = 'N/D';
+      pill.title = 'Saldo no disponible: ' + (data.error || '');
     }
   } catch(e) {
-    badge.textContent = 'Saldo —';
+    monto.textContent = '—';
   }
 }
 

@@ -1,7 +1,7 @@
 // CVA Dropship Service Worker
 // IMPORTANTE: bumpear CACHE_NAME cada vez que cambie esta lógica para
 // forzar invalidación. app.js e index.html NO se cachean — siempre red.
-const CACHE_NAME = "cva-dropship-v5";
+const CACHE_NAME = "cva-dropship-v6";
 const STATIC_ASSETS = [
   "./manifest.json",
   "./icon-192.png",
