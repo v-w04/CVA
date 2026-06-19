@@ -3117,6 +3117,156 @@
     .tab-icon svg { width: 26px; height: 26px; }
     .tab-title { font-size: 11px; }
   }
+
+  /* ════════════════════════════════════════════════════════════
+     TABLERO — layout dinámico: TODO cabe sin scroll (v final)
+     Llena la altura disponible, botones compactos, footer pequeño.
+     ════════════════════════════════════════════════════════════ */
+
+  /* La página del tablero ocupa exactamente el alto visible y se
+     organiza en columna: header arriba, grid en medio, footer abajo. */
+  #page-tablero.active {
+    display: flex !important;
+    flex-direction: column;
+    height: calc(100vh - var(--header-h) - 2px);
+    min-height: 0;
+    overflow: hidden;            /* nada de scroll dentro del tablero */
+    padding: 0;
+  }
+  /* Evitar que el scroll-wrap genere su propia barra en el tablero */
+  body:has(#page-tablero.active) .scroll-wrap { overflow: hidden; }
+
+  .tablero-wrap {
+    max-width: 1180px;
+    width: 100%;
+    margin: 0 auto;
+    padding: clamp(12px, 2.5vh, 28px) 24px;
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 auto;
+    min-height: 0;
+    justify-content: center;     /* centra todo verticalmente */
+    gap: clamp(14px, 3vh, 36px);
+  }
+
+  .tablero-header {
+    text-align: center;
+    margin-bottom: 0;            /* el gap del wrap maneja la separación */
+    flex: 0 0 auto;
+  }
+  .tablero-brand-name {
+    font-size: clamp(24px, 4vh, 40px);
+    letter-spacing: clamp(4px, 1vw, 8px);
+    margin-bottom: 8px;
+  }
+
+  /* GRID — 5 columnas, gap chico, centrado, sin empujar */
+  .tablero-grid {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: clamp(8px, 1.4vw, 16px) clamp(6px, 1vw, 14px);
+    justify-items: center;
+    align-content: center;
+    flex: 0 0 auto;
+  }
+
+  /* BOTÓN ODOO — solo cuadro de icono + texto, SIN contenedor de fondo */
+  .tab-card {
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    border-radius: 0 !important;
+    min-height: 0 !important;
+    padding: 6px 4px !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    overflow: visible !important;
+    animation: none !important;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 9px;
+    text-align: center;
+    width: 100%;
+  }
+  /* Anular pseudo-elementos decorativos del look card viejo */
+  .tab-card::before, .tab-card::after { display: none !important; content: none !important; }
+  .tab-card:hover { background: transparent !important; transform: none !important; box-shadow: none !important; }
+
+  /* El cuadro con fondo es SOLO el del icono */
+  .tab-card-top {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: clamp(64px, 8vw, 86px);
+    height: clamp(64px, 8vw, 86px);
+    border-radius: 16px;
+    background: linear-gradient(180deg, rgba(0,90,82,0.55) 0%, rgba(0,58,52,0.6) 100%);
+    border: 1px solid rgba(103,184,175,0.3);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.07), 0 4px 14px rgba(0,0,0,0.28);
+    transition: transform 0.18s ease, background 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
+  }
+  .tab-card:hover .tab-card-top {
+    background: linear-gradient(180deg, rgba(0,120,108,0.72) 0%, rgba(0,82,74,0.8) 100%);
+    border-color: var(--green-lt);
+    transform: translateY(-3px) scale(1.05);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.12), 0 10px 26px rgba(0,0,0,0.4), 0 0 22px rgba(103,184,175,0.32);
+  }
+  .tab-card:active .tab-card-top { transform: translateY(-1px) scale(0.99); filter: brightness(0.94); }
+
+  .tab-icon {
+    width: clamp(34px, 4.4vw, 46px);
+    height: clamp(34px, 4.4vw, 46px);
+    color: var(--green-lt);
+    display: flex; align-items: center; justify-content: center;
+    transition: transform 0.18s ease, color 0.18s ease;
+  }
+  .tab-icon svg { width: 100%; height: 100%; }
+  .tab-card:hover .tab-icon { color: #d4f5ee; transform: scale(1.06); }
+
+  .tab-title {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: clamp(11px, 1.5vh, 15px);
+    letter-spacing: 0.5px;
+    color: var(--text);
+    font-weight: 500;
+    line-height: 1.15;
+    text-transform: none;
+  }
+  .tab-card:hover .tab-title { color: var(--green-lt); }
+
+  .tab-desc, .tab-arrow { display: none !important; }
+
+  .tab-badge { top: -4px; right: calc(50% - 50px); }
+
+  /* FOOTER — compacto, no empuja */
+  .tablero-footer {
+    margin-top: 0;
+    padding-top: 0;
+    flex: 0 0 auto;
+    gap: 6px;
+  }
+  .tablero-footer-divider { margin-bottom: 0; }
+  .tablero-footer-logo { height: clamp(28px, 4vh, 44px); }
+
+  /* Canvas detrás, sin afectar el alto */
+  #tab-bg-canvas { z-index: 0; }
+
+  /* ── Responsive: en pantallas chicas SÍ permitimos scroll natural ── */
+  @media (max-width: 880px) {
+    .tablero-grid { grid-template-columns: repeat(3, 1fr); }
+  }
+  @media (max-width: 640px) {
+    /* En móvil el alto fijo puede apretar demasiado: dejamos fluir */
+    #page-tablero.active { height: auto; min-height: calc(100vh - var(--header-h) - 2px); overflow: visible; }
+    body:has(#page-tablero.active) .scroll-wrap { overflow-y: auto; }
+    .tablero-grid { grid-template-columns: repeat(3, 1fr); gap: 16px 10px; }
+    .tab-card-top { width: 64px; height: 64px; }
+  }
+  @media (max-width: 380px) {
+    .tablero-grid { grid-template-columns: repeat(2, 1fr); }
+  }
 </style>
 </head>
 <body>
@@ -3752,10 +3902,17 @@
           <div class="page-title">Imágenes por UPC</div>
           <div class="page-sub">Busca y descarga imágenes de productos por UPC</div>
         </div>
-        <div style="height:calc(100vh - 200px); min-height:520px;">
+        <div style="display:flex;justify-content:flex-end;margin-bottom:10px">
+          <button class="btn btn-ghost" style="font-size:10px;padding:6px 14px" onclick="abrirImagenesNuevaPestana()">↗ Abrir en pestaña nueva</button>
+        </div>
+        <div style="height:calc(100vh - 230px); min-height:520px; position:relative;">
+          <div id="imagenes-loading" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:11px;letter-spacing:2px;text-transform:uppercase;background:#1e2025;border-radius:8px">
+            <span class="spin"></span>Cargando buscador…
+          </div>
           <iframe id="imagenes-frame"
-            style="width:100%; height:100%; border:0; border-radius:8px; background:#1e2025;"
-            title="Buscador de imágenes por UPC"></iframe>
+            style="width:100%; height:100%; border:0; border-radius:8px; background:#1e2025; position:relative;"
+            title="Buscador de imágenes por UPC"
+            onload="var l=document.getElementById('imagenes-loading'); if(l && this.src) l.style.display='none';"></iframe>
         </div>
       </div>
 

@@ -5800,3 +5800,9 @@ async function recargarTodo() {
   }
 }
 window.recargarTodo = recargarTodo;
+
+// Abrir el buscador de imágenes en pestaña nueva (respaldo si el iframe falla)
+function abrirImagenesNuevaPestana() {
+  try { window.open(GAS_URL + '?page=imagenes', '_blank'); } catch(e) {}
+}
+window.abrirImagenesNuevaPestana = abrirImagenesNuevaPestana;
