@@ -3267,6 +3267,139 @@
   @media (max-width: 380px) {
     .tablero-grid { grid-template-columns: repeat(2, 1fr); }
   }
+
+  /* ════════════════════════════════════════════════════════════
+     TABLERO v3 — Grid 3×3, botones SÓLIDOS opacos, canvas a los lados
+     ════════════════════════════════════════════════════════════ */
+
+  /* GRID 3×3, todo cabe sin scroll */
+  .tablero-grid {
+    grid-template-columns: repeat(3, 1fr) !important;
+    grid-template-rows: repeat(3, auto);
+    gap: clamp(12px, 2vw, 22px) clamp(14px, 2.5vw, 28px) !important;
+    max-width: 720px;
+    margin: 0 auto;
+    align-content: center;
+    justify-items: stretch;
+    position: relative;
+    z-index: 5;
+  }
+
+  /* BOTÓN: ahora SÍ es un botón sólido. El fondo es del botón completo
+     (icono + texto), no transparente. Opaco para que el canvas no se vea. */
+  .tab-card {
+    background: linear-gradient(180deg, #1a3f3a 0%, #112e2a 100%) !important;
+    border: 1px solid rgba(103,184,175,0.3) !important;
+    border-radius: 12px !important;
+    box-shadow: 0 4px 14px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.06) !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    overflow: hidden !important;
+    min-height: 0 !important;
+    padding: 18px 12px 16px !important;
+    display: flex !important;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    text-align: center;
+    width: 100%;
+    transition: background 0.2s ease, border-color 0.2s ease,
+                transform 0.18s ease, box-shadow 0.2s ease;
+    position: relative;
+    z-index: 2;
+  }
+  .tab-card:hover {
+    background: linear-gradient(180deg, #246057 0%, #1a4540 100%) !important;
+    border-color: var(--green-lt) !important;
+    transform: translateY(-3px) !important;
+    box-shadow: 0 10px 26px rgba(0,0,0,0.5), 0 0 24px rgba(103,184,175,0.32),
+                inset 0 1px 0 rgba(255,255,255,0.12) !important;
+  }
+  .tab-card:active { transform: translateY(-1px) !important; filter: brightness(0.94); }
+  .tab-card::before, .tab-card::after { display: none !important; content: none !important; }
+
+  /* El recuadro interno del icono — ya no es necesario que sea otra caja,
+     ahora simplemente alberga el icono dentro del botón sólido */
+  .tab-card-top {
+    width: clamp(56px, 7vw, 72px);
+    height: clamp(56px, 7vw, 72px);
+    border-radius: 14px;
+    background: rgba(0,0,0,0.28);
+    border: 1px solid rgba(103,184,175,0.25);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.18s ease, border-color 0.18s ease;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.04);
+  }
+  .tab-card:hover .tab-card-top {
+    background: rgba(0,0,0,0.35);
+    border-color: var(--green-lt);
+  }
+
+  .tab-icon {
+    width: clamp(30px, 3.6vw, 40px);
+    height: clamp(30px, 3.6vw, 40px);
+    color: var(--green-lt);
+    display: flex; align-items: center; justify-content: center;
+    transition: color 0.18s ease, transform 0.18s ease;
+  }
+  .tab-icon svg { width: 100%; height: 100%; }
+  .tab-card:hover .tab-icon { color: #d4f5ee; transform: scale(1.06); }
+
+  .tab-title {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: clamp(12px, 1.6vh, 16px);
+    letter-spacing: 0.5px;
+    color: var(--text);
+    font-weight: 500;
+    line-height: 1.2;
+    text-transform: none;
+  }
+  .tab-card:hover .tab-title { color: var(--green-lt); }
+
+  .tab-desc, .tab-arrow { display: none !important; }
+  .tab-badge { top: 6px; right: 6px; }
+
+  /* CANVAS DE NODOS: limitar a los costados y arriba/abajo, NO atrás de los botones */
+  #tab-bg-canvas {
+    position: fixed;
+    top: var(--header-h);
+    left: 0;
+    right: 0;
+    bottom: 0;
+    width: 100%;
+    height: calc(100vh - var(--header-h));
+    opacity: 0.4;     /* más sutil para que no compita con los botones */
+    z-index: 0;
+    /* Máscara: invisible en el centro (donde va el grid), visible a los lados/arriba/abajo */
+    -webkit-mask-image: radial-gradient(ellipse 460px 320px at 50% 55%, transparent 0%, transparent 60%, black 100%);
+            mask-image: radial-gradient(ellipse 460px 320px at 50% 55%, transparent 0%, transparent 60%, black 100%);
+  }
+
+  /* HEADER del tablero — el logo va arriba (ya lo está en el HTML) */
+  .tablero-header { z-index: 5; position: relative; }
+  .tablero-header-logo {
+    height: clamp(38px, 6vh, 60px);
+    width: auto;
+    margin: 0 auto 14px;
+    display: block;
+    filter: brightness(0) invert(1) drop-shadow(0 0 14px rgba(103,184,175,0.35));
+    opacity: 0.9;
+  }
+
+  /* Responsive 3×3 */
+  @media (max-width: 720px) {
+    .tablero-grid { max-width: 100%; grid-template-columns: repeat(3, 1fr) !important; gap: 10px !important; }
+    .tab-card { padding: 14px 8px !important; gap: 9px; }
+    .tab-card-top { width: 52px; height: 52px; border-radius: 12px; }
+    .tab-icon { width: 28px; height: 28px; }
+    .tab-title { font-size: 12px; }
+  }
+  @media (max-width: 420px) {
+    .tablero-grid { grid-template-columns: repeat(2, 1fr) !important; }
+  }
 </style>
 </head>
 <body>
@@ -3352,8 +3485,11 @@
         <canvas id="tab-bg-canvas" aria-hidden="true"></canvas>
         <div class="tablero-wrap">
           <div class="tablero-header">
+            <img src="https://acdn-us.mitiendanube.com/stores/006/131/081/themes/common/logo-257925442-1748975905-ea5b79b9b6bd00d801280c0aee35d5251748975905-320-0.webp"
+              alt="Electronics México" onerror="this.style.display='none'"
+              class="tablero-header-logo">
             <div class="tablero-brand-name">ELECTRONICS MÉXICO</div>
-            <div class="tablero-brand-sub">LEONGEM · CUENTA CVA 2395390</div>
+            <div class="tablero-brand-sub">LEONGEM · CUENTA CVA 2395390 · DROPSHIPPING CVA · ODOO</div>
           </div>
 
           <div class="tablero-grid">
@@ -3431,24 +3567,6 @@
               <div class="tab-desc">Accede al panel de administración de Odoo.</div>
             </div>
 
-            <div class="tab-card" onclick="showPage('log')">
-              <div class="tab-card-top">
-                <div class="tab-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg></div>
-                <div class="tab-arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg></div>
-              </div>
-              <div class="tab-title">Log actividad</div>
-              <div class="tab-desc">Consulta el historial de actividades del sistema.</div>
-            </div>
-
-            <div class="tab-card" onclick="showPage('debug')">
-              <div class="tab-card-top">
-                <div class="tab-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg></div>
-                <div class="tab-arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg></div>
-              </div>
-              <div class="tab-title">Debug</div>
-              <div class="tab-desc">Herramientas avanzadas de diagnóstico.</div>
-            </div>
-
             <div class="tab-card" onclick="showPage('imagenes')">
               <div class="tab-card-top">
                 <div class="tab-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg></div>
@@ -3460,13 +3578,7 @@
 
           </div>
 
-          <div class="tablero-footer">
-            <div class="tablero-footer-divider"></div>
-            <img src="https://acdn-us.mitiendanube.com/stores/006/131/081/themes/common/logo-257925442-1748975905-ea5b79b9b6bd00d801280c0aee35d5251748975905-320-0.webp"
-              alt="Electronics México" onerror="this.style.display='none'"
-              class="tablero-footer-logo">
-            <div class="tablero-footer-tagline">DROPSHIPPING · CVA · ODOO · MERCADOLIBRE</div>
-          </div>
+
         </div>
       </div>
 
@@ -3897,10 +4009,13 @@
 
       <!-- ══ PAGE: IMÁGENES ══ -->
       <div class="page" id="page-imagenes">
-        <div class="page-header">
-          <div class="page-rule"></div>
-          <div class="page-title">Imágenes por UPC</div>
-          <div class="page-sub">Busca y descarga imágenes de productos por UPC</div>
+        <div class="page-header" style="display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:10px">
+          <div>
+            <div class="page-rule"></div>
+            <div class="page-title">Imágenes por UPC</div>
+            <div class="page-sub">Busca y descarga imágenes de productos por UPC</div>
+          </div>
+          <button class="btn btn-ghost" style="font-size:10px;padding:6px 14px" onclick="recargarImagenes()" title="Recargar la herramienta">↻ Recargar</button>
         </div>
         <div style="height:calc(100vh - 200px); min-height:520px; position:relative;">
           <iframe id="imagenes-frame"
@@ -4059,6 +4174,17 @@
 </div>
 
 <script src="app.js"></script>
+<script>
+  // Recarga el iframe de imágenes — independiente de app.js para no depender
+  // de versiones cacheadas en GitHub Pages.
+  function recargarImagenes() {
+    var fr = document.getElementById('imagenes-frame');
+    if (!fr) return;
+    var url = 'https://script.google.com/macros/s/AKfycby9biqEbiv4syc3St3TuPKXkG9rI5A4YsmtNta3OEJ4mD0i8sg0PPg9OhfrPDZJuO_L/exec?page=imagenes&_=' + Date.now();
+    fr.src = url;
+  }
+  window.recargarImagenes = recargarImagenes;
+</script>
 <script>
   // Service Worker — PWA
   if ('serviceWorker' in navigator) {
