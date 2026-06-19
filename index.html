@@ -3400,6 +3400,154 @@
   @media (max-width: 420px) {
     .tablero-grid { grid-template-columns: repeat(2, 1fr) !important; }
   }
+
+  /* ════════════════════════════════════════════════════════════
+     TABLERO v4 — DEFINITIVO
+     .tab-card   = NO es tarjeta. Sin fondo, sin borde. Solo agrupa.
+     .tab-card-top = el ÚNICO rectángulo con fondo (más horizontal). Solo lleva el icono.
+     .tab-title  = texto FUERA, sin caja, suelto debajo.
+     ════════════════════════════════════════════════════════════ */
+
+  .tablero-grid {
+    display: grid !important;
+    grid-template-columns: repeat(3, 1fr) !important;
+    grid-template-rows: repeat(3, auto) !important;
+    gap: clamp(14px, 2.4vh, 26px) clamp(18px, 2.8vw, 32px) !important;
+    max-width: 780px;
+    margin: 0 auto;
+    justify-items: stretch;
+    align-content: center;
+    position: relative;
+    z-index: 5;
+  }
+
+  /* Anular CUALQUIER fondo, borde, sombra, blur en el contenedor del botón */
+  .tab-card,
+  .tab-card:hover,
+  .tab-card:active,
+  .tab-card:focus {
+    background: none !important;
+    background-color: transparent !important;
+    background-image: none !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    overflow: visible !important;
+    min-height: 0 !important;
+    height: auto !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    filter: none !important;
+    transform: none !important;
+  }
+  .tab-card::before, .tab-card::after { display: none !important; content: none !important; }
+  .tab-card {
+    display: flex !important;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 10px;
+    cursor: pointer;
+    text-align: center;
+    width: 100%;
+    position: relative;
+  }
+
+  /* EL ÚNICO RECTÁNGULO CON FONDO — más HORIZONTAL */
+  .tab-card-top {
+    width: 100% !important;
+    height: clamp(60px, 9vh, 84px) !important;
+    border-radius: 10px;
+    background: linear-gradient(180deg, #1d4540 0%, #133430 100%);
+    border: 1px solid rgba(103,184,175,0.3);
+    box-shadow: 0 4px 14px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.05);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.2s ease, border-color 0.2s ease,
+                transform 0.18s ease, box-shadow 0.2s ease;
+    overflow: hidden;
+  }
+  .tab-card:hover .tab-card-top {
+    background: linear-gradient(180deg, #267368 0%, #1a4f48 100%);
+    border-color: var(--green-lt);
+    transform: translateY(-2px);
+    box-shadow: 0 10px 24px rgba(0,0,0,0.5),
+                0 0 22px rgba(103,184,175,0.32),
+                inset 0 1px 0 rgba(255,255,255,0.12);
+  }
+  .tab-card:active .tab-card-top { transform: translateY(0); filter: brightness(0.92); }
+
+  /* El icono dentro del rectángulo (centrado, sin fondo extra) */
+  .tab-icon {
+    width: clamp(28px, 3.4vw, 38px);
+    height: clamp(28px, 3.4vw, 38px);
+    color: var(--green-lt);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: color 0.18s ease, transform 0.18s ease;
+  }
+  .tab-icon svg { width: 100%; height: 100%; }
+  .tab-card:hover .tab-icon { color: #d4f5ee; transform: scale(1.07); }
+
+  /* TEXTO FUERA — sin caja, sin fondo, suelto debajo del rectángulo */
+  .tab-title {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: clamp(12px, 1.6vh, 15px);
+    letter-spacing: 0.6px;
+    color: var(--text);
+    font-weight: 500;
+    line-height: 1.2;
+    text-transform: none;
+    background: none;
+    padding: 0;
+    margin: 0;
+  }
+  .tab-card:hover .tab-title { color: var(--green-lt); }
+
+  .tab-desc, .tab-arrow { display: none !important; }
+  .tab-badge {
+    top: -4px;
+    right: 6px;
+    z-index: 3;
+  }
+
+  /* Canvas a los lados (igual que antes) */
+  #tab-bg-canvas {
+    position: fixed;
+    top: var(--header-h);
+    left: 0; right: 0; bottom: 0;
+    width: 100%;
+    height: calc(100vh - var(--header-h));
+    opacity: 0.4;
+    z-index: 0;
+    -webkit-mask-image: radial-gradient(ellipse 480px 340px at 50% 55%, transparent 0%, transparent 60%, black 100%);
+            mask-image: radial-gradient(ellipse 480px 340px at 50% 55%, transparent 0%, transparent 60%, black 100%);
+  }
+
+  .tablero-header { z-index: 5; position: relative; }
+  .tablero-header-logo {
+    height: clamp(40px, 6vh, 60px);
+    width: auto;
+    margin: 0 auto 14px;
+    display: block;
+    filter: brightness(0) invert(1) drop-shadow(0 0 14px rgba(103,184,175,0.35));
+    opacity: 0.9;
+  }
+
+  /* Responsive */
+  @media (max-width: 720px) {
+    .tablero-grid { max-width: 100%; gap: 12px 14px !important; }
+    .tab-card-top { height: 64px !important; border-radius: 8px; }
+    .tab-icon { width: 28px; height: 28px; }
+    .tab-title { font-size: 11px; }
+  }
+  @media (max-width: 420px) {
+    .tablero-grid { grid-template-columns: repeat(2, 1fr) !important; }
+  }
 </style>
 </head>
 <body>
