@@ -4036,21 +4036,7 @@
               </span>
               <span class="tab-title">Imágenes UPC</span>
             </button>
-            <button class="tab-card" onclick="showPage('imagenes_cva')">
-              <span class="tab-icon-box">
-                <span class="tab-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/><circle cx="6" cy="6" r="1"/><circle cx="18" cy="6" r="1"/></svg></span>
-                
-              </span>
-              <span class="tab-title">Imágenes CVA</span>
-            </button>
 
-            <button class="tab-card" onclick="showPage('invodoo')">
-              <span class="tab-icon-box">
-                <span class="tab-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg></span>
-                
-              </span>
-              <span class="tab-title">Inventario Odoo</span>
-            </button>
 
             <button class="tab-card" onclick="showPage('orden')">
               <span class="tab-icon-box">
@@ -4395,17 +4381,6 @@
       </div>
 
       <!-- ══ PAGE: INVENTARIO ODOO ══ -->
-      <div class="page" id="page-invodoo">
-        <div class="page-header">
-          <div class="page-rule"></div>
-          <div class="page-title">Inventario Odoo</div>
-          <div class="page-sub">Control de exposición · qué % del stock CVA publicas en marketplaces</div>
-        </div>
-        <div id="invodoo-content">
-          <div style="padding:40px;text-align:center;color:var(--muted);font-size:11px;letter-spacing:2px;text-transform:uppercase"><span class="spin"></span>Cargando inventario…</div>
-        </div>
-      </div>
-
       <!-- ══ PAGE: EXPORTAR DATOS ══ -->
       <div class="page" id="page-exportar">
         <div class="page-header">
@@ -4476,6 +4451,9 @@
           <button class="odoo-tab" id="otab-historial" onclick="odooTab('historial')">
             📈 Historial Ventas
           </button>
+          <button class="odoo-tab" id="otab-inventario" onclick="odooTab('inventario')">
+            Inventario Odoo
+          </button>
           <button class="odoo-tab" id="otab-buscar" onclick="odooTab('buscar')">
             Buscar producto
           </button>
@@ -4505,6 +4483,12 @@
           </div>
         </div>
 
+        <div class="odoo-tab-pane" id="opane-inventario">
+          <div id="invodoo-content">
+            <div style="padding:40px;text-align:center;color:var(--muted);font-size:11px;letter-spacing:2px;text-transform:uppercase"><span class="spin"></span>Cargando inventario…</div>
+          </div>
+        </div>
+
         <div class="odoo-tab-pane" id="opane-buscar">
           <div style="display:flex;gap:10px;margin-bottom:20px">
             <input id="o-clave" type="text" placeholder="Clave CVA → buscar en Odoo" onkeydown="if(event.key==='Enter') buscarEnOdoo()"
@@ -4516,20 +4500,6 @@
       </div>
 
       <!-- ══ PAGE: IMÁGENES ══ -->
-      <div class="page" id="page-imagenes_cva">
-        <div class="page-header">
-          <div class="page-rule"></div>
-          <div class="page-title">Imágenes CVA por clave</div>
-          <div class="page-sub">Descarga oficial desde CVA · 1000×1000 → Drive (CVA_ORIGINAL) + Cloudinary</div>
-        </div>
-        <div style="height:calc(100vh - 200px); min-height:520px; position:relative;">
-          <iframe id="imagenes-cva-frame"
-            src="https://script.google.com/macros/s/AKfycby9biqEbiv4syc3St3TuPKXkG9rI5A4YsmtNta3OEJ4mD0i8sg0PPg9OhfrPDZJuO_L/exec?page=imagenes_cva"
-            style="width:100%; height:100%; border:0; border-radius:8px; background:#1e2025;"
-            title="Descargar imágenes CVA"></iframe>
-        </div>
-      </div>
-
       <div class="page" id="page-imagenes">
         <div class="page-header" style="display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:10px">
           <div>
