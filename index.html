@@ -3919,6 +3919,40 @@
   .tab-card .tab-icon-box { will-change: transform; }
   /* Texto bien legible debajo, sin sombras heredadas */
   .tab-title { text-shadow: none !important; }
+
+  /* ════════════════════════════════════════════════════════════
+     FIX FINAL hover — eliminar pseudoelementos y fondos parásitos
+     ════════════════════════════════════════════════════════════ */
+  .tab-card::before, .tab-card::after,
+  .tab-card:hover::before, .tab-card:hover::after {
+    display: none !important;
+    content: none !important;
+    background: none !important;
+    opacity: 0 !important;
+    width: 0 !important; height: 0 !important;
+  }
+  .tab-card, .tab-card:hover, .tab-card:focus, .tab-card:active {
+    background: none !important;
+    background-color: transparent !important;
+    background-image: none !important;
+    box-shadow: none !important;
+    border: 0 !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    filter: none !important;
+  }
+  /* El único elemento que cambia visualmente en hover es el rectángulo del icono */
+  .tab-card:hover .tab-icon-box {
+    background: linear-gradient(180deg, #267368 0%, #173f3a 100%) !important;
+    border-color: var(--green-lt) !important;
+    box-shadow: 0 10px 24px rgba(0,0,0,0.5),
+                0 0 22px rgba(103,184,175,0.3),
+                inset 0 1px 0 rgba(255,255,255,0.12) !important;
+    transform: translateY(-2px);
+  }
+  .tab-card:hover .tab-title { color: var(--green-lt); }
+  /* El texto NUNCA cambia su fondo ni se tapa */
+  .tab-title, .tab-card:hover .tab-title { background: none !important; text-shadow: none !important; }
 </style>
 </head>
 <body>
