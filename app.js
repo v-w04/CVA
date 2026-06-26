@@ -1641,28 +1641,25 @@ let pedidosData = [];
 let pdfBase64 = null, pdfNombre = null, editandoIdx = null;
 
 // ── SALDO CVA ─────────────────────────────────────────────────
+// Lee el saldo desde la celda H2 de la hoja VENTAS_ODOO (controlado por el usuario,
+// se descuenta automáticamente con cada compra). NO usa el endpoint CVA porque
+// devolvía N/D (estructura inconsistente).
 async function cargarSaldo() {
   const pill  = document.getElementById('badge-saldo');
   const monto = document.getElementById('saldo-monto');
   if (!pill || !monto) return;
   try {
-    const data = await api('cva_saldo');
+    const data = await api('saldo_ventas');
     if (data.ok) {
-      const saldo = parseFloat(
-        data.saldo_disponible ?? data.saldo ?? data.credito_disponible ??
-        data.limite_credito ?? data.disponible ?? data.monto ?? -1
-      );
-      if (saldo >= 0) {
-        const saldoFmt = saldo.toLocaleString('es-MX', { style: 'currency', currency: 'MXN', maximumFractionDigits: 0 });
-        monto.textContent = saldoFmt;
-        monto.style.color = saldo > 1000 ? 'var(--green-lt)' : saldo > 0 ? 'var(--silver)' : '#e05555';
-        pill.title = 'Saldo CVA: ' + saldoFmt + ' · clic para recargar';
-        addLog('ok', 'Saldo CVA', saldoFmt);
-      } else {
-        monto.textContent = 'N/D';
-        pill.title = 'Respuesta CVA: ' + JSON.stringify(data).substring(0, 120);
-        addLog('warn', 'Saldo CVA — estructura inesperada', JSON.stringify(data).substring(0, 100));
-      }
+      const saldo = parseFloat(data.saldo);
+      const saldoFmt = saldo.toLocaleString('es-MX', { style: 'currency', currency: 'MXN', maximumFractionDigits: 0 });
+      monto.textContent = saldoFmt;
+      // Verde > 5000, naranja 0–5000, rojo si llega o pasa de 0
+      if (saldo > 5000) monto.style.color = 'var(--green-lt)';
+      else if (saldo > 0) monto.style.color = 'var(--silver)';
+      else monto.style.color = '#e05555';
+      pill.title = 'Saldo Dropship: ' + saldoFmt + ' · clic para recargar';
+      addLog('ok', 'Saldo', saldoFmt);
     } else {
       monto.textContent = 'N/D';
       pill.title = 'Saldo no disponible: ' + (data.error || '');
