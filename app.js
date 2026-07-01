@@ -1909,6 +1909,21 @@ function _pickBadge_(state) {
   return `<span class="pick-badge ${e.cls}">${e.texto}</span>`;
 }
 
+// Estado de la VENTA (orden Odoo): draft/sent/sale/done/cancel
+const _VENTA_ESTADOS = {
+  draft:  { texto: 'Borrador',   cls: 'pick-badge-draft' },
+  sent:   { texto: 'Cotización', cls: 'pick-badge-waiting' },
+  sale:   { texto: 'Confirmado', cls: 'pick-badge-assigned' },
+  done:   { texto: 'Entregado',  cls: 'pick-badge-done' },
+  cancel: { texto: 'Cancelado',  cls: 'pick-badge-cancel' },
+};
+
+function _ventaBadge_(v) {
+  const st = (v && (v.estado_orden || v.state)) || '';
+  const e = _VENTA_ESTADOS[st] || { texto: (v && v.estado_orden_txt) || st || '—', cls: 'pick-badge-draft' };
+  return `<span class="pick-badge ${e.cls}">${e.texto}</span>`;
+}
+
 function _fmtFecha_(s) {
   if (!s) return '<span style="color:var(--text-3)">—</span>';
   // Odoo devuelve formato "YYYY-MM-DD HH:mm:ss"
@@ -1967,14 +1982,15 @@ async function cargarVentasOdoo() {
     <div class="odoo-tbl-wrap">
       <table class="odoo-tbl tbl-ventas">
         <colgroup>
-          <col><col><col><col><col><col>
+          <col><col><col><col><col><col><col>
         </colgroup>
         <thead><tr>
           <th>Número</th>
           <th>Fecha</th>
           <th>Cliente</th>
           <th style="text-align:right">Total</th>
-          <th>Estado</th>
+          <th>Estado venta</th>
+          <th>Estado envío</th>
           <th>Guía rastreo</th>
         </tr></thead>
         <tbody>
@@ -1983,6 +1999,7 @@ async function cargarVentasOdoo() {
             <td class="col-date">${_fmtFecha_(v.date_order)}</td>
             <td>${Array.isArray(v.partner_id) ? v.partner_id[1] : (v.partner_id || '—')}</td>
             <td class="col-num">$${(v.amount_total||0).toLocaleString('es-MX',{minimumFractionDigits:2})}</td>
+            <td>${_ventaBadge_(v)}</td>
             <td>${_pickBadge_(v.picking_state)}</td>
             <td class="${v.guia_rastreo ? 'col-guia' : 'col-guia-empty'}">${v.guia_rastreo || 'sin guía'}</td>
           </tr>`).join('')}
