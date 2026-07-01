@@ -2423,14 +2423,15 @@
     overflow-wrap: break-word;
   }
   .odoo-tbl tbody td {
-    padding: 8px 8px;
+    padding: 10px 8px;
     font-size: 11px;
     border-bottom: 1px solid rgba(238,240,240,0.04);
     color: var(--text);
     word-break: break-word;
     overflow-wrap: break-word;
-    vertical-align: top;
-    line-height: 1.45;
+    vertical-align: middle;
+    line-height: 1.4;
+    height: 40px;
   }
   .odoo-tbl tbody tr {
     transition: background 0.15s ease;
@@ -2468,12 +2469,13 @@
   }
   /* ── Anchos por columna específicos para las tablas Odoo ── */
   /* Ventas dropship: Número · Fecha · Cliente · Total · Estado · Guía */
-  .odoo-tbl.tbl-ventas col:nth-child(1) { width: 14%; }   /* Número */
-  .odoo-tbl.tbl-ventas col:nth-child(2) { width: 12%; }   /* Fecha */
-  .odoo-tbl.tbl-ventas col:nth-child(3) { width: 28%; }   /* Cliente */
-  .odoo-tbl.tbl-ventas col:nth-child(4) { width: 14%; }   /* Total */
-  .odoo-tbl.tbl-ventas col:nth-child(5) { width: 12%; }   /* Estado */
-  .odoo-tbl.tbl-ventas col:nth-child(6) { width: 20%; }   /* Guía */
+  .odoo-tbl.tbl-ventas col:nth-child(1) { width: 15%; }   /* Número */
+  .odoo-tbl.tbl-ventas col:nth-child(2) { width: 13%; }   /* Fecha */
+  .odoo-tbl.tbl-ventas col:nth-child(3) { width: 22%; }   /* Cliente */
+  .odoo-tbl.tbl-ventas col:nth-child(4) { width: 12%; }   /* Total */
+  .odoo-tbl.tbl-ventas col:nth-child(5) { width: 13%; }   /* Estado venta */
+  .odoo-tbl.tbl-ventas col:nth-child(6) { width: 13%; }   /* Estado envío */
+  .odoo-tbl.tbl-ventas col:nth-child(7) { width: 12%; }   /* Guía */
 
   /* Pickings: Ref · Desde · A · Contacto · F.Prog · F.Crea · Origen · Guía · Estado */
   .odoo-tbl.tbl-picks col:nth-child(1) { width:  9%; }    /* Referencia */

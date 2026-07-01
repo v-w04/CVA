@@ -2324,6 +2324,17 @@ function _renderHistorialVentas() {
   cont.innerHTML = filtrosHTML + kpisHTML + mktHTML + topHTML + detalleHTML;
 }
 
+function _fichaProductoOdoo_(p) {
+  return `<div class="card" style="max-width:480px;margin-bottom:12px"><table>
+    <tr><td style="color:var(--muted);width:160px;font-size:10px;letter-spacing:1.5px;text-transform:uppercase;padding:8px 0">ID Odoo</td><td>${p.id}</td></tr>
+    <tr><td style="color:var(--muted);font-size:10px;letter-spacing:1.5px;text-transform:uppercase;padding:8px 0">Nombre</td><td>${p.name}</td></tr>
+    <tr><td style="color:var(--muted);font-size:10px;letter-spacing:1.5px;text-transform:uppercase;padding:8px 0">Referencia</td><td class="mono">${p.default_code}</td></tr>
+    <tr><td style="color:var(--muted);font-size:10px;letter-spacing:1.5px;text-transform:uppercase;padding:8px 0">Precio Lista</td><td>${fmt(p.list_price,'Pesos')}</td></tr>
+    <tr><td style="color:var(--muted);font-size:10px;letter-spacing:1.5px;text-transform:uppercase;padding:8px 0">Stock</td><td>${p.qty_available}</td></tr>
+    <tr><td style="color:var(--muted);font-size:10px;letter-spacing:1.5px;text-transform:uppercase;padding:8px 0">Stock Virtual</td><td>${p.virtual_available}</td></tr>
+  </table></div>`;
+}
+
 async function buscarEnOdoo() {
   const clave = document.getElementById('o-clave').value.trim();
   if (!clave) return;
@@ -2332,6 +2343,14 @@ async function buscarEnOdoo() {
   const data = await api('odoo_buscar_producto', { clave });
   if (!data.ok) { alert_(el, '✖ ' + data.error, 'error'); return; }
   if (!data.encontrado) { alert_(el, `Clave "${clave}" no encontrada en Odoo`, 'warn'); return; }
+
+  // Varios resultados (búsqueda parcial) → lista de fichas
+  if (data.multiple && Array.isArray(data.productos) && data.productos.length > 1) {
+    el.innerHTML = `<div style="margin-bottom:12px;font-size:10px;letter-spacing:1.5px;color:var(--muted);text-transform:uppercase">${data.total} resultado${data.total===1?'':'s'} para "${clave}"</div>`
+      + data.productos.map(_fichaProductoOdoo_).join('');
+    return;
+  }
+
   const p = data.producto;
   el.innerHTML = `<div class="card" style="max-width:480px"><table>
     <tr><td style="color:var(--muted);width:160px;font-size:10px;letter-spacing:1.5px;text-transform:uppercase;padding:8px 0">ID Odoo</td><td>${p.id}</td></tr>
