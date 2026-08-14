@@ -254,6 +254,12 @@ function fmt(n, moneda) {
   const sym = moneda === 'Dolares' ? 'USD ' : '$';
   return sym + parseFloat(n || 0).toLocaleString('es-MX', { minimumFractionDigits: 2 });
 }
+
+// Formato de número entero con separador de miles. GLOBAL: la usan tanto las
+// vistas de análisis como los exportadores (PDF/XLSX).
+function fmtN(n) {
+  return (n != null ? n : 0).toLocaleString('es-MX');
+}
 function stockTag(qty, label) {
   if (!qty) return `<span class="tag tag-red">Sin stock</span>`;
   if (qty < 5) return `<span class="tag tag-orange">${label}: ${qty}</span>`;
@@ -1909,21 +1915,6 @@ function _pickBadge_(state) {
   return `<span class="pick-badge ${e.cls}">${e.texto}</span>`;
 }
 
-// Estado de la VENTA (orden Odoo): draft/sent/sale/done/cancel
-const _VENTA_ESTADOS = {
-  draft:  { texto: 'Borrador',   cls: 'pick-badge-draft' },
-  sent:   { texto: 'Cotización', cls: 'pick-badge-waiting' },
-  sale:   { texto: 'Confirmado', cls: 'pick-badge-assigned' },
-  done:   { texto: 'Entregado',  cls: 'pick-badge-done' },
-  cancel: { texto: 'Cancelado',  cls: 'pick-badge-cancel' },
-};
-
-function _ventaBadge_(v) {
-  const st = (v && (v.estado_orden || v.state)) || '';
-  const e = _VENTA_ESTADOS[st] || { texto: (v && v.estado_orden_txt) || st || '—', cls: 'pick-badge-draft' };
-  return `<span class="pick-badge ${e.cls}">${e.texto}</span>`;
-}
-
 function _fmtFecha_(s) {
   if (!s) return '<span style="color:var(--text-3)">—</span>';
   // Odoo devuelve formato "YYYY-MM-DD HH:mm:ss"
@@ -1939,9 +1930,10 @@ function odooTab(name) {
   if (tab) tab.classList.add('active');
   if (pane) pane.classList.add('active');
   // Auto-cargar al cambiar de tab
-  if (name === 'ventas')    cargarVentasOdoo();
-  if (name === 'pickings')  cargarPickingsOdoo();
-  if (name === 'historial') cargarHistorialVentas();
+  if (name === 'ventas')     cargarVentasOdoo();
+  if (name === 'pickings')   cargarPickingsOdoo();
+  if (name === 'historial')  cargarHistorialVentas();
+  if (name === 'inventario') cargarInvOdoo();
 }
 
 async function cargarVentasOdoo() {
@@ -1982,15 +1974,14 @@ async function cargarVentasOdoo() {
     <div class="odoo-tbl-wrap">
       <table class="odoo-tbl tbl-ventas">
         <colgroup>
-          <col><col><col><col><col><col><col>
+          <col><col><col><col><col><col>
         </colgroup>
         <thead><tr>
           <th>Número</th>
           <th>Fecha</th>
           <th>Cliente</th>
           <th style="text-align:right">Total</th>
-          <th>Estado venta</th>
-          <th>Estado envío</th>
+          <th>Estado</th>
           <th>Guía rastreo</th>
         </tr></thead>
         <tbody>
@@ -1999,7 +1990,6 @@ async function cargarVentasOdoo() {
             <td class="col-date">${_fmtFecha_(v.date_order)}</td>
             <td>${Array.isArray(v.partner_id) ? v.partner_id[1] : (v.partner_id || '—')}</td>
             <td class="col-num">$${(v.amount_total||0).toLocaleString('es-MX',{minimumFractionDigits:2})}</td>
-            <td>${_ventaBadge_(v)}</td>
             <td>${_pickBadge_(v.picking_state)}</td>
             <td class="${v.guia_rastreo ? 'col-guia' : 'col-guia-empty'}">${v.guia_rastreo || 'sin guía'}</td>
           </tr>`).join('')}
@@ -2324,17 +2314,6 @@ function _renderHistorialVentas() {
   cont.innerHTML = filtrosHTML + kpisHTML + mktHTML + topHTML + detalleHTML;
 }
 
-function _fichaProductoOdoo_(p) {
-  return `<div class="card" style="max-width:480px;margin-bottom:12px"><table>
-    <tr><td style="color:var(--muted);width:160px;font-size:10px;letter-spacing:1.5px;text-transform:uppercase;padding:8px 0">ID Odoo</td><td>${p.id}</td></tr>
-    <tr><td style="color:var(--muted);font-size:10px;letter-spacing:1.5px;text-transform:uppercase;padding:8px 0">Nombre</td><td>${p.name}</td></tr>
-    <tr><td style="color:var(--muted);font-size:10px;letter-spacing:1.5px;text-transform:uppercase;padding:8px 0">Referencia</td><td class="mono">${p.default_code}</td></tr>
-    <tr><td style="color:var(--muted);font-size:10px;letter-spacing:1.5px;text-transform:uppercase;padding:8px 0">Precio Lista</td><td>${fmt(p.list_price,'Pesos')}</td></tr>
-    <tr><td style="color:var(--muted);font-size:10px;letter-spacing:1.5px;text-transform:uppercase;padding:8px 0">Stock</td><td>${p.qty_available}</td></tr>
-    <tr><td style="color:var(--muted);font-size:10px;letter-spacing:1.5px;text-transform:uppercase;padding:8px 0">Stock Virtual</td><td>${p.virtual_available}</td></tr>
-  </table></div>`;
-}
-
 async function buscarEnOdoo() {
   const clave = document.getElementById('o-clave').value.trim();
   if (!clave) return;
@@ -2343,14 +2322,6 @@ async function buscarEnOdoo() {
   const data = await api('odoo_buscar_producto', { clave });
   if (!data.ok) { alert_(el, '✖ ' + data.error, 'error'); return; }
   if (!data.encontrado) { alert_(el, `Clave "${clave}" no encontrada en Odoo`, 'warn'); return; }
-
-  // Varios resultados (búsqueda parcial) → lista de fichas
-  if (data.multiple && Array.isArray(data.productos) && data.productos.length > 1) {
-    el.innerHTML = `<div style="margin-bottom:12px;font-size:10px;letter-spacing:1.5px;color:var(--muted);text-transform:uppercase">${data.total} resultado${data.total===1?'':'s'} para "${clave}"</div>`
-      + data.productos.map(_fichaProductoOdoo_).join('');
-    return;
-  }
-
   const p = data.producto;
   el.innerHTML = `<div class="card" style="max-width:480px"><table>
     <tr><td style="color:var(--muted);width:160px;font-size:10px;letter-spacing:1.5px;text-transform:uppercase;padding:8px 0">ID Odoo</td><td>${p.id}</td></tr>
@@ -2679,7 +2650,6 @@ function renderAnalisisDashboard() {
   const marcas    = d.marcas    || [];
   const grupos    = d.grupos    || [];
   const fmtMXN = (n) => '$' + Math.round(n||0).toLocaleString('es-MX');
-  const fmtN = (n) => (n != null ? n : 0).toLocaleString('es-MX');
 
   dash.innerHTML = `
     <!-- Selector de Periodo - Panel con fondo sutil -->
@@ -2906,7 +2876,6 @@ function renderAnalisisKPIs() {
   const k = _analisisData.kpis || {};
   const p = _analisisData.periodo || {};
   const fmtMXN = (n) => '$' + (Math.round(n||0)).toLocaleString('es-MX');
-  const fmtN = (n) => (n != null ? n : 0).toLocaleString('es-MX');
 
   // Actualizar las 3 tarjetas KPI viejas si existen
   const map = {
@@ -3654,7 +3623,7 @@ function _saveGananciaLS_() {
 function _saveTCLS_() {
   try { localStorage.setItem(LS_KEY_TC, String(_tcGlobal)); } catch(e) {}
 }
-function _mdKey_(p) { return (p.marca||'').toUpperCase() + '-' + (p.clave||''); }
+function _mdKey_(p) { return String(p.marca ?? '').toUpperCase() + '-' + String(p.clave ?? ''); }
 
 function _getMD_(p) {
   return _metadataProductos[_mdKey_(p)] || {};
@@ -3752,7 +3721,7 @@ function _extraerModelo_(desc, marca) {
   if (!desc) return null;
   // Tokenizar — partir por espacios pero mantener guiones internos como parte del token
   const tokens = desc.toUpperCase().split(/[\s,;:()\/]+/).filter(Boolean);
-  const marcaUpper = (marca||'').toUpperCase();
+  const marcaUpper = String(marca ?? '').toUpperCase();
 
   let best = null, bestScore = 0;
   for (let i = 0; i < tokens.length; i++) {
@@ -3826,7 +3795,7 @@ function _extraerColor_(desc) {
 
 // ── MAPEO GRUPO CVA → CATEGORÍA MELI ─────────────────────────
 function _mapeoCategoriaMELI_(grupo) {
-  const g = (grupo||'').toUpperCase();
+  const g = String(grupo ?? '').toUpperCase();
   if (/TELEFON|CELULAR|SMARTPHONE/.test(g)) return 'Celulares y smartphones';
   if (/AUDIO|BOCINA|AUDIFON/.test(g))       return 'Audio y video';
   if (/MONITOR|TELEVISOR|PROYECT|TV/.test(g)) return 'Audio y video';
@@ -3840,7 +3809,7 @@ function _mapeoCategoriaMELI_(grupo) {
 
 // ── MAPEO GRUPO CVA → PESO DEFAULT ───────────────────────────
 function _pesoDefaultPorGrupo_(grupo) {
-  const g = (grupo||'').toUpperCase();
+  const g = String(grupo ?? '').toUpperCase();
   if (/MEMORIA|USB|CABLE|AUDIFON/.test(g))  return 'Hasta 0.5 Kg';
   if (/TELEFON|CELULAR|BOCINA/.test(g))      return '0.5 a 1 kg';
   if (/LAPTOP|TABLET/.test(g))                return '2 a 3 kg';
@@ -3879,10 +3848,12 @@ function _envioMELIporPeso_(peso) { return _ENVIOS_MELI[peso] || 150; }
 // últimos 4 dígitos de referencia, y `-CVA-` como separador.
 //   3 letras MARCA + "-" + MODELO + "-" + 3 letras COLOR + "-CVA-" + CLAVE_CVA
 function _calcularSKU_(marca, modelo, color, claveCVA) {
-  const m  = ((marca||'').toUpperCase()).substring(0, 3);
-  const mo = (modelo||'').toUpperCase().replace(/\s+/g, '');
-  const c  = ((color||'').toUpperCase()).substring(0, 3);
-  const k  = (claveCVA||'').toString().toUpperCase().replace(/\s+/g, '');
+  // .toString() en TODOS: si el Sheet devuelve un número (ej. modelo 4680),
+  // (x||'') lo deja como number y .toUpperCase() truena.
+  const m  = String(marca    ?? '').toUpperCase().substring(0, 3);
+  const mo = String(modelo   ?? '').toUpperCase().replace(/\s+/g, '');
+  const c  = String(color    ?? '').toUpperCase().substring(0, 3);
+  const k  = String(claveCVA ?? '').toUpperCase().replace(/\s+/g, '');
   return `${m}-${mo}-${c}-CVA-${k}`.replace(/\s+/g, '');
 }
 
@@ -4817,28 +4788,87 @@ async function cargarInvOdoo() {
   const cont = document.getElementById('invodoo-content');
   if (!cont) return;
 
-  cont.innerHTML = '<div style="padding:60px;text-align:center;color:var(--muted);font-size:11px;letter-spacing:2px;text-transform:uppercase"><span class="spin"></span>Consultando inventario…</div>';
+  cont.innerHTML = '<div style="padding:60px;text-align:center;color:var(--muted);font-size:11px;letter-spacing:2px;text-transform:uppercase"><span class="spin"></span>Consultando productos -CVA en Odoo…</div>';
 
-  const data = await api('inv_odoo_list');
+  const data = await api('odoo_inv_cva', { limit: 500 });
   if (!data.ok) {
     cont.innerHTML = `
       <div style="padding:40px;text-align:center">
-        <div style="color:#e05555;font-size:13px;margin-bottom:14px">⚠ ${data.error || 'Error'}</div>
+        <div style="color:#e05555;font-size:13px;margin-bottom:14px">⚠ ${data.error || 'Error consultando Odoo'}</div>
         <div style="color:var(--muted);font-size:11px;letter-spacing:1.5px;line-height:1.8">
-          Crea primero la hoja desde el editor del Sheet:<br>
-          <span style="color:var(--green-lt)">🛠 MIS HERRAMIENTAS → 📦 Crear hoja INVENTARIO_ODOO</span>
+          Verifica las credenciales de Odoo en Script Properties (ODOO_USER / ODOO_KEY).
         </div>
       </div>`;
     return;
   }
 
-  _invOdooData = data;
-  // Sincronizar TC global del sheet → cache local (sheet es fuente de verdad)
-  if (data.tc_global && data.tc_global >= 1) {
-    _tcGlobal = data.tc_global;
-    _saveTCLS_();
-  }
-  renderInvOdoo();
+  _invOdooCVA = data.productos || [];
+  renderInvOdooCVA();
+}
+
+// Productos -CVA traídos de Odoo (en vivo)
+let _invOdooCVA = [];
+let _invOdooCVAFiltro = '';
+
+function renderInvOdooCVA() {
+  const cont = document.getElementById('invodoo-content');
+  if (!cont) return;
+
+  const f = (_invOdooCVAFiltro || '').trim().toUpperCase();
+  const items = f
+    ? _invOdooCVA.filter(p =>
+        String(p.default_code || '').toUpperCase().includes(f) ||
+        String(p.name || '').toUpperCase().includes(f))
+    : _invOdooCVA;
+
+  const totalMano = items.reduce((s, p) => s + (parseFloat(p.qty_available) || 0), 0);
+  const totalPrev = items.reduce((s, p) => s + (parseFloat(p.virtual_available) || 0), 0);
+
+  const filas = items.map(p => {
+    const mano = parseFloat(p.qty_available) || 0;
+    const prev = parseFloat(p.virtual_available) || 0;
+    const entr = parseFloat(p.incoming_qty) || 0;
+    const sal  = parseFloat(p.outgoing_qty) || 0;
+    const colorMano = mano <= 0 ? '#e05555' : (mano <= 2 ? 'var(--silver)' : 'var(--green-lt)');
+    return `<tr style="border-bottom:1px solid rgba(255,255,255,0.04)">
+      <td style="padding:9px 10px;font-family:monospace;font-size:11px;color:var(--green-lt)">${p.default_code || ''}</td>
+      <td style="padding:9px 10px;font-size:11px;color:var(--text-2);max-width:420px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${(p.name||'').replace(/"/g,'&quot;')}">${p.name || ''}</td>
+      <td style="padding:9px 10px;text-align:right;font-variant-numeric:tabular-nums;color:${colorMano};font-weight:600">${mano}</td>
+      <td style="padding:9px 10px;text-align:right;font-variant-numeric:tabular-nums;color:var(--text-2)">${prev}</td>
+      <td style="padding:9px 10px;text-align:right;font-variant-numeric:tabular-nums;color:var(--text-3)">${entr}</td>
+      <td style="padding:9px 10px;text-align:right;font-variant-numeric:tabular-nums;color:var(--text-3)">${sal}</td>
+      <td style="padding:9px 10px;text-align:right;font-variant-numeric:tabular-nums;color:var(--text-2)">${fmtMXN(parseFloat(p.list_price)||0)}</td>
+    </tr>`;
+  }).join('');
+
+  cont.innerHTML = `
+    <div style="display:flex;gap:14px;align-items:center;margin-bottom:16px;flex-wrap:wrap">
+      <input type="text" placeholder="Filtrar por SKU o nombre…" value="${_invOdooCVAFiltro}"
+        oninput="_invOdooCVAFiltro=this.value;renderInvOdooCVA()"
+        style="background:rgba(0,0,0,0.4);border:1px solid rgba(238,240,240,0.1);color:var(--text);padding:9px 12px;font-size:12px;width:320px;outline:none;font-family:inherit">
+      <button class="btn btn-ghost" style="font-size:10px;padding:7px 16px" onclick="cargarInvOdoo()">↻ Refrescar</button>
+      <div style="flex:1"></div>
+      <div style="font-size:10px;color:var(--muted);letter-spacing:1.5px;text-transform:uppercase">
+        ${items.length} producto(s) -CVA · <span style="color:var(--green-lt)">${totalMano}</span> a la mano · ${totalPrev} previsto
+      </div>
+    </div>
+    <div style="overflow-x:auto">
+    <table style="width:100%;border-collapse:collapse;font-size:12px">
+      <thead>
+        <tr style="border-bottom:1px solid rgba(255,255,255,0.1)">
+          <th style="padding:8px 10px;text-align:left;font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted)">SKU</th>
+          <th style="padding:8px 10px;text-align:left;font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted)">Producto</th>
+          <th style="padding:8px 10px;text-align:right;font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted)">A la mano</th>
+          <th style="padding:8px 10px;text-align:right;font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted)">Previsto</th>
+          <th style="padding:8px 10px;text-align:right;font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted)">Entrante</th>
+          <th style="padding:8px 10px;text-align:right;font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted)">Saliente</th>
+          <th style="padding:8px 10px;text-align:right;font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted)">Precio venta</th>
+        </tr>
+      </thead>
+      <tbody>${filas || `<tr><td colspan="7" style="padding:40px;text-align:center;color:var(--muted);letter-spacing:1.5px;text-transform:uppercase;font-size:10px">${_invOdooCVA.length === 0 ? 'Sin productos -CVA en Odoo' : 'Sin resultados para este filtro'}</td></tr>`}</tbody>
+    </table>
+    </div>`;
+  addLog('ok', 'Inventario Odoo', items.length + ' producto(s) -CVA');
 }
 
 function renderInvOdoo() {
