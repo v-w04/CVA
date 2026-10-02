@@ -32,6 +32,7 @@ function onOpen() {
     .addItem("⚡ Sync AHORA (catálogo completo)",  "ejecutarSyncDiarioAhora")
     .addItem("🔄 Refrescar SKU_INVENTARIO",        "refrescarInventarioOdoo")
     .addSeparator()
+    .addItem("📤 Exportar snapshot para cotizar",  "exportarSnapshotMenu")
     .addItem("📋 Ver Control de Sync",             "irAControlSync")
     .addItem("📊 Ver Análisis de Movimiento",      "irAAnalisis");
 
@@ -5059,7 +5060,8 @@ function limpiezaSheet_() {
     const sh = ss.getSheetByName("SYNC_CVA");
     if (sh && sh.getLastRow() > 1) {
       const n = sh.getLastRow() - 1;
-      const datos = sh.getRange(2, 1, n, 14).getValues();
+      const anchoS = Math.min(Math.max(sh.getLastColumn(), 14), SYNC_CVA_COLS);
+      const datos = sh.getRange(2, 1, n, anchoS).getValues();
       const porClave = {};
       let maxTs = 0;
       datos.forEach(r => {
@@ -5079,9 +5081,9 @@ function limpiezaSheet_() {
         return x.fila;
       });
       const repetidos = n - limpio.length;
-      sh.getRange(2, 1, n, 14).clearContent();
-      if (limpio.length) sh.getRange(2, 1, limpio.length, 14).setValues(limpio);
-      _recortarRejilla_(sh, 14);
+      sh.getRange(2, 1, n, anchoS).clearContent();
+      if (limpio.length) sh.getRange(2, 1, limpio.length, anchoS).setValues(limpio);
+      _recortarRejilla_(sh, SYNC_CVA_COLS);
       L.push("📦 SYNC_CVA: " + limpio.length.toLocaleString("es-MX") + " claves · " +
              repetidos + " repetidas fuera · " + agotados + " puestas en 0 (agotadas)");
     }
@@ -5153,4 +5155,17 @@ function _recortarRejilla_(sh, colsUsadas) {
   const maxCols = sh.getMaxColumns();
   const usar = Math.max(colsUsadas, sh.getLastColumn());
   if (maxCols > usar) sh.deleteColumns(usar + 1, maxCols - usar);
+}
+
+
+function exportarSnapshotMenu() {
+  const ui = SpreadsheetApp.getUi();
+  try {
+    const r = exportarSnapshotCVA();
+    ui.alert("📤 Snapshot exportado",
+      r.productos.toLocaleString("es-MX") + " productos con stock en " + CFG.EXPORT_SNAPSHOT +
+      "\n(carpeta de Drive del proyecto). Ademas: " + CFG.EXPORT_LOG + ".", ui.ButtonSet.OK);
+  } catch (e) {
+    ui.alert("❌ No se pudo exportar", e.message, ui.ButtonSet.OK);
+  }
 }

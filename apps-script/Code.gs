@@ -26,6 +26,12 @@ const CFG = {
 
   // Sheet ID
   SHEET_ID: "1X_Tsi3m9dboLxxZksozRHsBGpwO1BUuHFLvkoRbgSY4",
+
+  // Carpeta de Drive donde se deja el snapshot en CSV para cotizar
+  // (EM ARCHIVOS). No es secreto: es solo el ID de una carpeta.
+  DRIVE_EXPORT_FOLDER: "1udUQ0Zy_OwbaPSHatZRSNOdH7H-X21vE",
+  EXPORT_SNAPSHOT: "CVA_SNAPSHOT_COTIZAR.csv",
+  EXPORT_LOG:      "CVA_SYNC_LOG.csv",
 };
 
 // ── CREDENCIALES — se leen de Script Properties (nunca en GitHub) ──
@@ -900,6 +906,60 @@ function enviarConfirmacionPedido(body) {
 // - Solo parámetros esenciales: precio, stock suc, stock cedis
 // - Sin sucursales/dimen/dt/dc/upc — esos triplican el tiempo por producto
 // - Guarda snapshot con fecha del día: si ya existe el de hoy, no repite
+const SYNC_CVA_COLS = 16;
+
+// ── SNAPSHOT EN CSV PARA COTIZAR ─────────────────────────────
+// Deja en Drive (CFG.DRIVE_EXPORT_FOLDER) dos CSV que se pueden leer sin
+// abrir el libro completo (el libro es demasiado grande para exportarse):
+//   CFG.EXPORT_SNAPSHOT  productos con stock: clave, descripcion, marca,
+//                        grupo, stock, precio de origen, moneda, TC y MXN
+//   CFG.EXPORT_LOG       ultimas 80 filas de SYNC_LOG (estado de triggers)
+// Corre solo al cerrar cada sync diario; tambien desde el menu.
+function exportarSnapshotCVA() {
+  const ss = SpreadsheetApp.openById(CFG.SHEET_ID);
+  const carpeta = DriveApp.getFolderById(CFG.DRIVE_EXPORT_FOLDER);
+
+  const csvCelda = v => {
+    if (v instanceof Date) v = Utilities.formatDate(v, "America/Mexico_City", "yyyy-MM-dd HH:mm:ss");
+    const t = String(v === null || v === undefined ? "" : v);
+    return /[",\n\r]/.test(t) ? '"' + t.replace(/"/g, '""') + '"' : t;
+  };
+  const guardar = (nombre, filas) => {
+    const csv = filas.map(r => r.map(csvCelda).join(",")).join("\n");
+    const it = carpeta.getFilesByName(nombre);
+    if (it.hasNext()) it.next().setContent(csv);
+    else carpeta.createFile(nombre, csv, MimeType.CSV);
+  };
+
+  let productos = 0;
+  const shS = ss.getSheetByName("SYNC_CVA");
+  if (shS && shS.getLastRow() > 1) {
+    const cols = Math.min(shS.getLastColumn(), SYNC_CVA_COLS);
+    const d = shS.getRange(2, 1, shS.getLastRow() - 1, cols).getValues();
+    const filas = [["clave","descripcion","marca","grupo","stock_suc","stock_cedis","stock_total",
+                    "en_transito","precio_origen","moneda_origen","tipo_cambio","precio_mxn_iva",
+                    "promo_mxn","promo_vence","garantia","actualizado"]];
+    d.forEach(r => {
+      const suc = parseFloat(r[6]) || 0, ced = parseFloat(r[7]) || 0;
+      if (!r[0] || suc + ced <= 0) return;
+      filas.push([r[0], r[1], r[2], r[3], suc, ced, suc + ced, r[8],
+                  r[14] !== undefined && r[14] !== "" ? r[14] : "", r[15] || "",
+                  r[12], r[4], r[10], r[11], r[9], r[13]]);
+      productos++;
+    });
+    guardar(CFG.EXPORT_SNAPSHOT, filas);
+  }
+
+  const shL = ss.getSheetByName("SYNC_LOG");
+  if (shL && shL.getLastRow() > 1) {
+    const ini = Math.max(2, shL.getLastRow() - 79);
+    const cols = Math.min(shL.getLastColumn(), 6);
+    guardar(CFG.EXPORT_LOG, shL.getRange(ini, 1, shL.getLastRow() - ini + 1, cols).getValues());
+  }
+
+  return { ok: true, productos: productos };
+}
+
 function syncHistorialCVA() {
   // Baja el catalogo CVA con stock, actualiza SYNC_CVA y agrega el snapshot
   // del dia a HISTORIAL_STOCK.
@@ -952,18 +1012,24 @@ function syncHistorialCVA() {
       shS = ss.insertSheet("SYNC_CVA");
       shS.appendRow(["clave","descripcion","marca","grupo","precio","moneda",
                      "stock_suc","stock_cedis","en_transito","garantia",
-                     "promo_precio","promo_vence","tipo_cambio","ts"]);
+                     "promo_precio","promo_vence","tipo_cambio","ts",
+                     "precio_origen","moneda_origen"]);
       shS.setFrozenRows(1);
     }
+    // Columnas O:P = precio y moneda tal como los da CVA (casi todo USD).
+    // "precio" (E) sigue siendo MXN con IVA, para no romper formulas ni el analisis.
+    if (shS.getMaxColumns() < SYNC_CVA_COLS) shS.insertColumnsAfter(shS.getMaxColumns(), SYNC_CVA_COLS - shS.getMaxColumns());
+    shS.getRange(1, 15, 1, 2).setValues([["precio_origen", "moneda_origen"]]);
 
     // SYNC_CVA completo en memoria
     const lastRowS = shS.getLastRow();
     const filasOrig = lastRowS > 1 ? lastRowS - 1 : 0;
-    const datos = filasOrig ? shS.getRange(2, 1, filasOrig, 14).getValues() : [];
+    const datos = filasOrig ? shS.getRange(2, 1, filasOrig, SYNC_CVA_COLS).getValues() : [];
     const indice = {};
     datos.forEach((r, i) => { if (r[0]) indice[String(r[0])] = i; });
 
     const historialRows = [];
+    let tcUltimo = 0;
     let fin = false;
     let paginasCorrida = 0;
 
@@ -976,7 +1042,8 @@ function syncHistorialCVA() {
         data = cvaFetch_("/catalogo_clientes/lista_precios", {
           batch      : "LG",          // 500 por pagina
           page       : estado.pagina,
-          MonedaPesos: "true",
+          // Sin MonedaPesos: precio en su moneda original + tipo de cambio.
+          // Aqui se convierte a MXN, asi se guardan las dos cosas.
           porcentaje : CFG.MARGEN_DEFAULT, // 16 = IVA
           tc         : "true",
           exist      : existFilter,
@@ -1005,20 +1072,30 @@ function syncHistorialCVA() {
         if (idx !== undefined && String(datos[idx][13] || "") >= estado.inicio) return;
 
         const promo = a.promociones || null;
+        const tcA = parseFloat(a.tipo_cambio) || 0;
+        if (tcA > 0) tcUltimo = tcA;
+        const monOrig = String(a.moneda || "Pesos");
+        const esUSD = /dolar|usd/i.test(monOrig);
+        const tcUsar = tcA || tcUltimo;
+        const precioOrig = parseFloat(a.precio) || 0;
+        const precioMXN = esUSD ? Math.round(precioOrig * tcUsar * 100) / 100 : precioOrig;
+        const promoOrig = promo ? (parseFloat(promo.precio_descuento) || 0) : 0;
+        const promoMXN = promoOrig ? (esUSD ? Math.round(promoOrig * tcUsar * 100) / 100 : promoOrig) : "";
         const fila = [
           clave, a.descripcion || "", a.marca || "", a.grupo || "",
-          a.precio || 0, a.moneda || "Pesos",
+          precioMXN, "Pesos",
           suc, ced, a.en_transito || 0,
           a.garantia || "",
-          promo ? (promo.precio_descuento || "") : "",
+          promoMXN,
           promo ? (promo.promocion_vencimiento || "") : "",
-          a.tipo_cambio || "", ts,
+          tcUsar || "", ts,
+          precioOrig, monOrig,
         ];
         if (idx !== undefined) datos[idx] = fila;
         else { indice[clave] = datos.length; datos.push(fila); }
 
         historialRows.push([hoy, clave, "", "", a.grupo || "",
-                            a.precio || 0, a.moneda || "Pesos",
+                            precioMXN, "Pesos",
                             suc, ced, a.en_transito || 0]);
         estado.articulos++;
       });
@@ -1042,7 +1119,7 @@ function syncHistorialCVA() {
     }
 
     // Escrituras en bloque: primero los datos, al final el estado
-    if (datos.length) shS.getRange(2, 1, datos.length, 14).setValues(datos);
+    if (datos.length) shS.getRange(2, 1, datos.length, SYNC_CVA_COLS).setValues(datos);
     if (historialRows.length) {
       shH.getRange(shH.getLastRow() + 1, 1, historialRows.length, 10).setValues(historialRows);
     }
@@ -1055,6 +1132,7 @@ function syncHistorialCVA() {
                               "paginas:" + (estado.totalPaginas || estado.pagina - 1),
                               "fecha:" + hoy + " agotados:" + agotados]);
       try { _actualizarControlSync_(props, 1, estado.articulos, "DIARIO_OK"); } catch (e) {}
+      try { exportarSnapshotCVA(); } catch (e) { logSheet_("SYNC_LOG", ["EXPORT_ERROR", 0, e.message]); }
     } else {
       props.setProperty("HIST_SYNC_ESTADO", JSON.stringify(estado));
       logSheet_("SYNC_LOG", ["SYNC_DIARIO_PARCIAL", estado.articulos,
