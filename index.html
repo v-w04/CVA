@@ -2969,6 +2969,34 @@
     line-height: 1;
   }
 
+  /* ── TC PILL: tipo de cambio junto al saldo ── */
+  .tc-pill {
+    position: relative;
+    display: flex; flex-direction: column; align-items: flex-end; justify-content: center;
+    background: rgba(60,120,200,0.14);
+    border: 1px solid rgba(106,169,255,0.40);
+    border-radius: 6px; padding: 4px 10px; line-height: 1.1;
+  }
+  .tc-pill .tc-label { color: rgba(168,205,255,0.8); cursor: pointer; }
+  .tc-row { display: flex; align-items: center; gap: 2px; }
+  .tc-sign { font-family: 'Barlow Condensed', sans-serif; font-size: 15px; color: #a8cdff; }
+  #tc-input {
+    width: 54px; background: transparent; border: none; outline: none; padding: 0;
+    font-family: 'Barlow Condensed', sans-serif; font-size: 17px; font-weight: 500;
+    color: #a8cdff; text-align: right; -moz-appearance: textfield;
+  }
+  #tc-input::-webkit-outer-spin-button, #tc-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+  .tc-reset { display: none; background: none; border: none; color: #ffb347; cursor: pointer; font-size: 14px; padding: 0 0 0 3px; line-height: 1; }
+  .tc-pill.tc-manual { background: rgba(255,170,60,0.14); border-color: rgba(255,179,71,0.6); }
+  .tc-pill.tc-manual .tc-label, .tc-pill.tc-manual .tc-sign, .tc-pill.tc-manual #tc-input { color: #ffb347; }
+  .tc-pill.tc-manual .tc-reset { display: inline; }
+  .tc-info {
+    display: none; position: absolute; top: calc(100% + 6px); right: 0; z-index: 50;
+    width: 250px; white-space: pre-line; text-align: left;
+    background: #1e2025; border: 1px solid rgba(106,169,255,0.4); border-radius: 6px;
+    padding: 10px 12px; font-size: 11px; line-height: 1.45; color: var(--silver, #cfd3d6);
+  }
+
   /* ── HEADER RESPONSIVE ORDENADO ──
      Jerarquía: home + logo + saldo + refresh SIEMPRE visibles.
      Badges de estado (CVA/Odoo/Sync) se ocultan progresivamente. */
@@ -2996,6 +3024,8 @@
     .saldo-pill { padding: 3px 11px; }
     .saldo-pill-label { font-size: 7.5px; letter-spacing: 1px; }
     .saldo-pill-monto { font-size: 15px; }
+    .tc-pill { padding: 3px 7px; }
+    #tc-input { width: 44px; font-size: 15px; }
     .badge-refresh { padding: 6px 8px !important; }
   }
   @media (max-width: 380px) {
@@ -4009,6 +4039,15 @@
       <div class="saldo-pill" id="badge-saldo" title="Saldo CVA disponible · clic para recargar" onclick="cargarSaldo && cargarSaldo()">
         <span class="saldo-pill-label">Saldo CVA</span>
         <span class="saldo-pill-monto" id="saldo-monto">—</span>
+      </div>
+      <div class="tc-pill" id="badge-tc" title="Tipo de cambio USD a MXN">
+        <span class="saldo-pill-label tc-label" onclick="toggleTCInfo(event)"><span id="tc-label">TC CVA</span> &#9432;</span>
+        <span class="tc-row">
+          <span class="tc-sign">$</span><input id="tc-input" type="number" inputmode="decimal" step="0.01" min="1" max="100" placeholder="—"
+            onchange="cambiarTCManual(this.value)" onkeydown="if(event.key==='Enter')this.blur()" aria-label="Tipo de cambio USD a MXN">
+          <button type="button" class="tc-reset" onclick="cambiarTCManual('')" title="Volver al TC de CVA">&#8634;</button>
+        </span>
+        <div class="tc-info" id="tc-info"></div>
       </div>
       <button class="badge badge-refresh" id="badge-refresh" onclick="recargarTodo()" title="Recargar datos (no la página)"
         style="cursor:pointer;background:rgba(0,102,94,0.18);border:1px solid rgba(103,184,175,0.4);color:var(--green-lt);padding:5px 9px;display:flex;align-items:center;font-family:inherit;line-height:1">

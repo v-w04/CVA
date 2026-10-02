@@ -1,0 +1,142 @@
+<!--
+  historialCvaUI.html — Lista de pedidos CVA ya generados.
+-->
+<meta name="darkreader-lock">
+<meta name="color-scheme" content="dark">
+<link href="https://fonts.googleapis.com/css2?family=Barlow:wght@300;400;500;600&family=Barlow+Condensed:wght@300;400;600&display=swap" rel="stylesheet">
+<style>
+  html, body { color-scheme: dark only !important; background: #1e2025 !important; }
+  :root { color-scheme: dark only; }
+  :root {
+    --bg:#1e2025; --green:#00665e; --green-lt:#67b8af; --orange:#C8973A;
+    --text:#eef0f0; --text-2:rgba(238,240,240,0.7); --text-3:rgba(238,240,240,0.4);
+    --err:#e57373; --ok:#67b8af;
+  }
+  *, *::before, *::after { box-sizing: border-box; }
+  body { background: var(--bg); color: var(--text); font-family: 'Barlow', sans-serif; margin:0; padding:24px; min-height:100vh; }
+  h1 { font-family:'Barlow Condensed', sans-serif; font-weight:300; letter-spacing:6px; margin:0 0 4px; font-size:28px; }
+  .sub { color:var(--text-3); font-size:11px; letter-spacing:2px; text-transform:uppercase; margin-bottom:24px; }
+  .panel { background:rgba(0,0,0,0.18); border:1px solid rgba(255,255,255,0.06); border-radius:14px; padding:20px; }
+  .row { display:flex; align-items:center; gap:14px; flex-wrap:wrap; margin-bottom:14px; }
+  input[type=text] { background:transparent; border:1px solid rgba(255,255,255,0.12); color:var(--text); padding:8px 12px; border-radius:8px; font-family:inherit; font-size:13px; outline:none; }
+  button { background:var(--green); border:none; color:white; padding:8px 18px; border-radius:8px; font-family:'Barlow Condensed', sans-serif; letter-spacing:2px; font-weight:500; font-size:12px; text-transform:uppercase; cursor:pointer; }
+  button:hover { background:var(--green-lt); }
+  table { width:100%; border-collapse:collapse; font-size:13px; }
+  th { text-align:left; padding:10px; font-weight:500; color:var(--text-3); border-bottom:1px solid rgba(255,255,255,0.1); font-size:11px; letter-spacing:1px; text-transform:uppercase; }
+  td { padding:9px 10px; border-bottom:1px solid rgba(255,255,255,0.05); }
+  .badge { padding:2px 8px; border-radius:10px; font-size:10px; letter-spacing:1px; text-transform:uppercase; }
+  .badge.pend { background:rgba(200,151,58,0.18); color:var(--orange); }
+  .badge.guia { background:rgba(103,184,175,0.18); color:var(--ok); }
+  .badge.canc { background:rgba(229,115,115,0.18); color:var(--err); }
+  a { color: var(--green-lt); text-decoration:none; }
+  a:hover { text-decoration:underline; }
+  .spinner { display:inline-block; width:12px; height:12px; border:2px solid var(--green-lt); border-top-color:transparent; border-radius:50%; animation:spin 1s linear infinite; vertical-align:middle; margin-right:6px; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .msg.err { color:var(--err); padding:8px 12px; background:rgba(229,115,115,0.1); border-radius:6px; display:inline-block; }
+  .num { font-variant-numeric: tabular-nums; }
+  td.nmxt { font-weight:500; color:var(--green-lt); }
+  .empty { text-align:center; padding:40px; color:var(--text-3); font-size:14px; }
+</style>
+
+<h1>HISTORIAL CVA</h1>
+<div class="sub">Pedidos generados en CVA</div>
+
+<div class="panel">
+  <div class="row">
+    <input type="text" id="filtro" placeholder="Buscar por NMXT, SO Odoo, guía…" oninput="aplicarFiltro()">
+    <button onclick="recargar()">↻ Recargar</button>
+    <span id="estadoCount" style="color:var(--text-3); font-size:12px; margin-left:8px;"></span>
+  </div>
+  <table id="tabla">
+    <thead>
+      <tr>
+        <th>NMXT</th>
+        <th>SO Odoo</th>
+        <th>Fecha</th>
+        <th>Sucursal</th>
+        <th style="text-align:right;">Total</th>
+        <th>Estado</th>
+        <th>Guía</th>
+        <th>Tracking</th>
+        <th>PDF</th>
+      </tr>
+    </thead>
+    <tbody id="tbody"></tbody>
+  </table>
+  <div id="vacio" class="empty" style="display:none;">No hay pedidos registrados todavía.</div>
+</div>
+
+<script>
+  var PEDIDOS = [];
+
+  function runS1(fn, ...args) {
+    return new Promise(function (resolve, reject) {
+      google.script.run
+        .withSuccessHandler(resolve)
+        .withFailureHandler(function (e) { reject(e.message || e); })
+        [fn].apply(google.script.run, args);
+    });
+  }
+
+  function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];}); }
+  function fmtMx(n){ return '$' + (parseFloat(n) || 0).toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+  function fmtFecha(s){
+    if (!s) return '';
+    try { var d = new Date(s); return d.toLocaleString('es-MX', { dateStyle:'short', timeStyle:'short' }); }
+    catch(e){ return s; }
+  }
+  function estadoBadge(estado){
+    var e = (estado||'').toUpperCase();
+    if (e.indexOf('GUIA') >= 0) return '<span class="badge guia">CON GUIA</span>';
+    if (e.indexOf('CANC') >= 0) return '<span class="badge canc">CANCELADO</span>';
+    return '<span class="badge pend">'+esc(estado||'PENDIENTE')+'</span>';
+  }
+
+  function recargar(){
+    document.getElementById('estadoCount').innerHTML = '<span class="spinner"></span> Cargando…';
+    runS1('listarHistorialPedidosCVA', { limit: 500 }).then(function(r){
+      if (!r || !r.ok){
+        document.getElementById('estadoCount').innerHTML = '<span class="msg err">'+(r && r.error ? esc(r.error) : 'Error')+'</span>';
+        return;
+      }
+      PEDIDOS = r.pedidos || [];
+      aplicarFiltro();
+    }).catch(function(e){
+      document.getElementById('estadoCount').innerHTML = '<span class="msg err">'+esc(e)+'</span>';
+    });
+  }
+
+  function aplicarFiltro(){
+    var q = (document.getElementById('filtro').value || '').toLowerCase().trim();
+    var lista = q
+      ? PEDIDOS.filter(function(p){
+          return (p.nmxt||'').toLowerCase().indexOf(q) >= 0
+              || (p.so||'').toLowerCase().indexOf(q) >= 0
+              || (p.guia||'').toLowerCase().indexOf(q) >= 0
+              || (p.tracking||'').toLowerCase().indexOf(q) >= 0;
+        })
+      : PEDIDOS;
+    pintar(lista);
+    document.getElementById('estadoCount').textContent = lista.length + ' de ' + PEDIDOS.length;
+  }
+
+  function pintar(lista){
+    var tbody = document.getElementById('tbody');
+    document.getElementById('vacio').style.display = lista.length === 0 ? '' : 'none';
+    tbody.innerHTML = lista.map(function(p){
+      return '<tr>'
+        + '<td class="nmxt">'+esc(p.nmxt)+'</td>'
+        + '<td>'+esc(p.so)+'</td>'
+        + '<td>'+esc(fmtFecha(p.fecha))+'</td>'
+        + '<td>'+esc(p.sucursal)+'</td>'
+        + '<td style="text-align:right;" class="num">'+fmtMx(p.total)+'</td>'
+        + '<td>'+estadoBadge(p.estado)+'</td>'
+        + '<td>'+esc(p.guia)+'</td>'
+        + '<td>'+esc(p.tracking)+'</td>'
+        + '<td>'+(p.url_pdf ? '<a href="'+esc(p.url_pdf)+'" target="_blank">📄 Ver</a>' : '')+'</td>'
+        + '</tr>';
+    }).join('');
+  }
+
+  recargar();
+</script>

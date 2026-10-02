@@ -63,13 +63,16 @@ window.addEventListener('popstate', e => {
 // ── API ───────────────────────────────────────────────────
 const GAS_URL = 'https://script.google.com/macros/s/AKfycby9biqEbiv4syc3St3TuPKXkG9rI5A4YsmtNta3OEJ4mD0i8sg0PPg9OhfrPDZJuO_L/exec';
 
-// ── MODO DIRECTO CVA (cuando GAS agota su cuota) ──────────────
-// Llama a CVA directamente desde el browser via proxy CORS
+// ── MODO DIRECTO CVA — DESACTIVADO ────────────────────────────
+// Antes el usuario y password de CVA vivian aqui, en un repo publico, y
+// viajaban por un proxy CORS de terceros. Se quitaron. Sin credenciales,
+// _cvaToken() truena y la app avisa que GAS no responde. Las credenciales
+// solo viven en Script Properties del Apps Script.
 const CVA_DIRECT = {
   BASE  : 'https://apicvaservices.grupocva.com/api/v2',
-  USER  : 'admin78308',
-  PASS  : 'r7j6nh47',
-  PROXY : 'https://corsproxy.io/?', // proxy CORS público
+  USER  : '',
+  PASS  : '',
+  PROXY : 'https://corsproxy.io/?',
   token : null,
   tokenExp: 0,
 };
@@ -77,6 +80,9 @@ const CVA_DIRECT = {
 // Obtener/renovar token CVA directo
 async function _cvaToken() {
   if (CVA_DIRECT.token && Date.now() < CVA_DIRECT.tokenExp) return CVA_DIRECT.token;
+  if (!CVA_DIRECT.USER || !CVA_DIRECT.PASS) {
+    throw new Error('El servidor (Apps Script) no responde y el modo directo esta desactivado. Intenta en unos minutos.');
+  }
   const url = CVA_DIRECT.PROXY + encodeURIComponent(CVA_DIRECT.BASE + '/user/login');
   const res = await fetch(url, {
     method: 'POST',
@@ -202,6 +208,8 @@ async function cvaDirectAction(action, params) {
 
 
 async function api(action, params = {}) {
+  const conPrecio = !!_ACC_PRECIO[action];
+  if (conPrecio && params.MonedaPesos === undefined) params = { ...params, MonedaPesos: 'false' };
   const qs = new URLSearchParams({ action, ...params }).toString();
   let res;
   try {
@@ -213,7 +221,133 @@ async function api(action, params = {}) {
       : e.message);
   }
   if (!res.ok) throw new Error('HTTP ' + res.status);
-  return res.json();
+  const data = await res.json();
+  if (conPrecio) {
+    try { _normalizarPrecios_(data); _pintarTC_(); } catch(e) { console.warn('TC:', e); }
+  }
+  return data;
+}
+
+// ── TIPO DE CAMBIO ────────────────────────────────────────
+// CVA cotiza casi todo en dolares. La app pide el precio en su moneda
+// original (MonedaPesos=false) y aqui lo pasa a pesos:
+//
+//   precio MXN = precio lista CVA en USD (ya trae el 16% de IVA) x TC
+//
+// TC = el que manda CVA en la respuesta, o el que captures a mano en la
+// barra de arriba. El manual vive SOLO en memoria: al recargar la pagina
+// vuelve al de CVA. El carrito y el saldo siempre usan el TC de CVA,
+// porque eso es lo que CVA te va a cobrar.
+const _ACC_PRECIO = { cva_buscar: 1, cva_producto: 1, cva_precio_stock: 1, cva_tc: 1 };
+let _tcCVA    = 0;     // ultimo TC que mando CVA
+let _tcManual = null;  // override de esta carga de pagina
+
+function tcVigente_() { return _tcManual || _tcCVA || 0; }
+function _r2_(n) { return Math.round((parseFloat(n) || 0) * 100) / 100; }
+
+function _normalizarUno_(o) {
+  if (!o._tcNorm) {
+    const tcResp = parseFloat(o.tc_cva ?? o.tipo_cambio) || 0;
+    if (tcResp > 0) _tcCVA = tcResp;
+    const mon = String(o.moneda || '').toLowerCase();
+    o._usd   = mon.indexOf('dolar') === 0 || mon === 'usd';
+    o.tc_cva = tcResp;
+    if (o._usd) {
+      o.precio_usd = parseFloat(o.precio) || 0;
+      if (o.promociones && o.promociones.precio_descuento) {
+        o.promociones.precio_descuento_usd = parseFloat(o.promociones.precio_descuento) || 0;
+      }
+    } else {
+      o.precio_cva_real = parseFloat(o.precio) || 0;
+    }
+    o._tcNorm = true;
+  }
+  if (!o._usd) return;
+  const tcBase = o.tc_cva || _tcCVA || 17.5;
+  const tc     = _tcManual || tcBase;
+  o.precio          = _r2_(o.precio_usd * tc);
+  o.precio_cva_real = _r2_(o.precio_usd * tcBase);
+  if (o.promociones && o.promociones.precio_descuento_usd != null) {
+    o.promociones.precio_descuento = _r2_(o.promociones.precio_descuento_usd * tc);
+  }
+  o.moneda      = 'Pesos';
+  o.tipo_cambio = tc;
+}
+
+function _normalizarPrecios_(raiz) {
+  const vistos = new Set();
+  (function walk(o) {
+    if (!o || typeof o !== 'object' || vistos.has(o)) return;
+    vistos.add(o);
+    if (Array.isArray(o)) { o.forEach(walk); return; }
+    if ('precio' in o && 'moneda' in o) _normalizarUno_(o);
+    Object.keys(o).forEach(k => { const v = o[k]; if (v && typeof v === 'object') walk(v); });
+  })(raiz);
+}
+
+function _pintarTC_() {
+  const pill = document.getElementById('badge-tc');
+  const inp  = document.getElementById('tc-input');
+  const lbl  = document.getElementById('tc-label');
+  const info = document.getElementById('tc-info');
+  if (!pill || !inp) return;
+  const tc = tcVigente_();
+  if (document.activeElement !== inp) inp.value = tc ? tc.toFixed(2) : '';
+  pill.classList.toggle('tc-manual', !!_tcManual);
+  if (lbl) lbl.textContent = _tcManual ? 'TC manual' : 'TC CVA';
+  const cva = _tcCVA ? '$' + _tcCVA.toFixed(2) : 'sin dato todavia';
+  const txt = 'Precio MXN = lista CVA en USD (ya con 16% IVA) x TC.\n' +
+              'TC de CVA: ' + cva + '.\n' +
+              (_tcManual
+                ? 'Usando TC manual $' + _tcManual.toFixed(2) + ' solo en esta carga. El carrito y el saldo siguen con el de CVA.'
+                : 'Escribe otro TC para recalcular los precios solo en esta carga.');
+  pill.title = txt;
+  if (info) info.innerText = txt;
+}
+
+function toggleTCInfo(ev) {
+  if (ev) ev.stopPropagation();
+  const info = document.getElementById('tc-info');
+  if (info) info.style.display = info.style.display === 'block' ? 'none' : 'block';
+}
+
+// Pide a CVA el TC del dia (endpoint ligero). Si el backend todavia no lo
+// tiene, no pasa nada: el TC aparece con la primera busqueda.
+async function cargarTC() {
+  try {
+    const d = await api('cva_tc');
+    const t = parseFloat(d && d.tipo_cambio);
+    if (d && d.ok && t > 0) _tcCVA = t;
+  } catch(e) {}
+  _pintarTC_();
+}
+
+function cambiarTCManual(valor) {
+  const v = parseFloat(valor);
+  _tcManual = (!isNaN(v) && v >= 1 && v <= 100) ? v : null;
+  if (_tcManual && _tcCVA && Math.abs(_tcManual - _tcCVA) < 0.005) _tcManual = null;
+  // Recalcular en sitio lo que ya esta en pantalla
+  try { (_buscarArts || []).forEach(o => o && o._tcNorm && _normalizarUno_(o)); } catch(e) {}
+  try { if (_productoActual && _productoActual._tcNorm) _normalizarUno_(_productoActual); } catch(e) {}
+  _pintarTC_();
+  addLog('info', 'Tipo de cambio', _tcManual ? 'Manual $' + _tcManual.toFixed(2) : 'De CVA $' + (_tcCVA || 0).toFixed(2));
+  try {
+    if (currentPage === 'buscar') {
+      const el = document.getElementById('buscar-result');
+      const enDetalle = el && el.querySelector('.pd-wrap') && _productoActual;
+      if (enDetalle) {
+        if (_lastTablaHTML && _buscarArts && _buscarArts.length) {
+          renderTablaBusqueda(_buscarArts);
+          _lastTablaHTML = el.innerHTML;
+        }
+        el.innerHTML = renderProducto(_productoActual);
+        buscarMeli(_productoActual);
+      } else if (_buscarArts && _buscarArts.length && el && el.querySelector('table')) {
+        renderTablaBusqueda(_buscarArts);
+      }
+    }
+    if (currentPage === 'orden' && typeof renderCarrito === 'function') renderCarrito();
+  } catch(e) { console.warn('re-render TC:', e); }
 }
 
 async function apiPost(action, body = {}) {
@@ -952,12 +1086,12 @@ function agregarClave(clave, qty = 1) {
       carrito.push({
         clave      : art.clave,
         desc       : art.descripcion || clave,
-        precio     : parseFloat(art.precio) || 0,
+        precio     : parseFloat(art.precio_cva_real ?? art.precio) || 0,
         moneda     : art.moneda || 'Pesos',
         marca      : art.marca || '',
         qty,
         imagen     : art.imagen || null,
-        tipo_cambio: parseFloat(art.tipo_cambio) || 0,
+        tipo_cambio: parseFloat(art.tc_cva || art.tipo_cambio) || 0,
         stock_cedis: parseFloat(art.disponibleCD) || 0,
       });
     }
@@ -1010,7 +1144,7 @@ async function agregarAlCarrito() {
     if (exist >= 0) { carrito[exist].qty += qty; }
     else {
       let imagen = art.imagen || null;
-      let tcProducto = parseFloat(art.tipo_cambio) || 0;
+      let tcProducto = parseFloat(art.tc_cva || art.tipo_cambio) || 0;
       if (!imagen) {
         try {
           const pd = await apiConFallback('cva_producto', { clave: art.clave });
@@ -1021,7 +1155,7 @@ async function agregarAlCarrito() {
       carrito.push({
         clave      : art.clave,
         desc       : art.descripcion || art.codigo || clave,
-        precio     : parseFloat(art.precio) || 0,
+        precio     : parseFloat(art.precio_cva_real ?? art.precio) || 0,
         moneda     : art.moneda || 'Pesos',
         marca      : art.marca || '',
         qty,
@@ -3555,6 +3689,8 @@ window.onload = () => {
   try { cargarSucursalesSelect(); } catch(e) {}
   // Cargar saldo CVA en background
   try { cargarSaldo(); } catch(e) {}
+  // Tipo de cambio del dia (barra de arriba)
+  try { cargarTC(); } catch(e) {}
   // Cargar METADATA del Sheet en background — para que Exportar Datos,
   // Buscar productos, etc. vean modelos correctos desde el primer momento
   // (sin tener que pasar por Análisis primero).

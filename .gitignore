@@ -1,0 +1,38 @@
+# ============================================================
+#  CVA - .gitignore
+# ============================================================
+#  REGLA: ninguna credencial vive en un archivo. Token CVA,
+#  llave de Odoo, Twilio: todo en PropertiesService.
+#  Este repo es PUBLICO (GitHub Pages) y git guarda el historial
+#  para siempre. Los .bat traen un seguro que lo revisa.
+
+# Node / clasp
+node_modules/
+.clasprc.json
+
+# Sistema operativo
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Editores
+.vscode/
+.idea/
+
+# Backups y temporales
+*.bak
+*.tmp
+*~
+*.old
+_local/
+
+# Credenciales (nunca deben existir aqui)
+.env
+.env.local
+*.credentials.json
+*.pem
+*.key
+Secrets.gs
+apps-script/Secrets.gs
+apps-script/Local.gs
+secretos.txt

@@ -1,0 +1,393 @@
+<!--
+  pedidoCvaUI.html — Pantalla unificada de procesamiento masivo.
+  Editable: Paquetería (dropdown) y Guía (texto). Plataforma editable.
+  Los cambios se guardan automáticamente en la hoja VENTAS_ODOO (debounce 800ms).
+-->
+<meta name="darkreader-lock">
+<meta name="color-scheme" content="dark">
+<link href="https://fonts.googleapis.com/css2?family=Barlow:wght@300;400;500;600&family=Barlow+Condensed:wght@300;400;600&display=swap" rel="stylesheet">
+<style>
+  html, body { color-scheme: dark only !important; background: #1e2025 !important; }
+  :root { color-scheme: dark only; }
+  :root {
+    --bg:#1e2025; --green:#00665e; --green-lt:#67b8af; --green-dark:#00403a;
+    --orange:#C8973A; --text:#eef0f0;
+    --text-2:rgba(238,240,240,0.7); --text-3:rgba(238,240,240,0.4); --muted:rgba(238,240,240,0.35);
+    --err:#e57373; --ok:#67b8af;
+  }
+  *, *::before, *::after { box-sizing: border-box; }
+  body { background: var(--bg); color: var(--text); font-family: 'Barlow', sans-serif; margin:0; padding:24px; min-height:100vh; }
+  h1 { font-family:'Barlow Condensed', sans-serif; font-weight:300; letter-spacing:6px; margin:0 0 4px; font-size:28px; }
+  .sub { color:var(--text-3); font-size:11px; letter-spacing:2px; text-transform:uppercase; margin-bottom:18px; }
+
+  .saldo-card { display:flex; align-items:center; gap:24px; background:rgba(0,0,0,0.18); border:1px solid rgba(255,255,255,0.06); border-radius:14px; padding:16px 22px; margin-bottom:14px; }
+  .saldo-card .label { font-size:11px; letter-spacing:2px; text-transform:uppercase; color:var(--text-3); }
+  .saldo-card .valor { font-family:'Barlow Condensed', sans-serif; font-size:32px; font-weight:300; letter-spacing:3px; color:var(--green-lt); }
+  .saldo-card.bajo .valor { color:var(--orange); }
+  .saldo-card.sin .valor  { color:var(--err); }
+
+  .panel { background:rgba(0,0,0,0.18); border:1px solid rgba(255,255,255,0.06); border-radius:14px; padding:20px; margin-bottom:14px; }
+  .row-actions { display:flex; gap:14px; flex-wrap:wrap; align-items:center; margin-bottom:14px; }
+  button { background:var(--green); border:none; color:white; padding:10px 22px; border-radius:8px; font-family:'Barlow Condensed', sans-serif; letter-spacing:2px; font-weight:500; font-size:13px; text-transform:uppercase; cursor:pointer; transition:background .2s; }
+  button:hover { background:var(--green-lt); }
+  button:disabled { opacity:.5; cursor:not-allowed; }
+  button.outline { background:transparent; border:1px solid var(--green-lt); color:var(--green-lt); }
+  button.outline:hover { background:var(--green-dark); color:white; }
+  label { font-size:12px; color:var(--text-2); letter-spacing:1px; text-transform:uppercase; }
+  input[type=checkbox] { accent-color: var(--green-lt); transform: scale(1.2); margin-right:6px; vertical-align:middle; }
+
+  /* Inputs editables en la tabla */
+  .cell-input, .cell-select {
+    background:transparent; border:1px solid rgba(255,255,255,0.1); color:var(--text);
+    padding:6px 9px; border-radius:6px; font-family:inherit; font-size:12px;
+    outline:none; width:100%; transition:border .2s, background .2s;
+  }
+  .cell-input:focus, .cell-select:focus { border-color:var(--green-lt); background:rgba(103,184,175,0.04); }
+  .cell-input.saving { border-color:var(--orange); }
+  .cell-input.saved { border-color:var(--ok); }
+  .cell-select { padding-right:24px; }
+  .cell-select option { background:#1e2025; color:var(--text); }
+
+  table.cap { width:100%; border-collapse:collapse; }
+  table.cap thead th {
+    text-align:left; padding:10px 12px; font-weight:500; color:var(--text-3);
+    border-bottom:1px solid rgba(255,255,255,0.1); font-size:10px; letter-spacing:1.5px;
+    text-transform:uppercase;
+  }
+  table.cap tbody td {
+    padding:9px 12px; border-bottom:1px solid rgba(255,255,255,0.05);
+    font-size:13px;
+  }
+  table.cap tbody tr:hover { background:rgba(255,255,255,0.02); }
+  td.num { font-variant-numeric:tabular-nums; text-align:right; }
+  .badge { padding:2px 8px; border-radius:10px; font-size:10px; letter-spacing:1px; text-transform:uppercase; display:inline-block; }
+  .badge.pend { background:rgba(200,151,58,0.18); color:var(--orange); }
+  .badge.ok   { background:rgba(103,184,175,0.18); color:var(--ok); }
+  .badge.err  { background:rgba(229,115,115,0.18); color:var(--err); }
+  a { color:var(--green-lt); text-decoration:none; font-size:12px; }
+  a:hover { text-decoration:underline; }
+  .spinner { display:inline-block; width:12px; height:12px; border:2px solid var(--green-lt); border-top-color:transparent; border-radius:50%; animation:spin 1s linear infinite; vertical-align:middle; margin-right:6px; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .msg { padding:9px 13px; border-radius:8px; font-size:13px; margin-top:10px; display:inline-block; }
+  .msg.err { background:rgba(229,115,115,0.1); color:var(--err); border:1px solid rgba(229,115,115,0.3); }
+  .msg.ok  { background:rgba(103,184,175,0.1); color:var(--ok);  border:1px solid rgba(103,184,175,0.3); }
+  .msg.warn { background:rgba(200,151,58,0.1); color:var(--orange); border:1px solid rgba(200,151,58,0.3); }
+  .empty { text-align:center; padding:40px; color:var(--text-3); font-size:14px; }
+  .nmxt-col { font-family:'Barlow Condensed', sans-serif; color:var(--green-lt); font-weight:500; letter-spacing:1.5px; }
+  .estado-cell { font-size:11px; }
+  .check-cell { width:30px; }
+  .save-status {
+    font-size:10px; letter-spacing:1px; text-transform:uppercase;
+    color:var(--text-3); margin-left:8px; transition:color .3s, opacity .5s;
+  }
+  .save-status.guardando { color:var(--orange); }
+  .save-status.guardado  { color:var(--ok); }
+</style>
+
+<h1>PEDIDO CVA</h1>
+<div class="sub">Procesamiento masivo desde la hoja VENTAS_ODOO</div>
+
+<div class="saldo-card" id="saldoBox">
+  <div>
+    <div class="label">Saldo Dropship</div>
+    <div class="valor" id="saldoVal">$0.00</div>
+  </div>
+  <div style="flex:1;"></div>
+  <div style="color:var(--text-3); font-size:11px; letter-spacing:1px;">
+    Si el saldo cae por debajo de <b>$5,000</b>, recibirás alerta automática
+  </div>
+</div>
+
+<div class="panel">
+  <div class="row-actions">
+    <button id="btnTraer" onclick="traer()">↻ Cargar ventas pendientes</button>
+    <button id="btnBuscarGuias" class="outline" onclick="buscarGuias()">🔍 Buscar guías en Drive</button>
+    <button id="btnProcesar" class="outline" onclick="procesar()" disabled>Procesar envíos seleccionados</button>
+    <label><input type="checkbox" id="chkTest"> Modo de prueba (test=1, no se crea pedido real)</label>
+    <span id="saveStatus" class="save-status"></span>
+    <span id="estado" style="margin-left:14px;"></span>
+  </div>
+  <table class="cap" id="tabla">
+    <thead>
+      <tr>
+        <th class="check-cell"><input type="checkbox" id="chkAll" onclick="toggleAll(this)"></th>
+        <th>SO</th>
+        <th>SKU</th>
+        <th>Plataforma</th>
+        <th>Paquetería</th>
+        <th>Guía (link Drive)</th>
+        <th>NMXT</th>
+        <th class="num" style="text-align:right;">Costo</th>
+        <th>Estado</th>
+      </tr>
+    </thead>
+    <tbody id="tbody"></tbody>
+  </table>
+  <div id="vacio" class="empty" style="display:none;">No hay ventas pendientes. Llena la hoja VENTAS_ODOO con tus ventas (col A=SO, B=SKU, I=Plataforma).</div>
+</div>
+
+<script>
+  var VENTAS = [];
+  var SAVE_TIMERS = {};   // por fila
+  var SAVE_PENDIENTES = 0;
+  var PAQUETERIAS = ['DHL', 'Estafeta', 'FedEx', 'Paquetexpress', 'J&T', 'Redpack', 'Otro'];
+  var PLATAFORMAS = ['', 'WALMART', 'MERCADOLIBRE', 'AMAZON', 'TIENDA', 'OTRO'];
+
+  function runS1(fn) {
+    var args = Array.prototype.slice.call(arguments, 1);
+    return new Promise(function (resolve, reject) {
+      google.script.run
+        .withSuccessHandler(resolve)
+        .withFailureHandler(function (e) { reject(e.message || e); })
+        [fn].apply(google.script.run, args);
+    });
+  }
+
+  function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];}); }
+  function fmtMx(n){
+    var v = parseFloat(n) || 0;
+    return '$' + v.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
+  function setEstado(html){ document.getElementById('estado').innerHTML = html; }
+  function actualizarSaldo(saldo){
+    var box = document.getElementById('saldoBox');
+    document.getElementById('saldoVal').textContent = fmtMx(saldo);
+    box.classList.remove('bajo', 'sin');
+    if (saldo <= 0) box.classList.add('sin');
+    else if (saldo < 5000) box.classList.add('bajo');
+  }
+
+  function buscarGuias(){
+    document.getElementById('btnBuscarGuias').disabled = true;
+    setEstado('<span class="spinner"></span> Buscando guías en Drive (carpeta GUIAS_ODOO)…');
+    runS1('buscarGuiasEnDrive').then(function(r){
+      document.getElementById('btnBuscarGuias').disabled = false;
+      if (!r || !r.ok){
+        setEstado('<span class="msg err">'+(r && r.error ? esc(r.error) : 'Error')+'</span>');
+        return;
+      }
+      var msg = '<b>' + r.encontradas + '</b> guía(s) encontrada(s) y vinculada(s).';
+      if (r.ya_con_guia) msg += ' ' + r.ya_con_guia + ' ya tenían guía.';
+      if (r.sin_coincidencia && r.sin_coincidencia.length) {
+        msg += ' <b>' + r.sin_coincidencia.length + '</b> sin coincidencia: ' + r.sin_coincidencia.slice(0, 5).map(esc).join(', ');
+        if (r.sin_coincidencia.length > 5) msg += '…';
+      }
+      if (r.multiple_coincidencia && r.multiple_coincidencia.length){
+        msg += ' <br>⚠ SOs con reparto especial: ' + r.multiple_coincidencia.map(function(m){
+          return esc(m.so)+' ('+m.filas+' filas, '+m.pdfs+' PDFs)';
+        }).join(', ');
+      }
+      var clase = r.encontradas > 0 ? 'ok' : 'warn';
+      setEstado('<span class="msg '+clase+'">'+msg+'</span>');
+      traer();
+    }).catch(function(e){
+      document.getElementById('btnBuscarGuias').disabled = false;
+      setEstado('<span class="msg err">'+esc(e)+'</span>');
+    });
+  }
+
+  function traer(){
+    document.getElementById('btnTraer').disabled = true;
+    setEstado('<span class="spinner"></span> Cargando ventas pendientes…');
+    runS1('listarVentasPendientes').then(function(r){
+      document.getElementById('btnTraer').disabled = false;
+      if (!r || !r.ok){
+        setEstado('<span class="msg err">'+(r && r.error ? esc(r.error) : 'Error')+'</span>');
+        return;
+      }
+      VENTAS = r.ventas || [];
+      actualizarSaldo(r.saldo || 0);
+      pintarTabla();
+      setEstado(VENTAS.length === 0
+        ? '<span class="msg warn">No hay ventas pendientes.</span>'
+        : '<span class="msg ok">'+VENTAS.length+' venta(s) pendiente(s).</span>');
+    }).catch(function(e){
+      document.getElementById('btnTraer').disabled = false;
+      setEstado('<span class="msg err">'+esc(e)+'</span>');
+    });
+  }
+
+  function paqueteriaSelect(v, val){
+    var opts = '<option value="">— seleccionar —</option>' +
+      PAQUETERIAS.map(function(p){
+        var sel = (p === val) ? ' selected' : '';
+        return '<option value="'+esc(p)+'"'+sel+'>'+esc(p)+'</option>';
+      }).join('');
+    return '<select class="cell-select" data-fila="'+v.fila+'" data-col="paqueteria" '
+      + 'onchange="guardarCelda(this)">'+opts+'</select>';
+  }
+
+  function plataformaSelect(v, val){
+    var opts = PLATAFORMAS.map(function(p){
+      var label = p === '' ? '— seleccionar —' : p;
+      var sel = (p === (val||'').toUpperCase()) ? ' selected' : '';
+      return '<option value="'+esc(p)+'"'+sel+'>'+esc(label)+'</option>';
+    }).join('');
+    return '<select class="cell-select" data-fila="'+v.fila+'" data-col="plataforma" '
+      + 'onchange="guardarCelda(this)">'+opts+'</select>';
+  }
+
+  function guiaInput(v){
+    return '<input type="text" class="cell-input" data-fila="'+v.fila+'" data-col="guia" '
+      + 'value="'+esc(v.guia||'')+'" placeholder="https://drive.google.com/…" '
+      + 'oninput="agendarGuardado(this)" '
+      + 'onblur="guardarCelda(this)">';
+  }
+
+  function pintarTabla(){
+    var tbody = document.getElementById('tbody');
+    document.getElementById('vacio').style.display = VENTAS.length === 0 ? '' : 'none';
+    tbody.innerHTML = VENTAS.map(function(v, i){
+      var nmxtVal = v.nmxt ? '<span class="nmxt-col">'+esc(v.nmxt)+'</span>' : '<span style="color:var(--text-3); font-size:11px;">—</span>';
+      var estadoBadge;
+      if (/sin saldo/i.test(v.estado)) estadoBadge = '<span class="badge err">SIN SALDO</span>';
+      else if (/error/i.test(v.estado)) estadoBadge = '<span class="badge err">'+esc(v.estado).substr(0,30)+'</span>';
+      else if (/enviado/i.test(v.estado)) estadoBadge = '<span class="badge ok">'+esc(v.estado)+'</span>';
+      else if (v.estado) estadoBadge = '<span class="badge pend">'+esc(v.estado)+'</span>';
+      else estadoBadge = '<span class="badge pend">Pendiente</span>';
+      return '<tr>'
+        + '<td class="check-cell"><input type="checkbox" class="rowCheck" data-fila="'+v.fila+'" onchange="actualizarBtnProcesar()"></td>'
+        + '<td>'+esc(v.so)+'</td>'
+        + '<td style="font-family:monospace; font-size:11px;">'+esc(v.sku)+'</td>'
+        + '<td style="min-width:130px;">'+plataformaSelect(v, v.plataforma)+'</td>'
+        + '<td style="min-width:140px;">'+paqueteriaSelect(v, v.paqueteria)+'</td>'
+        + '<td style="min-width:220px;">'+guiaInput(v)+'</td>'
+        + '<td>'+nmxtVal+'</td>'
+        + '<td class="num">'+(v.costo ? fmtMx(v.costo) : '—')+'</td>'
+        + '<td class="estado-cell">'+estadoBadge+'</td>'
+        + '</tr>';
+    }).join('');
+    document.getElementById('chkAll').checked = false;
+    actualizarBtnProcesar();
+  }
+
+  // ── EDICIÓN EN LÍNEA ───────────────────────────────────────────
+  function agendarGuardado(el){
+    var fila = el.dataset.fila;
+    if (SAVE_TIMERS[fila]) clearTimeout(SAVE_TIMERS[fila]);
+    el.classList.remove('saved');
+    el.classList.add('saving');
+    SAVE_TIMERS[fila] = setTimeout(function(){
+      guardarCelda(el);
+    }, 800);
+  }
+
+  function guardarCelda(el){
+    var fila = parseInt(el.dataset.fila, 10);
+    var col = el.dataset.col;
+    var valor = el.value;
+    if (SAVE_TIMERS[fila]) { clearTimeout(SAVE_TIMERS[fila]); delete SAVE_TIMERS[fila]; }
+    el.classList.add('saving');
+    el.classList.remove('saved');
+    SAVE_PENDIENTES++;
+    actualizarSaveStatus();
+    runS1('guardarCeldaVenta', { fila: fila, col: col, valor: valor }).then(function(r){
+      SAVE_PENDIENTES--;
+      actualizarSaveStatus();
+      el.classList.remove('saving');
+      if (r && r.ok){
+        // Actualizar en memoria
+        var v = VENTAS.find(function(x){ return x.fila === fila; });
+        if (v) v[col === 'paqueteria' ? 'paqueteria' : (col === 'guia' ? 'guia' : 'plataforma')] = valor;
+        el.classList.add('saved');
+        setTimeout(function(){ el.classList.remove('saved'); }, 1500);
+      } else {
+        el.style.borderColor = 'var(--err)';
+        setTimeout(function(){ el.style.borderColor = ''; }, 2000);
+      }
+    }).catch(function(){
+      SAVE_PENDIENTES--;
+      actualizarSaveStatus();
+      el.classList.remove('saving');
+      el.style.borderColor = 'var(--err)';
+      setTimeout(function(){ el.style.borderColor = ''; }, 2000);
+    });
+  }
+
+  function actualizarSaveStatus(){
+    var s = document.getElementById('saveStatus');
+    if (SAVE_PENDIENTES > 0){
+      s.textContent = '● guardando…';
+      s.className = 'save-status guardando';
+    } else {
+      s.textContent = '✓ guardado';
+      s.className = 'save-status guardado';
+      setTimeout(function(){ if (SAVE_PENDIENTES === 0) s.textContent = ''; }, 1500);
+    }
+  }
+
+  function toggleAll(chk){
+    document.querySelectorAll('.rowCheck').forEach(function(c){ c.checked = chk.checked; });
+    actualizarBtnProcesar();
+  }
+
+  function actualizarBtnProcesar(){
+    var n = document.querySelectorAll('.rowCheck:checked').length;
+    var btn = document.getElementById('btnProcesar');
+    btn.disabled = (n === 0);
+    btn.textContent = n > 0 ? ('Procesar envíos (' + n + ')') : 'Procesar envíos seleccionados';
+  }
+
+  function procesar(){
+    if (SAVE_PENDIENTES > 0){
+      if (!confirm('Hay datos editándose que aún no se guardan. ¿Procesar de todos modos?')) return;
+    }
+    var test = document.getElementById('chkTest').checked;
+    var seleccionadas = [];
+    document.querySelectorAll('.rowCheck:checked').forEach(function(c){
+      seleccionadas.push(parseInt(c.dataset.fila, 10));
+    });
+    if (!seleccionadas.length) return;
+
+    document.getElementById('btnProcesar').disabled = true;
+    document.getElementById('btnTraer').disabled = true;
+
+    var LOTE = 5;
+    var lotes = [];
+    for (var i = 0; i < seleccionadas.length; i += LOTE) {
+      lotes.push(seleccionadas.slice(i, i + LOTE));
+    }
+
+    var loteIdx = 0;
+    var totalOk = 0, totalErr = 0, totalSinSaldo = 0;
+
+    function siguiente(){
+      if (loteIdx >= lotes.length) {
+        document.getElementById('btnProcesar').disabled = false;
+        document.getElementById('btnTraer').disabled = false;
+        setEstado('<span class="msg ok">Procesados: ' + totalOk + ' ok'
+          + (totalErr ? ', '+totalErr+' error' : '')
+          + (totalSinSaldo ? ', '+totalSinSaldo+' sin saldo' : '')
+          + '. Recargando lista…</span>');
+        traer();
+        return;
+      }
+      var lote = lotes[loteIdx];
+      loteIdx++;
+      setEstado('<span class="spinner"></span> Procesando lote ' + loteIdx + ' de ' + lotes.length
+        + ' (' + lote.length + ' fila' + (lote.length>1?'s':'') + ')…');
+      runS1('procesarVentasMasivo', { filas: lote, test: test }).then(function(r){
+        if (!r || !r.ok){
+          setEstado('<span class="msg err">'+(r && r.error ? esc(r.error) : 'Error')+'</span>');
+          document.getElementById('btnProcesar').disabled = false;
+          document.getElementById('btnTraer').disabled = false;
+          return;
+        }
+        (r.resultados || []).forEach(function(res){
+          if (res.ok) totalOk++;
+          else if (/sin saldo/i.test(res.error||'')) totalSinSaldo++;
+          else totalErr++;
+        });
+        if (typeof r.saldo_final === 'number') actualizarSaldo(r.saldo_final);
+        siguiente();
+      }).catch(function(e){
+        setEstado('<span class="msg err">'+esc(e)+'</span>');
+        document.getElementById('btnProcesar').disabled = false;
+        document.getElementById('btnTraer').disabled = false;
+      });
+    }
+    siguiente();
+  }
+
+  traer();
+</script>

@@ -1,0 +1,886 @@
+<!--
+  imagenesUI.html — Buscador fusionado UPC + Clave CVA.
+  Archivo HTML en Apps Script: 'imagenesUI'. Usa google.script.run.
+-->
+<meta name="darkreader-lock">
+<meta name="color-scheme" content="dark">
+<link href="https://fonts.googleapis.com/css2?family=Barlow:wght@300;400;500;600&family=Barlow+Condensed:wght@300;400;600&display=swap" rel="stylesheet">
+<style>
+  /* Blindaje contra DarkReader y otras extensiones que invierten colores */
+  html, body { color-scheme: dark only !important; background: #1e2025 !important; }
+  :root { color-scheme: dark only; }
+
+  :root {
+    --bg:#1e2025; --green:#00665e; --green-lt:#67b8af; --green-dark:#00403a;
+    --green-hi:#67b8af; --orange:#C8973A; --text:#eef0f0;
+    --text-2:rgba(238,240,240,0.7); --text-3:rgba(238,240,240,0.4); --muted:rgba(238,240,240,0.35);
+  }
+  .imgbx *, .imgbx *::before, .imgbx *::after { box-sizing:border-box; }
+  .imgbx { font-family:'Barlow',system-ui,sans-serif; background:var(--bg); color:var(--text);
+    font-size:14px; letter-spacing:.01em; padding:22px; max-width:1280px; margin:0 auto; min-height:100%; }
+  .imgbx .titulo { font-family:'Barlow Condensed','Barlow',sans-serif; font-weight:300; font-size:26px; letter-spacing:1px; margin-bottom:4px; }
+  .imgbx .sub { color:var(--text-3); font-size:11px; text-transform:uppercase; letter-spacing:2px; margin-bottom:14px; }
+
+  .imgbx .panel {
+    background:linear-gradient(135deg,rgba(0,70,64,0.18) 0%,rgba(0,38,34,0.28) 100%);
+    border:1px solid rgba(103,184,175,0.14); border-radius:8px; padding:18px;
+    backdrop-filter:blur(8px); -webkit-backdrop-filter:blur(8px);
+    box-shadow:0 4px 16px rgba(0,0,0,0.2),inset 0 1px 0 rgba(255,255,255,0.04); margin-bottom:16px;
+  }
+
+  .imgbx table.cap { width:100%; border-collapse:collapse; }
+  .imgbx table.cap th {
+    font-size:9px; text-transform:uppercase; letter-spacing:2px; color:var(--muted);
+    font-weight:500; text-align:left; padding:4px 8px 8px; border-bottom:1px solid rgba(103,184,175,0.2);
+  }
+  .imgbx table.cap th.req { color:#e5b063; }
+  .imgbx table.cap td { padding:3px 4px; vertical-align:middle; }
+  .imgbx table.cap td.num { width:28px; color:var(--text-3); font-size:11px; text-align:center; }
+  .imgbx table.cap td.del { width:30px; text-align:center; }
+  .imgbx table.cap input {
+    width:100%; background:rgba(0,0,0,0.35); border:1px solid rgba(103,184,175,0.14);
+    color:var(--text); padding:7px 9px; border-radius:4px; font-family:'Barlow Condensed',monospace;
+    font-size:13px; letter-spacing:.4px; outline:none; transition:border-color .15s,box-shadow .15s,background .15s;
+  }
+  .imgbx table.cap input:focus {
+    border-color:var(--green-lt); box-shadow:0 0 0 1px rgba(103,184,175,0.2); background:rgba(0,30,28,0.5);
+  }
+  .imgbx table.cap input.req-empty { border-color:rgba(204,68,68,0.5); }
+  .imgbx .delbtn {
+    background:none; border:none; color:var(--text-3); cursor:pointer; font-size:16px; line-height:1;
+    padding:4px 6px; border-radius:4px; transition:color .15s,background .15s;
+  }
+  .imgbx .delbtn:hover { color:#CC4444; background:rgba(204,68,68,0.1); }
+
+  .imgbx .btn {
+    padding:11px 22px; border:none; cursor:pointer; font-size:11px; font-weight:500; letter-spacing:2px;
+    text-transform:uppercase; font-family:'Barlow',sans-serif; border-radius:4px;
+    transition:background .2s,color .2s,border-color .2s,box-shadow .2s;
+  }
+  .imgbx .btn-green { background:var(--green); color:#fff; }
+  .imgbx .btn-green:hover:not(:disabled) { background:var(--green-dark); box-shadow:0 0 14px rgba(103,184,175,0.25); }
+  .imgbx .btn-ghost { background:rgba(238,240,240,0.05); color:var(--text); border:1px solid rgba(238,240,240,0.2); }
+  .imgbx .btn-ghost:hover:not(:disabled) { border-color:rgba(238,240,240,0.5); background:rgba(238,240,240,0.09); }
+  .imgbx .btn-warn { background:#C8973A; color:#1e2025; }
+  .imgbx .btn-warn:hover:not(:disabled) { background:#d4a647; }
+  .imgbx .btn:disabled { opacity:.25; cursor:not-allowed; }
+
+  .imgbx .bar { display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+  .imgbx .bar.top { margin-bottom:12px; }
+  .imgbx .bar.bottom { margin-top:14px; padding-top:14px; border-top:1px solid rgba(238,240,240,0.06); }
+  .imgbx .status { font-size:12px; color:var(--text-2); letter-spacing:.5px; }
+  .imgbx .ok { color:var(--green-hi); } .imgbx .err { color:#CC4444; } .imgbx .warn { color:#e5b063; }
+  .imgbx label.chk { font-size:11px; color:var(--text-2); display:flex; align-items:center; gap:6px; cursor:pointer; }
+
+  .imgbx .min-cfg-pill {
+    display:inline-flex; align-items:center; gap:6px; padding:6px 12px;
+    background:rgba(103,184,175,0.08); border:1px solid rgba(103,184,175,0.2); border-radius:18px;
+    font-size:10px; letter-spacing:1.5px; text-transform:uppercase; color:var(--text-2); cursor:pointer;
+  }
+  .imgbx .min-cfg-pill:hover { background:rgba(103,184,175,0.15); border-color:var(--green-lt); }
+
+  .imgbx .spinner { display:inline-block; width:14px; height:14px; border:2px solid rgba(103,184,175,0.3); border-top-color:var(--green-lt); border-radius:50%; animation:imgspin .8s linear infinite; vertical-align:middle; }
+  @keyframes imgspin { to { transform:rotate(360deg);} }
+
+  /* GALERÍA — bloque por UPC con 2 filas */
+  .imgbx .grupo {
+    background:rgba(0,0,0,0.18); border:1px solid rgba(103,184,175,0.14); border-radius:6px;
+    padding:14px; margin-bottom:14px;
+  }
+  .imgbx .grupo-head {
+    display:flex; justify-content:space-between; align-items:baseline; flex-wrap:wrap;
+    gap:10px; margin-bottom:10px; padding-bottom:10px;
+    border-bottom:1px solid rgba(103,184,175,0.1);
+  }
+  .imgbx .grupo-upc {
+    font-family:'Barlow Condensed',monospace; font-size:18px; color:var(--green-lt);
+    letter-spacing:1px;
+  }
+  .imgbx .grupo-meta {
+    font-size:10px; color:var(--text-3); letter-spacing:1.5px; text-transform:uppercase;
+  }
+  .imgbx .fila-label {
+    font-size:9px; letter-spacing:2px; text-transform:uppercase; color:var(--muted);
+    margin:8px 0 6px; padding:2px 0;
+  }
+  .imgbx .fila-label .badge {
+    display:inline-block; padding:1px 6px; border-radius:3px; font-size:8px; font-weight:600;
+    letter-spacing:1px; margin-right:6px;
+  }
+  .imgbx .fila-label .badge.cva    { background:rgba(200,151,58,0.2); color:#e5b063; }
+  .imgbx .fila-label .badge.google { background:rgba(103,184,175,0.2); color:var(--green-lt); }
+
+  .imgbx .fila-imgs {
+    display:flex; gap:8px; flex-wrap:nowrap; overflow-x:auto; padding-bottom:4px;
+  }
+  .imgbx .fila-imgs::-webkit-scrollbar { height:6px; }
+  .imgbx .fila-imgs::-webkit-scrollbar-thumb { background:rgba(103,184,175,0.3); border-radius:3px; }
+
+  .imgbx .img-card {
+    flex:0 0 130px; height:130px; position:relative; cursor:pointer;
+    background:rgba(0,0,0,0.4); border:2px solid rgba(103,184,175,0.18);
+    border-radius:4px; overflow:hidden; transition:border-color .15s,transform .12s;
+  }
+  .imgbx .img-card.cva { border-color:rgba(200,151,58,0.3); }
+  .imgbx .img-card.selected { border-color:var(--green-hi); border-width:3px; }
+  .imgbx .img-card:hover { transform:scale(1.02); }
+  .imgbx .img-card img { width:100%; height:100%; object-fit:contain; background:#fff; }
+  .imgbx .img-card .seq {
+    position:absolute; top:4px; left:4px; background:var(--green-hi); color:var(--bg);
+    font-weight:700; font-size:11px; padding:2px 7px; border-radius:10px;
+  }
+  .imgbx .img-card .px {
+    position:absolute; bottom:0; left:0; right:0; background:rgba(0,0,0,0.65); color:#fff;
+    font-size:9px; letter-spacing:.5px; padding:2px 4px; text-align:center;
+  }
+  .imgbx .img-card .origen {
+    position:absolute; top:4px; right:4px; background:rgba(0,0,0,0.65); color:#e5b063;
+    font-size:8px; padding:1px 5px; border-radius:2px; letter-spacing:1px; font-weight:600;
+  }
+  .imgbx .img-card.cva .origen { color:#e5b063; }
+
+  /* MODAL de inconsistencias */
+  .imgbx .modal-back {
+    position:fixed; inset:0; background:rgba(0,0,0,0.7); display:flex;
+    justify-content:center; align-items:center; z-index:1000; padding:20px;
+  }
+  .imgbx .modal {
+    background:#202428; border:1px solid rgba(200,151,58,0.5); border-radius:8px;
+    max-width:700px; width:100%; max-height:80vh; display:flex; flex-direction:column;
+    box-shadow:0 20px 60px rgba(0,0,0,0.6);
+  }
+  .imgbx .modal-head {
+    padding:18px 22px 12px; border-bottom:1px solid rgba(255,255,255,0.06);
+  }
+  .imgbx .modal-title { font-family:'Barlow Condensed',sans-serif; font-size:20px; color:#e5b063; letter-spacing:1px; }
+  .imgbx .modal-sub { font-size:11px; color:var(--text-2); margin-top:4px; }
+  .imgbx .modal-body { padding:14px 22px; overflow-y:auto; flex:1; }
+  .imgbx .modal-body ul { list-style:none; padding:0; margin:0; }
+  .imgbx .modal-body li {
+    padding:8px 12px; background:rgba(204,68,68,0.08); border-left:3px solid #CC4444;
+    margin-bottom:6px; border-radius:0 4px 4px 0; font-size:12px; color:var(--text-2);
+  }
+  .imgbx .modal-body li strong { color:#e5b063; font-family:'Barlow Condensed',monospace; }
+  .imgbx .modal-foot {
+    padding:14px 22px; border-top:1px solid rgba(255,255,255,0.06);
+    display:flex; gap:10px; justify-content:flex-end;
+  }
+</style>
+
+<div class="imgbx">
+  <div class="titulo">Buscar imágenes por UPC</div>
+  <div class="sub">Captura UPC + Clave CVA · CVA oficial + 6 Google · 1000×1000 → Drive + Cloudinary</div>
+
+  <div class="panel">
+    <div class="bar top">
+      <button class="btn btn-ghost" onclick="addRows(5)">+ 5 filas</button>
+      <button class="btn btn-ghost" onclick="clearRows()">Limpiar tabla</button>
+      <span class="min-cfg-pill" id="minCfg" onclick="cambiarMin()">
+        Mín. <span id="minTxt">800×800</span> px
+      </span>
+      <span class="status" id="capInfo"></span>
+    </div>
+
+    <table class="cap">
+      <thead>
+        <tr>
+          <th class="num">#</th>
+          <th class="req">UPC *</th>
+          <th>Categoría</th>
+          <th>Marca</th>
+          <th>Nombre</th>
+          <th>Modelo</th>
+          <th>Color</th>
+          <th>SKU</th>
+          <th class="req">Clave CVA *</th>
+          <th class="del"></th>
+        </tr>
+      </thead>
+      <tbody id="capBody"></tbody>
+    </table>
+
+    <div class="bar bottom">
+      <button class="btn btn-green" id="btnBuscar" onclick="buscar()">Buscar imágenes</button>
+      <label class="chk"><input type="checkbox" id="forzar"> Re-buscar aunque ya tengan imágenes</label>
+      <span id="estado" class="status"></span>
+    </div>
+  </div>
+
+  <div id="galeria"></div>
+
+  <div class="bar" id="barSubir" style="display:none">
+    <button class="btn btn-green" id="btnSubir" onclick="subir()">Subir seleccionadas a Drive + Cloudinary</button>
+    <span id="estadoSubir" class="status"></span>
+  </div>
+
+  <div id="modalRoot"></div>
+</div>
+
+<script>
+  // ── Config ──
+  var IMG_CFG = {
+    FILAS_DEFAULT: 10,
+    CANDIDATAS_POR_UPC: 6,
+    MIN_PX: 800,
+    CLOUDINARY_CLOUD: 'dene2fzbe',
+    CLOUDINARY_PRESET: 'upc_cva'
+  };
+  var DATA = [];     // resultados de búsqueda
+  var SELECC = {};   // { upc: { google: Set(idx), cva: Set(idx) } }
+
+  function setEstado(h){ document.getElementById('estado').innerHTML = h; }
+  function setEstadoSubir(h){ document.getElementById('estadoSubir').innerHTML = h; }
+  function setCapInfo(h){ document.getElementById('capInfo').innerHTML = h; }
+
+  function rowHtml(n, d){
+    d = d || {};
+    return '<tr>'
+      + '<td class="num">'+n+'</td>'
+      + '<td><input class="upc" value="'+esc(d.upc||'')+'" placeholder="UPC *"></td>'
+      + '<td><input class="categoria" value="'+esc(d.categoria||'')+'" placeholder="Categoría"></td>'
+      + '<td><input class="marca" value="'+esc(d.marca||'')+'" placeholder="Marca"></td>'
+      + '<td><input class="nombre" value="'+esc(d.nombre||'')+'" placeholder="Nombre"></td>'
+      + '<td><input class="modelo" value="'+esc(d.modelo||'')+'" placeholder="Modelo"></td>'
+      + '<td><input class="color" value="'+esc(d.color||'')+'" placeholder="Color"></td>'
+      + '<td><input class="skuPegado" value="'+esc(d.sku_pegado||'')+'" placeholder="SKU"></td>'
+      + '<td><input class="clave" value="'+esc(d.clave_cva||'')+'" placeholder="Clave CVA *"></td>'
+      + '<td class="del"><button class="delbtn" onclick="delRow(this)" title="Quitar">×</button></td>'
+      + '</tr>';
+  }
+  function renumber(){
+    var rows = document.querySelectorAll('#capBody tr');
+    rows.forEach(function(tr,i){ tr.querySelector('td.num').textContent = (i+1); });
+    var validas = readTable().length;
+    setCapInfo(rows.length+' filas · '+validas+' válidas (UPC y Clave CVA)');
+  }
+  function addRows(k, datos){
+    var body = document.getElementById('capBody');
+    var start = body.children.length;
+    var html = '';
+    for (var i=0;i<k;i++){ html += rowHtml(start+i+1, datos && datos[i]); }
+    body.insertAdjacentHTML('beforeend', html);
+    renumber();
+  }
+  function delRow(btn){
+    var tr = btn.closest('tr');
+    tr.parentNode.removeChild(tr);
+    if (document.querySelectorAll('#capBody tr').length === 0) addRows(1);
+    renumber();
+  }
+  function clearRows(){
+    document.getElementById('capBody').innerHTML = '';
+    addRows(IMG_CFG.FILAS_DEFAULT);
+  }
+  function readTable(){
+    var out = [];
+    document.querySelectorAll('#capBody tr').forEach(function(tr){
+      var upc   = tr.querySelector('input.upc').value.trim();
+      var clave = tr.querySelector('input.clave').value.trim();
+      if (!upc || !clave) return;
+      out.push({
+        upc: upc,
+        clave_cva: clave,
+        categoria:  tr.querySelector('input.categoria').value.trim(),
+        marca:      tr.querySelector('input.marca').value.trim(),
+        nombre:     tr.querySelector('input.nombre').value.trim(),
+        modelo:     tr.querySelector('input.modelo').value.trim(),
+        color:      tr.querySelector('input.color').value.trim(),
+        sku_pegado: tr.querySelector('input.skuPegado').value.trim()
+      });
+    });
+    return out;
+  }
+  function readTableRaw(){
+    var out = [];
+    document.querySelectorAll('#capBody tr').forEach(function(tr){
+      out.push({
+        upc:        tr.querySelector('input.upc').value.trim(),
+        clave_cva:  tr.querySelector('input.clave').value.trim(),
+        categoria:  tr.querySelector('input.categoria').value.trim(),
+        marca:      tr.querySelector('input.marca').value.trim(),
+        nombre:     tr.querySelector('input.nombre').value.trim(),
+        modelo:     tr.querySelector('input.modelo').value.trim(),
+        color:      tr.querySelector('input.color').value.trim(),
+        sku_pegado: tr.querySelector('input.skuPegado').value.trim()
+      });
+    });
+    return out;
+  }
+  function markRequired(){
+    document.querySelectorAll('#capBody tr').forEach(function(tr){
+      var u = tr.querySelector('input.upc'), c = tr.querySelector('input.clave');
+      var uVal = u.value.trim(), cVal = c.value.trim();
+      // Marcar solo cuando uno de los dos está, pero el otro falta
+      if (uVal && !cVal) c.classList.add('req-empty'); else c.classList.remove('req-empty');
+      if (cVal && !uVal) u.classList.add('req-empty'); else u.classList.remove('req-empty');
+    });
+  }
+
+  // Pegado inteligente: tabuladores o múltiples celdas
+  function handlePaste(e){
+    var text = (e.clipboardData || window.clipboardData).getData('text');
+    if (!text || (text.indexOf('\t') < 0 && text.indexOf('\n') < 0 && text.indexOf('\r') < 0)) return;
+    e.preventDefault();
+    var filas = text.replace(/\r\n/g,'\n').replace(/\r/g,'\n').split('\n')
+                    .map(function(l){return l.split('\t');}).filter(function(l){return l.join('').trim();});
+    var inp = e.target;
+    var tr0 = inp.closest('tr');
+    var trs = Array.prototype.slice.call(document.querySelectorAll('#capBody tr'));
+    var startRow = trs.indexOf(tr0);
+    if (startRow < 0) startRow = 0;
+    // Determinar columna de inicio basada en clase del input
+    var clases = ['upc','categoria','marca','nombre','modelo','color','skuPegado','clave'];
+    var startCol = clases.indexOf(inp.className.replace(/req-empty/g,'').trim());
+    if (startCol < 0) startCol = 0;
+    var nec = startRow + filas.length;
+    var act = document.querySelectorAll('#capBody tr').length;
+    if (nec > act) addRows(nec - act);
+    trs = Array.prototype.slice.call(document.querySelectorAll('#capBody tr'));
+    filas.forEach(function(celdas, ri){
+      var tr = trs[startRow + ri];
+      if (!tr) return;
+      celdas.forEach(function(val, ci){
+        var col = startCol + ci;
+        if (col >= clases.length) return;
+        var input = tr.querySelector('input.' + clases[col]);
+        if (input) input.value = val.trim();
+      });
+    });
+    renumber(); markRequired();
+  }
+
+  window.addEventListener('load', function(){
+    document.getElementById('capBody').addEventListener('paste', function(e){
+      if (e.target && e.target.tagName === 'INPUT') handlePaste(e);
+    });
+    document.getElementById('capBody').addEventListener('input', function(e){
+      if (e.target && e.target.tagName === 'INPUT') { markRequired(); renumber(); }
+    });
+    runS('cargarCapturaImagenes').then(function(r){
+      if (r && r.ok){
+        IMG_CFG.FILAS_DEFAULT = r.filas_default || 10;
+        var filas = r.filas || [];
+        document.getElementById('capBody').innerHTML = '';
+        if (filas.length > 0){
+          addRows(filas.length, filas);
+          if (filas.length < IMG_CFG.FILAS_DEFAULT) addRows(IMG_CFG.FILAS_DEFAULT - filas.length);
+        } else { addRows(IMG_CFG.FILAS_DEFAULT); }
+        markRequired();
+      } else {
+        document.getElementById('capBody').innerHTML=''; addRows(10);
+      }
+    }).catch(function(){ document.getElementById('capBody').innerHTML=''; addRows(10); });
+    document.getElementById('minTxt').textContent = IMG_CFG.MIN_PX + '×' + IMG_CFG.MIN_PX;
+  });
+
+  function cambiarMin(){
+    var val = prompt('Filtro mínimo de píxeles (ancho y alto en Google). Pon 0 para no filtrar.', String(IMG_CFG.MIN_PX));
+    if (val === null) return;
+    var n = parseInt(val, 10);
+    if (isNaN(n) || n < 0) return;
+    IMG_CFG.MIN_PX = n;
+    document.getElementById('minTxt').textContent = n === 0 ? 'sin filtro' : (n + '×' + n);
+  }
+
+  // ── Modal de validación ──
+  function mostrarModalInconsistencias(incons, alContinuar){
+    var html = '<div class="modal-back" id="modalInc">'
+      + '<div class="modal">'
+      +   '<div class="modal-head">'
+      +     '<div class="modal-title">⚠ Inconsistencias contra SKU_INVENTARIO</div>'
+      +     '<div class="modal-sub">'+incons.length+' fila(s) tienen un UPC o Clave CVA que NO coincide con lo registrado en SKU_INVENTARIO.</div>'
+      +   '</div>'
+      +   '<div class="modal-body"><ul>'
+      +     incons.map(function(x){
+              return '<li>Fila <strong>'+x.fila+'</strong> · UPC <strong>'+esc(x.upc)+'</strong> · Clave <strong>'+esc(x.clave_capturada)+'</strong> — '+esc(x.mensaje)+'</li>';
+            }).join('')
+      +   '</ul></div>'
+      +   '<div class="modal-foot">'
+      +     '<button class="btn btn-ghost" onclick="cerrarModal()">Cancelar</button>'
+      +     '<button class="btn btn-warn" onclick="cerrarModal();window.__cont();">Continuar de todos modos</button>'
+      +   '</div>'
+      + '</div></div>';
+    window.__cont = alContinuar;
+    document.getElementById('modalRoot').innerHTML = html;
+  }
+  function cerrarModal(){ document.getElementById('modalRoot').innerHTML = ''; }
+
+  // ── BÚSQUEDA ──
+  function buscar(){
+    var filas = readTable();
+    if (!filas.length){
+      setEstado('<span class="err">Captura al menos una fila con UPC y Clave CVA.</span>');
+      markRequired();
+      return;
+    }
+    document.getElementById('btnBuscar').disabled = true;
+    setEstado('<span class="spinner"></span> Validando contra SKU_INVENTARIO…');
+
+    runS1('validarFilasContraInventario', filas).then(function(v){
+      if (!v || !v.ok){
+        document.getElementById('btnBuscar').disabled = false;
+        setEstado('<span class="err">Error validando: '+((v&&v.error)||'')+'</span>');
+        return;
+      }
+      if ((v.inconsistencias||[]).length > 0){
+        document.getElementById('btnBuscar').disabled = false;
+        setEstado('<span class="warn">'+v.inconsistencias.length+' inconsistencia(s). Revisa el aviso.</span>');
+        mostrarModalInconsistencias(v.inconsistencias, function(){
+          document.getElementById('btnBuscar').disabled = true;
+          ejecutarBusqueda(filas);
+        });
+        return;
+      }
+      ejecutarBusqueda(filas);
+    }).catch(function(e){
+      document.getElementById('btnBuscar').disabled = false;
+      setEstado('<span class="err">'+e+'</span>');
+    });
+  }
+
+  function ejecutarBusqueda(filas){
+    setEstado('<span class="spinner"></span> Buscando en CVA + Google… (esto puede tardar)');
+    var forzar = document.getElementById('forzar').checked;
+    runS3('buscarImagenesPorTabla', filas, forzar, IMG_CFG.MIN_PX).then(function(res){
+      document.getElementById('btnBuscar').disabled = false;
+      if (!res || !res.ok){ setEstado('<span class="err">'+((res&&res.error)||'Error')+'</span>'); return; }
+      DATA = res.resultados || [];
+      SELECC = {};
+      DATA.forEach(function(r){
+        SELECC[r.upc] = { google: new Set(), cva: new Set() };
+      });
+      var totalCva = DATA.reduce(function(a,r){return a + (r.cva||[]).length;}, 0);
+      var totalGo  = DATA.reduce(function(a,r){return a + (r.google||[]).length;}, 0);
+      var saltMsg = res.saltadas ? ' ('+res.saltadas+' UPC saltados, ya tenían imágenes)' : '';
+      setEstado('<span class="ok">Listo:</span> '+DATA.length+' UPC · '+totalCva+' de CVA · '+totalGo+' de Google'+saltMsg);
+      renderGaleria();
+    }).catch(function(e){
+      document.getElementById('btnBuscar').disabled = false;
+      setEstado('<span class="err">'+e+'</span>');
+    });
+  }
+
+  function renderGaleria(){
+    var g = document.getElementById('galeria');
+    if (!DATA.length){
+      g.innerHTML = ''; document.getElementById('barSubir').style.display='none'; return;
+    }
+    g.innerHTML = DATA.map(function(r){
+      var head =
+        '<div class="grupo-head">'
+        +  '<div>'
+        +    '<div class="grupo-upc">'+esc(r.upc)+'  <span style="color:var(--text-3);font-size:12px">· '+esc(r.clave_cva)+'</span></div>'
+        +    '<div class="grupo-meta">'
+        +      ([r.marca, r.nombre, r.modelo].filter(function(x){return x;}).join(' · ') || 'sin metadatos')
+        +    '</div>'
+        +  '</div>'
+        +  '<div style="font-size:10px;color:var(--text-3);letter-spacing:1px;text-transform:uppercase">'
+        +    (r.aviso_cva ? '<span class="warn">'+esc(r.aviso_cva)+'</span> · ' : '')
+        +    (r.aviso_google ? '<span class="warn">'+esc(r.aviso_google)+'</span>' : '')
+        +  '</div>'
+        +'</div>';
+      var rowCva = (r.cva||[]).length
+        ? '<div class="fila-label"><span class="badge cva">CVA</span>Oficiales de CVA — clic para incluir</div>'
+          + '<div class="fila-imgs">'
+          + (r.cva||[]).map(function(url, i){
+              return '<div class="img-card cva" data-upc="'+esc(r.upc)+'" data-tipo="cva" data-idx="'+i+'" onclick="toggleSel(this)">'
+                +    '<img src="'+esc(url)+'" alt="" onload="leerPxCva(this)">'
+                +    '<div class="origen">CVA</div>'
+                +    '<div class="px"></div>'
+                +  '</div>';
+            }).join('')
+          + '</div>'
+        : '';
+      var rowGo = (r.google||[]).length
+        ? '<div class="fila-label"><span class="badge google">GOOGLE</span>Resultados de búsqueda — clic para incluir</div>'
+          + '<div class="fila-imgs">'
+          + (r.google||[]).map(function(im, i){
+              var sel = (SELECC[r.upc] && SELECC[r.upc].google.has(i)) ? ' selected' : '';
+              var px = (im.w && im.h) ? (im.w + '×' + im.h) : '';
+              var bajaRes = (im.w && im.h && (im.w < 600 || im.h < 600))
+                ? '<div style="position:absolute; top:6px; left:6px; background:rgba(229,115,115,0.9); color:#fff; font-size:9px; letter-spacing:1px; padding:2px 6px; border-radius:6px; font-weight:600;">BAJA RES</div>'
+                : '';
+              return '<div class="img-card'+sel+'" data-upc="'+esc(r.upc)+'" data-tipo="google" data-idx="'+i+'" onclick="toggleSel(this)" style="position:relative;">'
+                +    '<img src="'+esc(im.url)+'" alt="">'
+                +    bajaRes
+                +    (px ? '<div class="px">'+px+'</div>' : '')
+                +  '</div>';
+            }).join('')
+          + '</div>'
+        : '';
+      return '<div class="grupo">' + head + rowCva + rowGo + '</div>';
+    }).join('');
+    pintarSecuencias();
+    document.getElementById('barSubir').style.display = 'flex';
+    // Cubrir caso de imágenes CVA en caché (onload no se dispara)
+    document.querySelectorAll('.img-card.cva img').forEach(function (img) {
+      if (img.complete && img.naturalWidth) window.leerPxCva(img);
+    });
+  }
+
+  function toggleSel(div){
+    var upc = div.getAttribute('data-upc');
+    var tipo = div.getAttribute('data-tipo');
+    var idx = parseInt(div.getAttribute('data-idx'), 10);
+    if (!SELECC[upc]) SELECC[upc] = { google: new Set(), cva: new Set() };
+    if (SELECC[upc][tipo].has(idx)) SELECC[upc][tipo].delete(idx);
+    else SELECC[upc][tipo].add(idx);
+    div.classList.toggle('selected');
+    pintarSecuencias();
+  }
+  function pintarSecuencias(){
+    // Renumera los badges de secuencia v1,v2,v3 en orden: primero CVA seleccionadas, luego Google
+    document.querySelectorAll('.img-card .seq').forEach(function(s){ s.parentNode.removeChild(s); });
+    DATA.forEach(function(r){
+      var seleccCva    = Array.from((SELECC[r.upc]||{cva:new Set()}).cva).sort(function(a,b){return a-b;});
+      var seleccGoogle = Array.from((SELECC[r.upc]||{google:new Set()}).google).sort(function(a,b){return a-b;});
+      var n = 0;
+      seleccCva.forEach(function(idx){
+        n++;
+        var div = document.querySelector('.img-card[data-upc="'+cssEsc(r.upc)+'"][data-tipo="cva"][data-idx="'+idx+'"]');
+        if (div) div.insertAdjacentHTML('beforeend', '<div class="seq">v'+n+'</div>');
+      });
+      seleccGoogle.forEach(function(idx){
+        n++;
+        var div = document.querySelector('.img-card[data-upc="'+cssEsc(r.upc)+'"][data-tipo="google"][data-idx="'+idx+'"]');
+        if (div) div.insertAdjacentHTML('beforeend', '<div class="seq">v'+n+'</div>');
+      });
+    });
+  }
+
+  // ── PROCESAMIENTO Canvas 1000×1000 ──
+  // Regla: el producto SIEMPRE ocupa la misma proporción del lienzo (80%),
+  // centrado, con marco blanco uniforme (~100px por lado). Sin importar el
+  // tamaño de origen: se recorta el fondo, se escala al área objetivo y se
+  // centra. La nitidez se compensa con sharpen dinámico según el upscale.
+  var TARGET_SIZE = 1000, TARGET_CONTENT_PCT = 0.80, BG_TOLERANCIA = 240, JPEG_QUALITY = 0.95;
+  function cargarImagen(url){
+    return new Promise(function(resolve, reject){
+      var img = new Image(); img.crossOrigin = 'anonymous';
+      img.onload  = function(){ resolve(img); };
+      img.onerror = function(){
+        var img2 = new Image();
+        img2.onload = function(){ resolve(img2); };
+        img2.onerror = function(){ reject(new Error('No se pudo cargar la imagen')); };
+        img2.src = url;
+      };
+      img.src = url;
+    });
+  }
+  function recortarFondoBlanco(canvas){
+    var ctx = canvas.getContext('2d'); var w = canvas.width, h = canvas.height;
+    var data; try { data = ctx.getImageData(0, 0, w, h).data; } catch(e) { return canvas; }
+    var minX = w, minY = h, maxX = -1, maxY = -1;
+    for (var y = 0; y < h; y++) {
+      for (var x = 0; x < w; x++) {
+        var i = (y * w + x) * 4;
+        if (data[i+3] < 250 || data[i] < BG_TOLERANCIA || data[i+1] < BG_TOLERANCIA || data[i+2] < BG_TOLERANCIA) {
+          if (x < minX) minX = x; if (x > maxX) maxX = x;
+          if (y < minY) minY = y; if (y > maxY) maxY = y;
+        }
+      }
+    }
+    if (maxX < 0) return canvas;
+    var cw = maxX - minX + 1, ch = maxY - minY + 1;
+    if (cw === w && ch === h) return canvas;
+    var out = document.createElement('canvas'); out.width = cw; out.height = ch;
+    out.getContext('2d').drawImage(canvas, minX, minY, cw, ch, 0, 0, cw, ch);
+    return out;
+  }
+  // Procesa una imagen a 1000×1000 blanco. Primero intenta canvas local.
+  // Si falla por CORS, hace fallback a Cloudinary fetch (transformación al vuelo).
+  function procesarImagen1000(url){
+    return procesarConCanvas(url).catch(function(errCanvas){
+      // Si el canvas falló (típicamente CORS en imágenes CVA),
+      // recurrimos a Cloudinary fetch que procesa server-side.
+      console.warn('Canvas falló para', url, errCanvas);
+      return procesarConCloudinaryFetch(url);
+    });
+  }
+
+  // Pipeline original: canvas con recorte + escalado + sharpening
+  function procesarConCanvas(url){
+    return cargarImagen(url).then(function(img){
+      var c1 = document.createElement('canvas');
+      c1.width = img.naturalWidth || img.width;
+      c1.height = img.naturalHeight || img.height;
+      var ctx1 = c1.getContext('2d');
+      ctx1.fillStyle = '#ffffff'; ctx1.fillRect(0, 0, c1.width, c1.height);
+      ctx1.drawImage(img, 0, 0);
+      // PROBAR getImageData ahora: si CORS bloquea, lanza acá y caemos al fallback.
+      try { ctx1.getImageData(0, 0, 1, 1); }
+      catch (e) { throw new Error('CORS bloqueado'); }
+      var trimmed = recortarFondoBlanco(c1);
+      // REGLA DE MARCO UNIFORME: el producto SIEMPRE se escala (arriba o abajo)
+      // hasta ocupar TARGET_CONTENT_PCT del lienzo. Marco blanco idéntico en todas.
+      var avail = Math.round(TARGET_SIZE * TARGET_CONTENT_PCT);   // 800px
+      var factor = Math.min(avail / trimmed.width, avail / trimmed.height);
+      var newW = Math.max(1, Math.round(trimmed.width * factor));
+      var newH = Math.max(1, Math.round(trimmed.height * factor));
+      var redimensionada = redimensionarEscalonado(trimmed, newW, newH);
+      var c2 = document.createElement('canvas'); c2.width = TARGET_SIZE; c2.height = TARGET_SIZE;
+      var ctx2 = c2.getContext('2d');
+      ctx2.imageSmoothingEnabled = true; ctx2.imageSmoothingQuality = 'high';
+      ctx2.fillStyle = '#ffffff'; ctx2.fillRect(0, 0, TARGET_SIZE, TARGET_SIZE);
+      ctx2.drawImage(redimensionada,
+                     Math.floor((TARGET_SIZE - newW) / 2),
+                     Math.floor((TARGET_SIZE - newH) / 2));
+      // Sharpen dinámico: entre más se agrandó, más realce para compensar
+      var sharpen = factor > 1.6 ? 0.7 : (factor > 1.15 ? 0.55 : 0.35);
+      try { aplicarUnsharpMask(c2, sharpen); } catch (e) {}
+      var dataUrl = c2.toDataURL('image/jpeg', JPEG_QUALITY);
+      return { b64: dataUrl.split(',')[1], mime: 'image/jpeg' };
+    });
+  }
+
+  // Fallback: usar Cloudinary fetch API para procesar la imagen externa.
+  // Cloudinary descarga la imagen desde su servidor (sin CORS), la procesa a
+  // 1000×1000 con fondo blanco, la devuelve via URL pública con CORS habilitado.
+  // Como Cloudinary sí envía Access-Control-Allow-Origin, el navegador puede
+  // leer los píxeles para convertirla a base64.
+  function procesarConCloudinaryFetch(urlOriginal){
+    // Cadena de transformaciones (separadas por /), MISMA regla que el canvas:
+    //  1) e_trim:10              → recorta el fondo blanco alrededor del producto
+    //  2) c_pad 800×800          → escala el producto al área de contenido (80%)
+    //  3) c_lpad 1000×1000       → agrega el marco blanco uniforme (100px por lado)
+    //  4) e_sharpen:70           → realce de nitidez server-side
+    //  q_auto:best               → mejor calidad de compresión
+    var inner = Math.round(TARGET_SIZE * TARGET_CONTENT_PCT);  // 800
+    var transformacion = 'e_trim:10'
+      + '/c_pad,w_' + inner + ',h_' + inner + ',b_white'
+      + '/c_lpad,w_' + TARGET_SIZE + ',h_' + TARGET_SIZE + ',b_white'
+      + '/e_sharpen:70,q_auto:best,f_jpg';
+    var urlEnc = encodeURIComponent(urlOriginal);
+    var urlCloudinary = 'https://res.cloudinary.com/' + IMG_CFG.CLOUDINARY_CLOUD
+      + '/image/fetch/' + transformacion + '/' + urlEnc;
+    // Descargar el JPEG ya procesado TAL CUAL (sin re-comprimir por canvas).
+    // Cloudinary manda CORS abierto, así que fetch funciona desde el iframe.
+    return fetch(urlCloudinary).then(function(resp){
+      if (!resp.ok) throw new Error('Cloudinary fetch HTTP ' + resp.status);
+      return resp.blob();
+    }).then(function(blob){
+      return new Promise(function(resolve, reject){
+        var fr = new FileReader();
+        fr.onload = function(){
+          var s = fr.result; var i = s.indexOf(',');
+          resolve({ b64: i >= 0 ? s.substr(i + 1) : s, mime: 'image/jpeg' });
+        };
+        fr.onerror = function(){ reject(new Error('No pude leer el blob de Cloudinary')); };
+        fr.readAsDataURL(blob);
+      });
+    });
+  }
+
+  // Resize en pasos al 50% / 200% para evitar aliasing de un solo draw.
+  // Solo activo cuando el cambio de escala es significativo.
+  function redimensionarEscalonado(srcCanvas, targetW, targetH) {
+    var sw = srcCanvas.width, sh = srcCanvas.height;
+    if (sw === targetW && sh === targetH) return srcCanvas;
+    var ratio = Math.max(targetW / sw, targetH / sh);
+    if (ratio > 0.5 && ratio < 2) {
+      // Cambio chico → un solo paso es suficiente y rápido
+      var c = document.createElement('canvas'); c.width = targetW; c.height = targetH;
+      var ctx = c.getContext('2d');
+      ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high';
+      ctx.drawImage(srcCanvas, 0, 0, targetW, targetH);
+      return c;
+    }
+    // Cambio grande → pasos de 50% (downscale) o 200% (upscale) hasta acercarse
+    var cur = srcCanvas;
+    if (ratio < 1) {
+      // Achicando: divide a la mitad cada paso hasta acercar
+      while (cur.width / 2 > targetW && cur.height / 2 > targetH) {
+        var c1 = document.createElement('canvas');
+        c1.width = Math.floor(cur.width / 2); c1.height = Math.floor(cur.height / 2);
+        var ctx1 = c1.getContext('2d');
+        ctx1.imageSmoothingEnabled = true; ctx1.imageSmoothingQuality = 'high';
+        ctx1.drawImage(cur, 0, 0, c1.width, c1.height);
+        cur = c1;
+      }
+    } else {
+      // Agrandando: duplica cada paso hasta acercar
+      while (cur.width * 2 < targetW && cur.height * 2 < targetH) {
+        var c2 = document.createElement('canvas');
+        c2.width = cur.width * 2; c2.height = cur.height * 2;
+        var ctx2 = c2.getContext('2d');
+        ctx2.imageSmoothingEnabled = true; ctx2.imageSmoothingQuality = 'high';
+        ctx2.drawImage(cur, 0, 0, c2.width, c2.height);
+        cur = c2;
+      }
+    }
+    // Paso final exacto
+    var cFinal = document.createElement('canvas');
+    cFinal.width = targetW; cFinal.height = targetH;
+    var ctxF = cFinal.getContext('2d');
+    ctxF.imageSmoothingEnabled = true; ctxF.imageSmoothingQuality = 'high';
+    ctxF.drawImage(cur, 0, 0, targetW, targetH);
+    return cFinal;
+  }
+
+  // Unsharp mask muy suave: resta una versión borrosa a la original para
+  // realzar bordes. Cantidad 0.3-0.5 = casi imperceptible pero rescata nitidez.
+  function aplicarUnsharpMask(canvas, cantidad) {
+    cantidad = cantidad || 0.4;
+    var w = canvas.width, h = canvas.height;
+    var ctx = canvas.getContext('2d');
+    var original;
+    try { original = ctx.getImageData(0, 0, w, h); }
+    catch (e) { return; } // CORS bloquea getImageData
+    // Generar versión borrosa con filtro CSS aplicado a un canvas auxiliar
+    var blurCanvas = document.createElement('canvas');
+    blurCanvas.width = w; blurCanvas.height = h;
+    var bctx = blurCanvas.getContext('2d');
+    bctx.filter = 'blur(1.2px)';
+    bctx.drawImage(canvas, 0, 0);
+    bctx.filter = 'none';
+    var blurData = bctx.getImageData(0, 0, w, h).data;
+    var d = original.data;
+    // Para cada píxel: pixel + cantidad * (pixel - pixel_borroso) = más nítido
+    for (var i = 0; i < d.length; i += 4) {
+      d[i]   = Math.max(0, Math.min(255, d[i]   + cantidad * (d[i]   - blurData[i])));
+      d[i+1] = Math.max(0, Math.min(255, d[i+1] + cantidad * (d[i+1] - blurData[i+1])));
+      d[i+2] = Math.max(0, Math.min(255, d[i+2] + cantidad * (d[i+2] - blurData[i+2])));
+      // alpha intacto
+    }
+    ctx.putImageData(original, 0, 0);
+  }
+
+  // ── SUBIDA por lotes (evita el timeout de 6 min de Apps Script) ──
+  var LOTE_TAM = 10; // 10 UPC por llamada al backend
+
+  function subir(){
+    // Construir paquetes en el orden: CVA primero, luego Google
+    var paquetes = [];
+    var totalImgs = 0;
+    DATA.forEach(function(r){
+      var sel = SELECC[r.upc] || { cva: new Set(), google: new Set() };
+      var seqCva    = Array.from(sel.cva).sort(function(a,b){return a-b;});
+      var seqGoogle = Array.from(sel.google).sort(function(a,b){return a-b;});
+      if (!seqCva.length && !seqGoogle.length) return;
+      var items = [];
+      seqCva.forEach(function(idx){ items.push({ url: r.cva[idx], origen: 'cva' }); });
+      seqGoogle.forEach(function(idx){ items.push({ url: r.google[idx].url, origen: 'google' }); });
+      paquetes.push({
+        upc: r.upc, clave_cva: r.clave_cva,
+        categoria: r.categoria, marca: r.marca, nombre: r.nombre, modelo: r.modelo,
+        items: items
+      });
+      totalImgs += items.length;
+    });
+    if (!paquetes.length){
+      setEstadoSubir('<span class="err">No has seleccionado ninguna imagen.</span>'); return;
+    }
+    document.getElementById('btnSubir').disabled = true;
+    setEstadoSubir('<span class="spinner"></span> Procesando '+totalImgs+' imágenes 1000×1000… (0/'+totalImgs+')');
+
+    // Fase 1: procesar TODAS las imágenes a 1000×1000 en el navegador
+    var promesa = Promise.resolve();
+    var procesados = 0;
+    var paraServidor = [];
+    paquetes.forEach(function(p){
+      p.items.forEach(function(it, i){
+        promesa = promesa.then(function(){
+          return procesarImagen1000(it.url).then(function(out){
+            p.items[i].b64 = out.b64; p.items[i].mime = out.mime;
+            procesados++;
+            setEstadoSubir('<span class="spinner"></span> Procesando 1000×1000… ('+procesados+'/'+totalImgs+')');
+          }).catch(function(err){
+            // Si AMBAS rutas del navegador fallaron (canvas Y Cloudinary fetch),
+            // marcar para que el SERVIDOR (Apps Script, sin CORS) la procese.
+            p.items[i].server = true;
+            paraServidor.push({ upc: p.upc, v: i+1, url: it.url, origen: it.origen, error: String(err) });
+            procesados++;
+            setEstadoSubir('<span class="spinner"></span> Procesando 1000×1000… ('+procesados+'/'+totalImgs+', '+paraServidor.length+' irán vía servidor)');
+          });
+        });
+      });
+    });
+
+    // Fase 2: subir en LOTES al backend (Drive + Cloudinary)
+    promesa.then(function(){
+      if (paraServidor.length > 0) {
+        console.warn('Imágenes que se procesarán server-side:', paraServidor);
+      }
+      return subirEnLotes(paquetes, []);
+    }).catch(function(e){
+      document.getElementById('btnSubir').disabled = false;
+      setEstadoSubir('<span class="err">'+e+'</span>');
+    });
+  }
+
+  // Sube los paquetes al backend en lotes secuenciales. Acumula el resumen total.
+  function subirEnLotes(paquetes, fallidosPreviosOpt){
+    var fallidosPrevios = fallidosPreviosOpt || [];
+    var lotes = [];
+    for (var i = 0; i < paquetes.length; i += LOTE_TAM) {
+      lotes.push(paquetes.slice(i, i + LOTE_TAM));
+    }
+    var totalUpc = paquetes.length;
+    var resumenTotal = [];
+    var limpiadasTotal = 0;
+    var loteIdx = 0;
+    var upcsProcesados = 0;
+
+    function procesarSiguienteLote(){
+      if (loteIdx >= lotes.length) {
+        // Terminamos todos los lotes
+        document.getElementById('btnSubir').disabled = false;
+        var totalOk = 0, totalCloud = 0, det = [];
+        resumenTotal.forEach(function(r){
+          totalOk += r.subidas; totalCloud += (r.cloudinary_ok || 0);
+          det.push(r.upc + ': ' + r.subidas + ' ok' + (r.fallos.length ? (', ' + r.fallos.length + ' fallo') : ''));
+        });
+        var extra = limpiadasTotal ? ' ' + limpiadasTotal + ' fila(s) archivadas y limpiadas.' : '';
+        var falloMsg = (fallidosPrevios && fallidosPrevios.length)
+          ? ' <span class="err">⚠ ' + fallidosPrevios.length + ' imagen(es) descartada(s) por no poder procesarse a 1000×1000 (CORS u otro).</span>'
+          : '';
+        setEstadoSubir('<span class="ok">Subidas ' + totalOk + ' imagen(es) a Drive (1000×1000).</span> '
+          + totalCloud + '/' + totalOk + ' a Cloudinary.' + extra + falloMsg + ' ' + esc(det.join(' · ')));
+        return;
+      }
+      var lote = lotes[loteIdx];
+      loteIdx++;
+      setEstadoSubir('<span class="spinner"></span> Subiendo a Drive + Cloudinary… '
+        + 'Lote ' + loteIdx + ' de ' + lotes.length + ' (' + upcsProcesados + '/' + totalUpc + ' UPC)');
+      return runS1('subirSeleccionadasADrive', lote).then(function(res){
+        if (!res || !res.ok){
+          document.getElementById('btnSubir').disabled = false;
+          setEstadoSubir('<span class="err">Falló el lote ' + loteIdx + ': '
+            + ((res && res.error) || 'desconocido') + '. Los lotes previos sí se guardaron.</span>');
+          return;
+        }
+        resumenTotal = resumenTotal.concat(res.resumen || []);
+        limpiadasTotal += (res.limpiadas || 0);
+        upcsProcesados += lote.length;
+        procesarSiguienteLote();
+      }).catch(function(e){
+        document.getElementById('btnSubir').disabled = false;
+        setEstadoSubir('<span class="err">Falló el lote ' + loteIdx + ': ' + e
+          + '. Los lotes previos sí se guardaron.</span>');
+      });
+    }
+
+    procesarSiguienteLote();
+  }
+
+  // ── google.script.run helpers ──
+  function runS(fn){ return new Promise(function(res,rej){ google.script.run.withSuccessHandler(res).withFailureHandler(function(e){rej(e&&e.message?e.message:e);})[fn](); }); }
+  function runS1(fn,a){ return new Promise(function(res,rej){ google.script.run.withSuccessHandler(res).withFailureHandler(function(e){rej(e&&e.message?e.message:e);})[fn](a); }); }
+  function runS3(fn,a,b,c){ return new Promise(function(res,rej){ google.script.run.withSuccessHandler(res).withFailureHandler(function(e){rej(e&&e.message?e.message:e);})[fn](a,b,c); }); }
+
+  function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];}); }
+  function cssEsc(s){ return String(s).replace(/"/g,'\\"'); }
+
+  // Lee las dimensiones reales de una imagen CVA al terminar de cargar
+  // y las pinta en el badge .px de su card.
+  window.leerPxCva = function(img) {
+    try {
+      var w = img.naturalWidth || 0;
+      var h = img.naturalHeight || 0;
+      var card = img.closest('.img-card');
+      if (!card) return;
+      var px = card.querySelector('.px');
+      if (px && w && h) px.textContent = w + '×' + h;
+    } catch (e) {}
+  };
+</script>
