@@ -31,11 +31,6 @@ function onOpen() {
   subSync
     .addItem("⚡ Sync AHORA (catálogo completo)",  "ejecutarSyncDiarioAhora")
     .addItem("🔄 Refrescar SKU_INVENTARIO",        "refrescarInventarioOdoo")
-    .addItem("📈 Sincronizar VENTAS CVA AHORA",    "sincronizarVentasCVAMenu")
-    .addSeparator()
-    .addItem("🔁 Odoo Sync · Estado de cola",      "verEstadoColaOdooMenu")
-    .addItem("▶ Odoo Sync · Procesar AHORA",       "procesarColaOdooAhora")
-    .addItem("🗑 Odoo Sync · Limpiar completados",  "limpiarCompletadosOdooMenu")
     .addSeparator()
     .addItem("📋 Ver Control de Sync",             "irAControlSync")
     .addItem("📊 Ver Análisis de Movimiento",      "irAAnalisis");
@@ -67,6 +62,8 @@ function onOpen() {
     .addItem("🛑 Cancelar enriquecimiento async",  "cancelarEnriquecimientoAsync")
     .addItem("🚀 Re-disparar enriquecimiento async", "reDispararEnriquecimientoAsync")
     .addSeparator()
+    .addItem("🧽 LIMPIEZA del Sheet (con respaldo)", "limpiezaSheetMenu")
+    .addItem("🧹 Adelgazar HISTORIAL (quitar descripción/marca)", "adelgazarHistorialMenu")
     .addItem("⏹ Resetear checkpoint sync",         "resetearSyncManual")
     .addItem("🗑 Limpiar SYNC_CVA",                "resetearYLimpiar")
     .addItem("❌ Eliminar TODOS los triggers",      "eliminarTriggers_")
@@ -395,44 +392,13 @@ function _headers_(sh, row, headers, bg) {
 }
 
 function instalarTriggers_() {
-  // Eliminar triggers existentes de ESTE script
-  ScriptApp.getProjectTriggers().forEach(t => ScriptApp.deleteTrigger(t));
-
-  // onOpen para el menú
-  ScriptApp.newTrigger("onOpen")
-    .forSpreadsheet(SpreadsheetApp.getActiveSpreadsheet())
-    .onOpen().create();
-
-  // Sync via Web App cada 30 min (antes 10 — bajado para no quemar la
-  // cuota diaria de UrlFetch de Google y para reducir reintentos en errores)
-  ScriptApp.newTrigger("triggerSyncViaWebApp")
-    .timeBased().everyMinutes(30).create();
-
-  // Análisis de ventas cada 30 min
-  ScriptApp.newTrigger("triggerAnalisis")
-    .timeBased().everyMinutes(30).create();
-
-  // Recalcular KPIs cada hora
-  ScriptApp.newTrigger("triggerKPIs")
-    .timeBased().everyHours(1).create();
-
-  // Monitor de salud: revisa SYNC_LOG cada hora y avisa por email
-  // si detecta errores consecutivos o un periodo largo sin actividad exitosa.
-  ScriptApp.newTrigger("triggerMonitorSalud")
-    .timeBased().everyHours(1).create();
-
-  actualizarEstadoTriggers_();
-  Logger.log("✅ Triggers del Sheet instalados");
-
-  SpreadsheetApp.getUi().alert(
-    "✅ Triggers instalados:\n\n" +
-    "• Sync CVA: cada 30 minutos\n" +
-    "• Análisis de ventas: cada 30 minutos\n" +
-    "• KPIs: cada hora\n" +
-    "• Monitor de salud (email): cada hora\n\n" +
-    "Revisa la hoja CONTROL_SYNC para ver el estado.\n" +
-    "Las alertas por email llegan a victor.walmart.04@gmail.com."
-  );
+  // Un solo instalador para todo el proyecto: instalarTriggers() en Code.gs
+  instalarTriggers();
+  try { actualizarEstadoTriggers_(); } catch (e) {}
+  try {
+    SpreadsheetApp.getUi().alert("✅ Triggers instalados:\n\n" + resumenTriggers_() +
+      "\n\nApagados: cola Odoo, ventas CVA, sync via Web App, KPIs.");
+  } catch (e) {}
 }
 
 function eliminarTriggers_() {
@@ -558,15 +524,7 @@ function ejecutarSyncDiarioAhora() {
   if (resp !== ui.Button.YES) return;
 
   try {
-    const res = UrlFetchApp.fetch(WEB_APP_URL, {
-      method: "post",
-      contentType: "text/plain",
-      payload: JSON.stringify({ action: "sync_historial" }),
-      muteHttpExceptions: true,
-      followRedirects: true,
-    });
-
-    const data = JSON.parse(res.getContentText());
+    const data = syncHistorialCVA();
     if (data.ok) {
       _registrarLogManual_("SYNC_DIARIO_MANUAL");
       ui.alert("✅ Sync diario completado\n\n" +
@@ -584,37 +542,9 @@ function ejecutarSyncDiarioAhora() {
 
 // Instala TODOS los triggers — del Sheet y del Web App
 function instalarTodosLosTriggers() {
-  const ui = SpreadsheetApp.getUi();
-
-  // 1. Triggers del Sheet (locales)
-  try {
-    instalarTriggers_();
-  } catch(e) {
-    ui.alert("❌ Error instalando triggers del Sheet: " + e.message);
-    return;
-  }
-
-  // 2. Triggers del Web App (remotos via API)
-  try {
-    const res = UrlFetchApp.fetch(WEB_APP_URL + "?action=instalar_triggers", {
-      muteHttpExceptions: true, followRedirects: true,
-    });
-    const data = JSON.parse(res.getContentText());
-    if (data.ok) {
-      ui.alert("✅ Todos los triggers instalados\n\n" +
-        "Sheet:\n" +
-        "  • triggerSyncViaWebApp — cada 10 min\n" +
-        "  • triggerAnalisis — cada 30 min\n" +
-        "  • triggerKPIs — cada hora\n\n" +
-        "Web App GAS:\n" +
-        "  • triggerSyncDiario — diario 2am\n" +
-        "  • triggerPollingPedidos — cada 15 min");
-    } else {
-      ui.alert("⚠️ Triggers del Sheet instalados, pero los del Web App fallaron:\n" + (data.error || JSON.stringify(data)));
-    }
-  } catch(e) {
-    ui.alert("⚠️ Triggers del Sheet instalados, pero no se pudo conectar al Web App:\n" + e.message);
-  }
+  // Antes instalaba los del Sheet y luego llamaba al Web App, que volvia a
+  // borrar todo. Es el mismo proyecto: un solo instalador basta.
+  instalarTriggers_();
 }
 
 function ejecutarSyncManual() {
@@ -708,24 +638,16 @@ function recalcularAnalisis(diasAtras) {
   let sh = ss.getSheetByName("ANALISIS_MOVIMIENTO");
   if (!sh) { crearHojaAnalisis_(); sh = ss.getSheetByName("ANALISIS_MOVIMIENTO"); }
 
-  // ── 1. Llamar al backend ──
+  // ── 1. Calcular (directo: antes se llamaba al propio Web App por HTTP) ──
   let data;
   try {
-    const res = UrlFetchApp.fetch(WEB_APP_URL + "?action=analisis_movimiento&dias_atras=" + diasAtras, {
-      muteHttpExceptions: true, followRedirects: true,
-    });
-    const code = res.getResponseCode();
-    if (code !== 200) {
-      Logger.log("❌ recalcularAnalisis: HTTP " + code);
-      return { ok: false, error: "HTTP " + code };
-    }
-    data = JSON.parse(res.getContentText());
-    if (!data.ok) {
-      Logger.log("❌ recalcularAnalisis backend: " + (data.error || "error desconocido"));
-      return { ok: false, error: data.error };
+    data = getAnalisisMovimiento({ dias_atras: diasAtras });
+    if (!data || !data.ok) {
+      Logger.log("❌ recalcularAnalisis: " + ((data && data.error) || "error desconocido"));
+      return { ok: false, error: data && data.error };
     }
   } catch(e) {
-    Logger.log("❌ recalcularAnalisis fetch: " + e.message);
+    Logger.log("❌ recalcularAnalisis: " + e.message);
     return { ok: false, error: e.message };
   }
 
@@ -4867,8 +4789,7 @@ function cancelarEnriquecimientoAsync() {
 
   ui.alert("✅ Cancelado",
     aEliminar.length + " trigger(s) de enriquecimiento eliminados.\n\n" +
-    "Los triggers de sync (cada hora), polling pedidos (15 min),\n" +
-    "ventas CVA y Odoo sync NO se tocaron — siguen activos.",
+    "Los triggers del sistema NO se tocaron:\n" + resumenTriggers_(),
     ui.ButtonSet.OK);
 }
 
@@ -5024,4 +4945,212 @@ function _cvaFetchLocal_(path, params) {
     throw new Error("CVA HTTP " + code + ": " + res.getContentText().substring(0, 200));
   }
   return JSON.parse(res.getContentText());
+}
+
+// ════════════════════════════════════════════════════════════════
+//  Adelgazar HISTORIAL_STOCK — borra descripcion y marca (cols C:D)
+//  de todas las filas. El analisis no las usa (las toma de SYNC_CVA) y
+//  eran ~60% del peso del archivo. Las filas nuevas ya no las traen.
+// ════════════════════════════════════════════════════════════════
+function adelgazarHistorialMenu() {
+  const ui = SpreadsheetApp.getUi();
+  const sh = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("HISTORIAL_STOCK");
+  if (!sh || sh.getLastRow() < 2) { ui.alert("HISTORIAL_STOCK vacio."); return; }
+  const filas = sh.getLastRow() - 1;
+  const r = ui.alert("🧹 Adelgazar HISTORIAL_STOCK",
+    "Se borran descripcion y marca de " + filas.toLocaleString("es-MX") +
+    " filas. Fechas, claves, precios y stock no se tocan.\n\n¿Continuar?",
+    ui.ButtonSet.YES_NO);
+  if (r !== ui.Button.YES) return;
+  sh.getRange(2, 3, filas, 2).clearContent();
+  logSheet_("SYNC_LOG", ["HISTORIAL_ADELGAZADO", filas, "cols C:D"]);
+  ui.alert("✅ Listo: " + filas.toLocaleString("es-MX") + " filas sin descripcion/marca.");
+}
+
+
+// ════════════════════════════════════════════════════════════════
+//  LIMPIEZA DEL SHEET
+//
+//  Antes de tocar nada saca una COPIA COMPLETA del libro en Drive
+//  (una vez por dia). Luego, en orden:
+//    1. Borra hojas muertas (LIMPIEZA_CFG.BORRAR_HOJAS).
+//    2. SYNC_LOG: deja solo las ultimas LIMPIEZA_CFG.SYNC_LOG_CONSERVAR filas.
+//    3. SYNC_CVA: quita claves repetidas (gana la mas reciente) y pone en 0
+//       el stock de lo que CVA ya no manda hace mas de N dias (se agoto).
+//    4. HISTORIAL_STOCK: quita filas repetidas del mismo dia y clave (dias
+//       que corrieron dos veces) y borra descripcion/marca.
+//    5. Avisa si VENTAS_ODOO tiene celdas con #REF! (no las toca).
+//  Las hojas con formulas (SKU_INVENTARIO, etc.) NO se tocan.
+//  Se puede volver a correr: cada paso deja todo igual si ya esta limpio.
+// ════════════════════════════════════════════════════════════════
+const LIMPIEZA_CFG = {
+  BORRAR_HOJAS: ["ODOO_SYNC_QUEUE", "_ODOO_SYNC_CACHE", "_SETUP_LOG"],
+  SYNC_LOG_CONSERVAR: 2000,
+  DIAS_SIN_VER_AGOTADO: 2,
+  LOTE_ESCRITURA: 20000,
+  MIN_SEG_PARA_HISTORIAL: 150,
+};
+
+function limpiezaSheetMenu() {
+  const ui = SpreadsheetApp.getUi();
+  const C = LIMPIEZA_CFG;
+  const r = ui.alert("🧽 Limpieza del Sheet",
+    "Primero se hace una copia completa del libro en Drive.\n\n" +
+    "Despues:\n" +
+    "• Borrar hojas: " + C.BORRAR_HOJAS.join(", ") + "\n" +
+    "• SYNC_LOG: dejar las ultimas " + C.SYNC_LOG_CONSERVAR.toLocaleString("es-MX") + " filas\n" +
+    "• SYNC_CVA: quitar repetidos y poner stock 0 a lo agotado (" + C.DIAS_SIN_VER_AGOTADO + "+ dias sin verse)\n" +
+    "• HISTORIAL_STOCK: quitar filas repetidas y borrar descripcion/marca\n" +
+    "• Revisar #REF! en VENTAS_ODOO\n\n" +
+    "Puede tardar hasta 5 minutos. ¿Continuar?", ui.ButtonSet.YES_NO);
+  if (r !== ui.Button.YES) return;
+
+  const res = limpiezaSheet_();
+  ui.alert(res.ok ? "✅ Limpieza terminada" : "⚠ Limpieza incompleta", res.lineas.join("\n"), ui.ButtonSet.OK);
+}
+
+function limpiezaSheet_() {
+  const t0 = Date.now();
+  const C  = LIMPIEZA_CFG;
+  const ss = SpreadsheetApp.getActiveSpreadsheet() || SpreadsheetApp.openById(CFG.SHEET_ID);
+  const props = PropertiesService.getScriptProperties();
+  const hoy = Utilities.formatDate(new Date(), "America/Mexico_City", "yyyy-MM-dd");
+  const L = [];
+  let ok = true;
+
+  // ── 0. Respaldo (una vez por dia) ──
+  try {
+    if (props.getProperty("LIMPIEZA_RESPALDO_FECHA") !== hoy) {
+      const copia = DriveApp.getFileById(ss.getId()).makeCopy(ss.getName() + " · RESPALDO " + hoy);
+      props.setProperty("LIMPIEZA_RESPALDO_FECHA", hoy);
+      props.setProperty("LIMPIEZA_RESPALDO_URL", copia.getUrl());
+      L.push("💾 Respaldo: " + copia.getName());
+    } else {
+      L.push("💾 Respaldo de hoy ya existe");
+    }
+  } catch (e) {
+    return { ok: false, lineas: ["❌ No se pudo crear el respaldo, NO se toco nada:", e.message] };
+  }
+
+  // ── 1. Hojas muertas ──
+  C.BORRAR_HOJAS.forEach(n => {
+    const sh = ss.getSheetByName(n);
+    if (sh) { ss.deleteSheet(sh); L.push("🗑 Hoja borrada: " + n); }
+  });
+
+  // ── 2. SYNC_LOG ──
+  try {
+    const sh = ss.getSheetByName("SYNC_LOG");
+    if (sh) {
+      const filas = sh.getLastRow() - 1;
+      const sobran = filas - C.SYNC_LOG_CONSERVAR;
+      if (sobran > 0) {
+        sh.deleteRows(2, sobran);
+        L.push("📋 SYNC_LOG: " + sobran.toLocaleString("es-MX") + " filas viejas fuera");
+      } else {
+        L.push("📋 SYNC_LOG: ya estaba corto");
+      }
+      _recortarRejilla_(sh, 10);
+    }
+  } catch (e) { ok = false; L.push("❌ SYNC_LOG: " + e.message); }
+
+  // ── 3. SYNC_CVA ──
+  try {
+    const sh = ss.getSheetByName("SYNC_CVA");
+    if (sh && sh.getLastRow() > 1) {
+      const n = sh.getLastRow() - 1;
+      const datos = sh.getRange(2, 1, n, 14).getValues();
+      const porClave = {};
+      let maxTs = 0;
+      datos.forEach(r => {
+        const k = String(r[0] || "").trim();
+        if (!k) return;
+        const ts = new Date(r[13]).getTime() || 0;
+        if (ts > maxTs) maxTs = ts;
+        if (!porClave[k] || ts >= porClave[k].ts) porClave[k] = { ts: ts, fila: r };
+      });
+      const limite = maxTs - C.DIAS_SIN_VER_AGOTADO * 86400000;
+      let agotados = 0;
+      const limpio = Object.keys(porClave).map(k => {
+        const x = porClave[k];
+        if (x.ts < limite && ((parseFloat(x.fila[6]) || 0) > 0 || (parseFloat(x.fila[7]) || 0) > 0)) {
+          x.fila[6] = 0; x.fila[7] = 0; x.fila[8] = 0; agotados++;
+        }
+        return x.fila;
+      });
+      const repetidos = n - limpio.length;
+      sh.getRange(2, 1, n, 14).clearContent();
+      if (limpio.length) sh.getRange(2, 1, limpio.length, 14).setValues(limpio);
+      _recortarRejilla_(sh, 14);
+      L.push("📦 SYNC_CVA: " + limpio.length.toLocaleString("es-MX") + " claves · " +
+             repetidos + " repetidas fuera · " + agotados + " puestas en 0 (agotadas)");
+    }
+  } catch (e) { ok = false; L.push("❌ SYNC_CVA: " + e.message); }
+
+  // ── 4. HISTORIAL_STOCK (lo mas pesado, va al final) ──
+  try {
+    const sh = ss.getSheetByName("HISTORIAL_STOCK");
+    const restan = 330 - (Date.now() - t0) / 1000;
+    if (sh && sh.getLastRow() > 1) {
+      if (restan < C.MIN_SEG_PARA_HISTORIAL) {
+        ok = false;
+        L.push("⏱ HISTORIAL_STOCK: no alcanzo el tiempo. Vuelve a correr la limpieza (lo demas ya quedo).");
+      } else {
+        const n = sh.getLastRow() - 1;
+        const cols = Math.min(sh.getLastColumn(), 10);
+        const datos = sh.getRange(2, 1, n, cols).getValues();
+        const vistos = {};
+        const limpio = [];
+        datos.forEach(r => {
+          const f = _fechaTxt_(r[0]);
+          const k = String(r[1] || "").trim();
+          if (!f || !k) return;
+          const llave = f + "|" + k;
+          if (vistos[llave]) return;
+          vistos[llave] = true;
+          r[2] = ""; r[3] = "";            // descripcion y marca fuera
+          limpio.push(r);
+        });
+        const fuera = n - limpio.length;
+        sh.getRange(2, 1, n, cols).clearContent();
+        for (let i = 0; i < limpio.length; i += C.LOTE_ESCRITURA) {
+          const trozo = limpio.slice(i, i + C.LOTE_ESCRITURA);
+          sh.getRange(2 + i, 1, trozo.length, cols).setValues(trozo);
+        }
+        _recortarRejilla_(sh, 10);
+        L.push("📈 HISTORIAL_STOCK: " + limpio.length.toLocaleString("es-MX") + " filas · " +
+               fuera.toLocaleString("es-MX") + " repetidas/vacias fuera · sin descripcion/marca");
+      }
+    }
+  } catch (e) { ok = false; L.push("❌ HISTORIAL_STOCK: " + e.message); }
+
+  // ── 5. #REF! en VENTAS_ODOO (solo aviso) ──
+  try {
+    const sh = ss.getSheetByName("VENTAS_ODOO");
+    if (sh && sh.getLastRow() > 1) {
+      const vals = sh.getDataRange().getDisplayValues();
+      const malas = [];
+      vals.forEach((fila, i) => fila.forEach((v, j) => {
+        if (String(v).indexOf("#REF!") >= 0) malas.push(sh.getRange(i + 1, j + 1).getA1Notation());
+      }));
+      L.push(malas.length ? "⚠ VENTAS_ODOO con #REF! en: " + malas.slice(0, 10).join(", ") : "✔ VENTAS_ODOO sin #REF!");
+    }
+  } catch (e) { L.push("⚠ VENTAS_ODOO: " + e.message); }
+
+  SpreadsheetApp.flush();
+  L.push("", "⏱ " + Math.round((Date.now() - t0) / 1000) + " s");
+  logSheet_("SYNC_LOG", ["LIMPIEZA", ok ? "OK" : "INCOMPLETA", L.join(" | ").substring(0, 45000)]);
+  return { ok: ok, lineas: L };
+}
+
+// Quita filas vacias sobrantes al final y columnas de mas (las celdas
+// vacias tambien cuentan para el limite de 10 millones). Solo para hojas
+// que escribe el script, nunca para hojas con formulas.
+function _recortarRejilla_(sh, colsUsadas) {
+  const ultimaFila = Math.max(sh.getLastRow(), 1);
+  const maxFilas = sh.getMaxRows();
+  if (maxFilas > ultimaFila + 50) sh.deleteRows(ultimaFila + 51, maxFilas - ultimaFila - 50);
+  const maxCols = sh.getMaxColumns();
+  const usar = Math.max(colsUsadas, sh.getLastColumn());
+  if (maxCols > usar) sh.deleteColumns(usar + 1, maxCols - usar);
 }

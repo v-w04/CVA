@@ -242,10 +242,14 @@ function routeGet_(action, p) {
     case "odoo_locations":
       return odooListarLocations();
 
+    // Las funciones de estas dos rutas no existen en el proyecto (se perdieron).
+    // Las ventas -CVA ya las junta Venta Diaria Odoo en su hoja PEDIDOS CVA.
     case "ventas_cva_historial":
+      if (typeof getVentasHistorial !== "function") return { ok: false, error: "Historial de ventas CVA no disponible: revisa la hoja PEDIDOS CVA de Venta Diaria Odoo" };
       return getVentasHistorial(p);
 
     case "ventas_cva_sync":
+      if (typeof sincronizarVentasCVA !== "function") return { ok: false, error: "Sync de ventas CVA no disponible en este proyecto" };
       return sincronizarVentasCVA(p);
 
     case "odoo_sync_estado":
@@ -464,32 +468,57 @@ function cvaPost_(path, bodyObj) {
   return JSON.parse(res.getContentText());
 }
 
-// ── TRIGGERS ─────────────────────────────────────────────────
+// ── TRIGGERS — UN SOLO INSTALADOR ─────────────────────────────
+// Antes habia dos instaladores (este y el del menu del Sheet). Los dos
+// borraban TODOS los triggers del proyecto, asi que el ultimo en correr
+// tumbaba al otro, y uno apuntaba a una funcion que no existe
+// (triggerSincronizarVentas). Ahora la lista vive aqui y solo aqui; el
+// menu y el endpoint "instalar_triggers" llaman a esta misma funcion.
+//
+// Fuera para siempre: triggerOdooSync (Odoo ya trae el stock de CVA por
+// su cuenta), triggerSincronizarVentas (no existia), triggerSyncViaWebApp
+// (duplicaba el sync), triggerKPIs (solo escribia la fecha),
+// refrescarInventarioOdoo cada 10 min (solo forzaba formulas).
+//
+// cada: "min" -> cada n minutos (1,5,10,15,30) | "hora" -> cada n horas
+//       "dia" -> diario a la hora n
+const TRIGGERS_CVA = [
+  { fn: "triggerSyncDiario",     cada: "hora", n: 1,  txt: "Sync catalogo CVA + historial del dia" },
+  { fn: "triggerPollingPedidos", cada: "min",  n: 30, txt: "Pedidos CVA pendientes" },
+  { fn: "triggerAnalisis",       cada: "dia",  n: 7,  txt: "Hoja ANALISIS_MOVIMIENTO" },
+  { fn: "triggerMonitorSalud",   cada: "dia",  n: 8,  txt: "Monitor de salud (email solo si algo critico)" },
+];
+
+function _textoFrecuencia_(t) {
+  if (t.cada === "min")  return "cada " + t.n + " min";
+  if (t.cada === "hora") return t.n === 1 ? "cada hora" : "cada " + t.n + " h";
+  return "diario " + t.n + ":00";
+}
+
+function resumenTriggers_() {
+  return TRIGGERS_CVA.map(t => "• " + t.txt + ": " + _textoFrecuencia_(t)).join("\n");
+}
+
 function instalarTriggers() {
   ScriptApp.getProjectTriggers().forEach(t => ScriptApp.deleteTrigger(t));
 
-  // Sync HISTORIAL cada hora — antes era diario a las 2am, pero el stock
-  // para Odoo lo usas todo el día y necesitas que esté fresco.
-  // CVA aguanta esta frecuencia sin problemas (es un endpoint de catálogo).
-  // Cada ejecución dura ~1-2 min y queda dentro del límite de 6 min de GAS.
-  ScriptApp.newTrigger("triggerSyncDiario")
-    .timeBased().everyHours(1).create();
+  // onOpen instalable para el menu del Sheet
+  ScriptApp.newTrigger("onOpen")
+    .forSpreadsheet(SpreadsheetApp.openById(CFG.SHEET_ID))
+    .onOpen().create();
 
-  // Polling pedidos cada 15 min
-  ScriptApp.newTrigger("triggerPollingPedidos")
-    .timeBased().everyMinutes(15).create();
+  TRIGGERS_CVA.forEach(t => {
+    const b = ScriptApp.newTrigger(t.fn).timeBased();
+    if (t.cada === "min")       b.everyMinutes(t.n);
+    else if (t.cada === "hora") b.everyHours(t.n);
+    else                        b.atHour(t.n).everyDays(1);
+    b.create();
+  });
 
-  // Sync ventas CVA cada hora — detecta ventas dropship y las guarda
-  // en VENTAS_CVA (con particionamiento automático)
-  ScriptApp.newTrigger("triggerSincronizarVentas")
-    .timeBased().everyHours(1).create();
-
-  // Sync SKU → Odoo cada 15 min — detecta cambios en precio/stock
-  // y los aplica en Odoo via cola persistente
-  ScriptApp.newTrigger("triggerOdooSync")
-    .timeBased().everyMinutes(15).create();
-
-  Logger.log("✅ Triggers instalados: sync horario + polling pedidos + ventas CVA + Odoo sync 15min");
+  logSheet_("SYNC_LOG", ["INSTALAR_TRIGGERS", TRIGGERS_CVA.length,
+                          TRIGGERS_CVA.map(t => t.fn + " " + _textoFrecuencia_(t)).join(" | ")]);
+  Logger.log("✅ Triggers instalados:\n" + resumenTriggers_());
+  return { ok: true, triggers: TRIGGERS_CVA.length, resumen: resumenTriggers_() };
 }
 
 // Sync diario completo — descarga TODO el catálogo CVA con stock y guarda historial
@@ -872,163 +901,176 @@ function enviarConfirmacionPedido(body) {
 // - Sin sucursales/dimen/dt/dc/upc — esos triplican el tiempo por producto
 // - Guarda snapshot con fecha del día: si ya existe el de hoy, no repite
 function syncHistorialCVA() {
-  const START_MS   = Date.now();
-  const MAX_MS     = 5.5 * 60 * 1000; // 5.5 min (GAS permite 6)
-  const props      = PropertiesService.getScriptProperties();
-  const hoy        = Utilities.formatDate(new Date(), "America/Mexico_City", "yyyy-MM-dd");
+  // Baja el catalogo CVA con stock, actualiza SYNC_CVA y agrega el snapshot
+  // del dia a HISTORIAL_STOCK.
+  //
+  // Corrige lo que dejaba los snapshots al ~55%:
+  //   1. Antes escribia SYNC_CVA renglon por renglon (miles de escrituras),
+  //      se acababa el tiempo y AUN ASI marcaba el dia como hecho. Ahora
+  //      escribe en bloque y solo marca el dia cuando llego a la ultima pagina.
+  //   2. Si se acaba el tiempo, guarda en que pagina iba y la siguiente
+  //      corrida (cada hora) sigue desde ahi.
+  //   3. Al cerrar el dia, lo que CVA ya no mando (se agoto) queda con stock
+  //      0 en SYNC_CVA. Antes se quedaba con el stock viejo para siempre y el
+  //      analisis nunca veia que se habia vendido.
+  //   4. En HISTORIAL_STOCK ya no se repiten descripcion ni marca (viven en
+  //      SYNC_CVA): era el 60% del peso del archivo y el analisis no las usa.
+  const START_MS = Date.now();
+  const MAX_MS   = 4.5 * 60 * 1000;
+  const props    = PropertiesService.getScriptProperties();
+  const hoy      = Utilities.formatDate(new Date(), "America/Mexico_City", "yyyy-MM-dd");
   const existFilter = "3"; // solo con stock (suc o cedis)
 
-  // Verificar si ya corrió hoy
-  const ultimoSync = props.getProperty("HISTORIAL_ULTIMO_DIA");
-  if (ultimoSync === hoy) {
-    Logger.log("⏭ Sync de hoy ya existe (" + hoy + "), omitiendo");
-    return { ok: true, articulos: 0, paginas: 0, mensaje: "Ya sincronizado hoy" };
+  if (props.getProperty("HISTORIAL_ULTIMO_DIA") === hoy) {
+    return { ok: true, articulos: 0, paginas: 0, fecha: hoy, mensaje: "Ya sincronizado hoy" };
   }
 
-  const ss = SpreadsheetApp.openById(CFG.SHEET_ID);
-
-  // Hoja HISTORIAL_STOCK
-  let shH = ss.getSheetByName("HISTORIAL_STOCK");
-  if (!shH) {
-    shH = ss.insertSheet("HISTORIAL_STOCK");
-    shH.appendRow(["fecha","clave","descripcion","marca","grupo",
-                   "precio","moneda","stock_suc","stock_cedis","en_transito"]);
-    shH.setFrozenRows(1);
+  const lock = LockService.getScriptLock();
+  if (!lock.tryLock(5000)) {
+    return { ok: true, articulos: 0, paginas: 0, fecha: hoy, mensaje: "Otro sync en curso" };
   }
 
-  // Hoja SYNC_CVA (catálogo actual — se actualiza también)
-  let shS = ss.getSheetByName("SYNC_CVA");
-  if (!shS) {
-    shS = ss.insertSheet("SYNC_CVA");
-    shS.appendRow(["clave","descripcion","marca","grupo","precio","moneda",
-                   "stock_suc","stock_cedis","en_transito","garantia",
-                   "promo_precio","promo_vence","tipo_cambio","ts"]);
-    shS.setFrozenRows(1);
-  }
-
-  // Obtener total de páginas primero (probe ligera)
-  let totalPaginas = 999;
   try {
-    const probe = cvaFetch_("/catalogo_clientes/lista_precios", {
-      batch: "SM", page: 1,
-      MonedaPesos: "true",
-      exist: existFilter,
-    });
-    if (probe.paginacion) totalPaginas = probe.paginacion.total_paginas;
-    Logger.log("📊 Total páginas: " + totalPaginas);
-  } catch(e) {
-    Logger.log("⚠️ Probe falló, usando 999: " + e.message);
-  }
-
-  // Leer índice actual de SYNC_CVA para upsert eficiente
-  const lastRowS = shS.getLastRow();
-  let claveIndex = {};
-  if (lastRowS > 1) {
-    const claves = shS.getRange(2, 1, lastRowS - 1, 1).getValues();
-    claves.forEach((r, i) => { if (r[0]) claveIndex[r[0]] = i + 2; });
-  }
-
-  let totalArticulos = 0;
-  let totalPaginas_  = totalPaginas;
-  const historialRows = []; // acumular todas las filas del día para un solo append
-
-  for (let pagina = 1; pagina <= totalPaginas_; pagina++) {
-
-    // Guard de tiempo
-    if (Date.now() - START_MS > MAX_MS) {
-      Logger.log("⏱ Tiempo agotado en pág " + pagina + " — continuará mañana");
-      break;
+    let estado = {};
+    try { estado = JSON.parse(props.getProperty("HIST_SYNC_ESTADO") || "{}"); } catch (e) { estado = {}; }
+    if (estado.fecha !== hoy) {
+      estado = { fecha: hoy, pagina: 1, totalPaginas: 0, articulos: 0, inicio: new Date().toISOString() };
     }
 
-    // Fetch con solo parámetros esenciales — rápido
-    let data;
-    try {
-      data = cvaFetch_("/catalogo_clientes/lista_precios", {
-        batch      : "LG",       // 500 por página
-        page       : pagina,
-        MonedaPesos: "true",
-        porcentaje : CFG.MARGEN_DEFAULT,
-        tc         : "true",
-        exist      : existFilter, // solo con stock
-      });
-    } catch(e) {
-      const msg = e.message || "";
-      if (msg.includes("404") || msg.includes("No se encontraron")) {
-        Logger.log("✅ Fin del catálogo en pág " + pagina);
+    const ss = SpreadsheetApp.openById(CFG.SHEET_ID);
+
+    let shH = ss.getSheetByName("HISTORIAL_STOCK");
+    if (!shH) {
+      shH = ss.insertSheet("HISTORIAL_STOCK");
+      shH.appendRow(["fecha","clave","descripcion","marca","grupo",
+                     "precio","moneda","stock_suc","stock_cedis","en_transito"]);
+      shH.setFrozenRows(1);
+    }
+
+    let shS = ss.getSheetByName("SYNC_CVA");
+    if (!shS) {
+      shS = ss.insertSheet("SYNC_CVA");
+      shS.appendRow(["clave","descripcion","marca","grupo","precio","moneda",
+                     "stock_suc","stock_cedis","en_transito","garantia",
+                     "promo_precio","promo_vence","tipo_cambio","ts"]);
+      shS.setFrozenRows(1);
+    }
+
+    // SYNC_CVA completo en memoria
+    const lastRowS = shS.getLastRow();
+    const filasOrig = lastRowS > 1 ? lastRowS - 1 : 0;
+    const datos = filasOrig ? shS.getRange(2, 1, filasOrig, 14).getValues() : [];
+    const indice = {};
+    datos.forEach((r, i) => { if (r[0]) indice[String(r[0])] = i; });
+
+    const historialRows = [];
+    let fin = false;
+    let paginasCorrida = 0;
+
+    while (!fin) {
+      if (Date.now() - START_MS > MAX_MS) break;
+      if (estado.totalPaginas && estado.pagina > estado.totalPaginas) { fin = true; break; }
+
+      let data;
+      try {
+        data = cvaFetch_("/catalogo_clientes/lista_precios", {
+          batch      : "LG",          // 500 por pagina
+          page       : estado.pagina,
+          MonedaPesos: "true",
+          porcentaje : CFG.MARGEN_DEFAULT, // 16 = IVA
+          tc         : "true",
+          exist      : existFilter,
+        });
+      } catch (e) {
+        const msg = e.message || "";
+        if (msg.indexOf("404") >= 0 || msg.indexOf("No se encontraron") >= 0) { fin = true; break; }
+        // Error real: NO se salta la pagina. La siguiente corrida la reintenta.
+        logSheet_("SYNC_LOG", ["SYNC_ERROR", estado.articulos, "pag " + estado.pagina + ": " + msg.substring(0, 150)]);
         break;
       }
-      Logger.log("⚠️ Error pág " + pagina + ": " + msg);
-      continue; // intentar siguiente página
+
+      if (!data || data.message === "No se encontraron productos.") { fin = true; break; }
+      if (data.paginacion && data.paginacion.total_paginas) estado.totalPaginas = data.paginacion.total_paginas;
+
+      const ts = new Date().toISOString();
+      (data.articulos || []).forEach(a => {
+        const suc = parseFloat(a.disponible) || 0;
+        const ced = parseFloat(a.disponibleCD) || 0;
+        if (suc <= 0 && ced <= 0) return;
+        const clave = String(a.clave || "");
+        if (!clave) return;
+
+        const idx = indice[clave];
+        // Ya visto en este ciclo (la paginacion de CVA se recorre entre corridas)
+        if (idx !== undefined && String(datos[idx][13] || "") >= estado.inicio) return;
+
+        const promo = a.promociones || null;
+        const fila = [
+          clave, a.descripcion || "", a.marca || "", a.grupo || "",
+          a.precio || 0, a.moneda || "Pesos",
+          suc, ced, a.en_transito || 0,
+          a.garantia || "",
+          promo ? (promo.precio_descuento || "") : "",
+          promo ? (promo.promocion_vencimiento || "") : "",
+          a.tipo_cambio || "", ts,
+        ];
+        if (idx !== undefined) datos[idx] = fila;
+        else { indice[clave] = datos.length; datos.push(fila); }
+
+        historialRows.push([hoy, clave, "", "", a.grupo || "",
+                            a.precio || 0, a.moneda || "Pesos",
+                            suc, ced, a.en_transito || 0]);
+        estado.articulos++;
+      });
+
+      estado.pagina++;
+      paginasCorrida++;
+      if (estado.totalPaginas && estado.pagina > estado.totalPaginas) fin = true;
     }
 
-    if (!data || data.message === "No se encontraron productos.") break;
-    if (data.paginacion) totalPaginas_ = data.paginacion.total_paginas;
-
-    const articulos = data.articulos || [];
-    const ts = new Date().toISOString();
-
-    // Filtrar: solo con stock
-    const conStock = articulos.filter(a =>
-      (parseFloat(a.disponible) || 0) > 0 || (parseFloat(a.disponibleCD) || 0) > 0
-    );
-
-    // Acumular para HISTORIAL_STOCK (snapshot del día)
-    conStock.forEach(a => {
-      historialRows.push([
-        hoy,
-        a.clave        || "",
-        a.descripcion  || "",
-        a.marca        || "",
-        a.grupo        || "",
-        a.precio       || 0,
-        a.moneda       || "Pesos",
-        a.disponible   || 0,
-        a.disponibleCD || 0,
-        a.en_transito  || 0,
-      ]);
-    });
-
-    // Upsert en SYNC_CVA (catálogo actual)
-    const rowsToAppend = [];
-    conStock.forEach(a => {
-      const promo = a.promociones || null;
-      const row = [
-        a.clave || "", a.descripcion || "", a.marca || "", a.grupo || "",
-        a.precio || 0, a.moneda || "Pesos",
-        a.disponible || 0, a.disponibleCD || 0, a.en_transito || 0,
-        a.garantia || "",
-        promo ? (promo.precio_descuento || "") : "",
-        promo ? (promo.promocion_vencimiento || "") : "",
-        a.tipo_cambio || "", ts,
-      ];
-      const existingRow = claveIndex[a.clave];
-      if (existingRow) {
-        shS.getRange(existingRow, 1, 1, 14).setValues([row]);
-      } else {
-        rowsToAppend.push(row);
-        claveIndex[a.clave] = shS.getLastRow() + rowsToAppend.length + 1;
-      }
-    });
-    if (rowsToAppend.length > 0) {
-      shS.getRange(shS.getLastRow() + 1, 1, rowsToAppend.length, 14).setValues(rowsToAppend);
+    // Cierre del dia: lo que CVA no mando en todo el ciclo se agoto
+    let agotados = 0;
+    if (fin) {
+      datos.forEach(r => {
+        if (!r[0]) return;
+        const visto = String(r[13] || "") >= estado.inicio;
+        if (!visto && ((parseFloat(r[6]) || 0) > 0 || (parseFloat(r[7]) || 0) > 0)) {
+          r[6] = 0; r[7] = 0; r[8] = 0;
+          agotados++;
+        }
+      });
     }
 
-    totalArticulos += conStock.length;
-    Logger.log("  Pág " + pagina + "/" + totalPaginas_ + " — " + conStock.length + " artículos con stock");
+    // Escrituras en bloque: primero los datos, al final el estado
+    if (datos.length) shS.getRange(2, 1, datos.length, 14).setValues(datos);
+    if (historialRows.length) {
+      shH.getRange(shH.getLastRow() + 1, 1, historialRows.length, 10).setValues(historialRows);
+    }
+    SpreadsheetApp.flush();
+
+    if (fin) {
+      props.setProperty("HISTORIAL_ULTIMO_DIA", hoy);
+      props.deleteProperty("HIST_SYNC_ESTADO");
+      logSheet_("SYNC_LOG", ["SYNC_DIARIO_COMPLETO", estado.articulos,
+                              "paginas:" + (estado.totalPaginas || estado.pagina - 1),
+                              "fecha:" + hoy + " agotados:" + agotados]);
+      try { _actualizarControlSync_(props, 1, estado.articulos, "DIARIO_OK"); } catch (e) {}
+    } else {
+      props.setProperty("HIST_SYNC_ESTADO", JSON.stringify(estado));
+      logSheet_("SYNC_LOG", ["SYNC_DIARIO_PARCIAL", estado.articulos,
+                              "sigue en pag " + estado.pagina + " de " + (estado.totalPaginas || "?"),
+                              "fecha:" + hoy]);
+    }
+
+    return {
+      ok: true, completo: fin, articulos: estado.articulos,
+      paginas: estado.totalPaginas || 0, paginas_corrida: paginasCorrida,
+      agotados: agotados, fecha: hoy,
+      mensaje: fin ? "Snapshot del dia completo" : "Parcial: continua en la siguiente corrida (pag " + estado.pagina + ")",
+    };
+  } finally {
+    lock.releaseLock();
   }
-
-  // Escribir historial del día de una sola vez (más eficiente que row a row)
-  if (historialRows.length > 0) {
-    shH.getRange(shH.getLastRow() + 1, 1, historialRows.length, 10).setValues(historialRows);
-  }
-
-  // Marcar que ya corrió hoy
-  props.setProperty("HISTORIAL_ULTIMO_DIA", hoy);
-
-  logSheet_("SYNC_LOG", ["SYNC_DIARIO_COMPLETO", totalArticulos, "páginas:" + totalPaginas_, "fecha:" + hoy]);
-  _actualizarControlSync_(props, 1, totalArticulos, "DIARIO_OK");
-
-  return { ok: true, articulos: totalArticulos, paginas: totalPaginas_, fecha: hoy };
 }
 
 // ── ANÁLISIS DE MOVIMIENTO DE STOCK ──────────────────────────
@@ -1062,6 +1104,31 @@ function _encontrarSnapshotCercano(fechasOrdenadas, target) {
   return mejor;
 }
 
+function _fechaTxt_(v) {
+  if (!v) return "";
+  if (v instanceof Date) return Utilities.formatDate(v, "America/Mexico_City", "yyyy-MM-dd");
+  const t = String(v).substring(0, 10);
+  if (/^\d{4}-\d{2}-\d{2}$/.test(t)) return t;
+  const d = new Date(v);
+  return isNaN(d) ? "" : Utilities.formatDate(d, "America/Mexico_City", "yyyy-MM-dd");
+}
+
+// Primera fila (numero de fila de la hoja) del historial que hay que leer
+function _filaInicioHistorial_(shH, nFil, opts) {
+  const o = opts || {};
+  let base;
+  if (o.fecha_desde) base = new Date(o.fecha_desde);
+  else { base = new Date(); base.setDate(base.getDate() - (parseInt(o.dias_atras) || 30)); }
+  base.setDate(base.getDate() - 10);
+  const corte = Utilities.formatDate(base, "America/Mexico_City", "yyyy-MM-dd");
+  const colA = shH.getRange(2, 1, nFil, 1).getValues();
+  for (let i = 0; i < colA.length; i++) {
+    const f = _fechaTxt_(colA[i][0]);
+    if (f && f >= corte) return i + 2;
+  }
+  return 2;
+}
+
 function getAnalisisMovimiento(opts) {
   try {
     const ss   = SpreadsheetApp.openById(CFG.SHEET_ID);
@@ -1092,7 +1159,12 @@ function getAnalisisMovimiento(opts) {
 
     if (shH && shH.getLastRow() > 1) {
       const numCols = shH.getLastColumn();
-      const histData = shH.getRange(2, 1, shH.getLastRow() - 1, Math.min(numCols, 10)).getValues();
+      // Solo el tramo que sirve: desde ~10 dias antes del inicio del periodo.
+      // El historial se escribe en orden de fecha, asi que se busca la primera
+      // fila con fecha >= corte leyendo solo la columna A.
+      const nFil = shH.getLastRow() - 1;
+      const filaIni = _filaInicioHistorial_(shH, nFil, opts);
+      const histData = shH.getRange(filaIni, 1, nFil - filaIni + 2, Math.min(numCols, 10)).getValues();
       histData.forEach(r => {
         let fecha = null;
         if (r[0]) {
